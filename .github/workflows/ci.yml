@@ -1,4 +1,4 @@
-name: Bridge tests
+name: Little Pet tests
 
 on:
   push:

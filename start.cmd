@@ -18,5 +18,5 @@ if errorlevel 1 (
     exit /b 1
   )
 )
-node bridge.mjs start
+node app.mjs start
 pause

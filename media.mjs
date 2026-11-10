@@ -94,7 +94,7 @@ export function imageType(bytes) {
 
 export async function normalizeImage(bytes) {
   const type = imageType(bytes);
-  // pet v0.4.7 caps the full JSON request at 1 MiB, including base64.
+  // Keep normalized images small for model context and legacy pet compatibility.
   const limit = 700 * 1024;
   if (bytes.length <= limit) return { mediaType: type, data: bytes.toString('base64') };
   if (!['image/png', 'image/jpeg'].includes(type)) throw mediaError('这张 GIF/WebP 超过 700 KiB，请转成普通 JPG 后发送。');
@@ -174,6 +174,11 @@ export async function recognizeVoice(pet, voice, signal, fetcher = fetch) {
   const texts = [];
   // Each 20-second slice is below pet's 768 KiB WAV body limit.
   for (let at = 0; at < pcm.length; at += 20 * 32000) {
+    if (typeof pet.hear === 'function') {
+      const text = await pet.hear(makeWav(pcm.subarray(at, at + 20 * 32000)), signal);
+      if (typeof text === 'string' && text.trim()) texts.push(text.trim());
+      continue;
+    }
     const result = await requestJSON(new URL('voice/hear', pet.base), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ audio: makeWav(pcm.subarray(at, at + 20 * 32000)).toString('base64'), language: 'zh' }),
@@ -198,6 +203,7 @@ export function shortSpeech(text) {
 }
 
 export async function synthesize(pet, text, signal) {
+  if (typeof pet.speak === 'function') return pet.speak(shortSpeech(text), signal);
   const { bytes, headers } = await fetchBytes(new URL('voice/speak', pet.base), {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text: shortSpeech(text) }), timeoutMs: 90000, maxBytes: 8 * 1024 * 1024, signal,
@@ -253,7 +259,7 @@ export class MediaFlow {
     const text = parts.filter(Boolean).join('\n').trim() || (attachment ? '请看看这张图片，告诉我你看到了什么。' : '');
     if (!text || text.length > 2000) throw mediaError('识别后的消息为空或超过 2000 字符，请缩短后重新发送。');
     let reply;
-    try { reply = await this.pet.chat(text, signal, attachment); }
+    try { reply = await this.pet.chat(text, signal, attachment, job.id); }
     catch (e) {
       if (attachment && e.code?.startsWith('pet-')) {
         throw mediaError(`宠物看图失败（${e.code.slice(4)}）。请确认宠物聊天模型支持图片，且 dsh 模型设置已启用 Image；也可先试一张较小的 JPG。`);

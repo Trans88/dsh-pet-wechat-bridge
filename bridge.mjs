@@ -6,6 +6,7 @@ import { createInterface } from 'node:readline/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { MediaFlow } from './media.mjs';
 import { loadConfig } from './config.mjs';
+import { LocalPet, wechatScope } from './pet/http-client.mjs';
 import {
   BridgeError, QR_BASE, Weixin, Pet, weixinOrigin, readJSONFile, saveJSONFile,
   newState, enqueue, recoverUncertain, processQueue,
@@ -124,6 +125,7 @@ function lockInstance() {
 }
 
 async function run(pet, account) {
+  if (pet instanceof LocalPet) pet.scope = wechatScope(account);
   const api = new Weixin(account);
   const media = new MediaFlow(pet, api, config);
   const state = readJSONFile(statePath, newState(account));
@@ -173,10 +175,12 @@ try {
   if (major < 22 || (major === 22 && minor < 13)) throw new BridgeError('请安装 Node.js 22.13 或更新版本（推荐 24 LTS）。');
   const command = process.argv[2] || 'start';
   if (!['start', 'check', 'login'].includes(command)) throw new BridgeError('用法：node bridge.mjs start | check | login');
-  config = loadConfig(root);
-  const pet = new Pet(config);
+  const legacy = process.argv.includes('--legacy');
+  config = legacy ? loadConfig(root) : {};
+  const pet = legacy ? new Pet(config) : new LocalPet(root);
   const info = await pet.check();
-  console.log(`本地宠物接口正常，选中 petId=${info.id}。`);
+  if (!legacy) config.replyAudio = info.replyAudio;
+  console.log(legacy ? `本地宠物接口正常，选中 petId=${info.id}。` : `独立宠物已连接：${info.name}。`);
   if (command !== 'check') {
     unlock = lockInstance();
     const existing = readJSONFile(accountPath, null);
