@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { MediaFlow } from './media.mjs';
+import { loadConfig } from './config.mjs';
 import {
   BridgeError, QR_BASE, Weixin, Pet, weixinOrigin, readJSONFile, saveJSONFile,
   newState, enqueue, recoverUncertain, processQueue,
@@ -14,7 +15,7 @@ const root = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(root, 'data');
 const accountPath = join(dataDir, 'account.json');
 const statePath = join(dataDir, 'state.json');
-const config = readJSONFile(join(root, 'config.json'));
+let config;
 const stop = new AbortController();
 process.on('SIGINT', () => { console.log('\n正在停止……'); stop.abort(); });
 process.on('SIGTERM', () => stop.abort());
@@ -172,6 +173,7 @@ try {
   if (major < 22 || (major === 22 && minor < 13)) throw new BridgeError('请安装 Node.js 22.13 或更新版本（推荐 24 LTS）。');
   const command = process.argv[2] || 'start';
   if (!['start', 'check', 'login'].includes(command)) throw new BridgeError('用法：node bridge.mjs start | check | login');
+  config = loadConfig(root);
   const pet = new Pet(config);
   const info = await pet.check();
   console.log(`本地宠物接口正常，选中 petId=${info.id}。`);

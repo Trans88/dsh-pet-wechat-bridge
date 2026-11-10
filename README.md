@@ -1,8 +1,23 @@
-# dsh-pet 微信图片与语音桥接包 v0.2.0
+# dsh-pet 微信桥接工程
 
 保留你已经安装的 **PC2005-cloud/dsh-pet**，把微信 Bot 会话中的文字、图片和微信语音交给这只宠物回复。
 
-**2026-11-10 图片语音版：** 随包附带二维码、图片压缩和 SILK 音频编解码依赖 `node_modules`，完整解压后无须从 npm 下载这些依赖，也不需要安装 FFmpeg。微信收发、模型调用和 pet 的在线语音合成仍需联网。dsh 的语音识别运行环境/模型需在 dsh 内另行准备。
+版本基线：v0.2.0；Node.js ≥ 22.13.0；对接原版 pet v0.4.7。开发与架构说明见 [CONTRIBUTING.md](CONTRIBUTING.md)、[docs/architecture.md](docs/architecture.md)，变更见 [CHANGELOG.md](CHANGELOG.md)。
+
+## 从 Git 源码开始
+
+克隆仓库或解压源码后，在项目目录运行：
+
+```powershell
+npm ci --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
+npm test
+npm run check
+npm start
+```
+
+先启动原有的 `dsh web`，再执行 `check` / `start`。首次运行自动从 `config.example.json` 创建 `config.json`；已有配置不会覆盖。自定义端口或宠物 ID 时修改本机 `config.json`，不要改模板。
+
+Git 源码不含 `node_modules`，第一次需要安装依赖。此前提供的 **2026-11-10 图片语音运行包**则已附带二维码、图片压缩和 SILK 音频编解码依赖，完整解压后无须从 npm 下载，也不需要安装 FFmpeg。微信收发、模型调用和 pet 的在线语音合成仍需联网。dsh 的语音识别运行环境/模型需在 dsh 内另行准备。
 
 这是按公开接口制作的独立实验性桥接程序，不是 dsh-pet 作者或腾讯发布的插件。已有文字版获得用户实机可用反馈；**本次新增的图片、语音功能只进行了本地与模拟接口测试，仍需在你的微信上验证**。遇到不兼容时请保留终端错误提示，不要分享登录凭证。
 
@@ -123,7 +138,7 @@ npm ci --omit=dev --ignore-scripts --no-audit --no-fund --registry=https://regis
 
 ## 验证与源码依据
 
-已通过 30 项本地/模拟测试，运行 `npm test` 可复现。覆盖 HTTP/业务错误、消息 ID 精度、扫码请求头、凭证目的地址、私聊账号过滤、消息去重、游标与收件箱持久化、失败不重复发送、多宠物选择、`surface=any` 和本地 HTTP 模拟整条文字链路。测试不会连接真实微信或发送真实消息。
+已通过 33 项本地/模拟测试，运行 `npm test` 可复现。覆盖 HTTP/业务错误、消息 ID 精度、扫码请求头、凭证目的地址、私聊账号过滤、消息去重、游标与收件箱持久化、失败不重复发送、多宠物选择、`surface=any` 和本地 HTTP 模拟整条文字链路。测试不会连接真实微信或发送真实消息。
 
 媒体测试还覆盖 CDN 地址限制、两种 AES 密钥编码、图片解密/压缩/请求体大小、真实 SILK 编解码、语音分段 WAV 格式、识别服务缺失、MP3 业务错误、媒体加密上传、文字先发送及重启时不重复发送文字。
 
