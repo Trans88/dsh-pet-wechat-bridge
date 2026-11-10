@@ -1,0 +1,22 @@
+{
+  "name": "local-dsh-pet-wechat-bridge",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Local image and voice bridge between Weixin iLink and the existing dsh-pet chat API",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "start": "node bridge.mjs start",
+    "check": "node bridge.mjs check",
+    "login": "node bridge.mjs login",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "jpeg-js": "0.4.4",
+    "pngjs": "5.0.0",
+    "qrcode": "1.5.4",
+    "silk-wasm": "3.7.1"
+  }
+}

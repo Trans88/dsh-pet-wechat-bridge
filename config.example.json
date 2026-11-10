@@ -1,0 +1,6 @@
+{
+  "dshUrl": "http://127.0.0.1:3080",
+  "petId": "",
+  "petTimeoutMs": 180000,
+  "replyAudio": "voice"
+}
