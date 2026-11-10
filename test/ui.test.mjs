@@ -36,6 +36,8 @@ test('web setup, text/image chat, memory management and error states work agains
   const dom = new JSDOM(html, { url, runScripts: 'outside-only', pretendToBeVisual: true, virtualConsole: console });
   const w = dom.window, $ = selector => w.document.querySelector(selector);
   w.fetch = (path, options) => fetch(new URL(path, url), options);
+  // This test drives refreshes through UI actions; don't leave background polls at teardown.
+  w.setInterval = () => 0;
   w.crypto.randomUUID = randomUUID;
   w.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
   w.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
@@ -87,9 +89,10 @@ test('web setup, text/image chat, memory management and error states work agains
   $('#confirm-clear').click();
   await until(() => !$('#confirm-dialog').hasAttribute('open') && store.history('web:owner').length === 0, 'clear history');
   assert.equal(store.memories('web:owner').length, 1, 'clearing conversation keeps explicitly saved memory');
+  $('#memory-list').replaceChildren();
   $('[data-page="memory"]').click();
   await until(() => Boolean($('#memory-list button')), 'memory delete control');
   $('#memory-list button').click();
-  await until(() => store.memories('web:owner').length === 0, 'forget fact');
+  await until(() => store.memories('web:owner').length === 0 && $('#memory-list').textContent.includes('空的'), 'forget fact rendered');
   assert.deepEqual(errors, []);
 });

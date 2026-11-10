@@ -2,6 +2,7 @@ const $ = selector => document.querySelector(selector);
 const token = $('meta[name="pet-token"]').content;
 const titles = { home: '欢迎回到小窝', memory: '我们的小小记忆', channels: '连接你的日常', settings: '让它更像你的小伙伴' };
 let state, scope = 'web:owner', page = 'home', attachment, pendingRequestId, sending = false, sleeping = false, recorder, recordTimer, toastTimer, lastUpdate = 0;
+let historyRevision = 0, memoryRevision = 0;
 const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
 
 async function api(path, data, binary = false) {
@@ -49,7 +50,9 @@ async function loadState(initial = false) {
 }
 
 async function refreshHistory() {
-  const result = await api(`/api/history?scope=${encodeURIComponent(scope)}`);
+  const revision = ++historyRevision, requestedScope = scope;
+  const result = await api(`/api/history?scope=${encodeURIComponent(requestedScope)}`);
+  if (revision !== historyRevision || requestedScope !== scope) return;
   const box = $('#messages'); const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 100;
   box.replaceChildren();
   if (!result.messages.length) {
@@ -158,7 +161,9 @@ $('#confirm-clear').addEventListener('click', async () => {
 });
 
 async function renderMemories() {
-  const result = await api(`/api/history?scope=${encodeURIComponent($('#memory-scope').value)}`);
+  const revision = ++memoryRevision, requestedScope = $('#memory-scope').value;
+  const result = await api(`/api/history?scope=${encodeURIComponent(requestedScope)}`);
+  if (revision !== memoryRevision || requestedScope !== $('#memory-scope').value) return;
   const list = $('#memory-list'); list.replaceChildren();
   if (!result.memories.length) list.append(el('p', 'muted', '这里还是空的。把重要的小事留下来吧。'));
   for (const memory of result.memories) {
