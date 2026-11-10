@@ -1,36 +1,39 @@
 # 开发说明
 
-本项目作为独立 Node.js 桥接程序维护，不修改已安装的 dsh-pet。Node.js 至少 22.13.0。
-
-## 环境与运行
+Little Pet 是独立 Node.js 应用。默认运行与测试都不需要 dsh；只有显式 legacy 模式调用旧 pet。Node.js ≥ 22.13.0，使用内置 SQLite，不需要编译数据库原生扩展。
 
 ```powershell
-npm ci --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
+npm ci --ignore-scripts --no-audit --no-fund
 node dependency-check.mjs
 npm test
 npm run check
 npm start
 ```
 
-`npm run check` 和 `npm start` 首次运行会从 `config.example.json` 创建本机 `config.json`。检查和实际运行要求 dsh/pet 正在本机运行；单元测试和依赖检查不需要 dsh、模型密钥或微信账号。
+## 开发流程
 
-仓库只提交配置模板。`config.json`、`data/`、`.env*`、`node_modules/` 不进入版本控制。测试中的 `TEST-TOKEN` 和 `TEST-CONTEXT` 是固定假数据。提交问题时提供脱敏错误提示、Node/dsh/pet 版本及复现步骤，不附登录数据目录。
+1. 从 `main` 创建功能分支。
+2. 保持通道适配与宠物核心分离。聊天、图片、语音都不得要求默认运行的用户安装 dsh。
+3. 覆盖会话隔离、失败恢复、敏感配置和消息协议等实质行为；测试仅使用假数据和本机模拟接口。
+4. 修改后运行 `npm test`。UI 修改还需检查浏览器操作与窄屏布局；若环境无法访问测试服务，应明确记录未验证部分。
+5. 更新 CHANGELOG、使用说明和架构，提交 PR。
 
-## 日常修改
+CI 在 Windows/Linux 的 Node 22.13.0、24 上安装锁定依赖并运行检查。远端状态以 GitHub Actions 为准。
 
-1. 从 `main` 创建功能分支，例如 `git switch -c feat/image-replies`。
-2. 将实现、对应回归测试和文档作为一个可评审的变更。
-3. 运行 `npm test`；涉及媒体依赖时也运行 `node dependency-check.mjs`。
-4. 在 `CHANGELOG.md` 的 Unreleased 部分记录用户可见变化，再提交 PR。
+## 数据
 
-CI 在 Windows/Linux 的 Node 22.13.0 和 24 上安装锁文件依赖并运行测试。只有推送至 GitHub 后才能确认远端 CI 结果；本地通过不等于四组 CI 都已通过。
+禁止提交 `pet.config.json`、旧 `config.json`、`data/`、`.env*`、`node_modules/`、包含凭证的日志。`pet.config.example.json` 是无密钥模板，实际默认值在 `pet/config.mjs`。变更默认配置时同步模板。
 
-## 验证真实链路
+SQLite 使用 WAL，备份前停止程序。数据库操作使用参数绑定。群聊或新渠道不能共享现有私聊的 scope；跨渠道身份绑定必须由主人明确建立。
 
-自动测试使用模拟接口和本地 HTTP 服务，不能验证微信账号资格、实时协议变化或外部模型质量。修改涉及协议或媒体时，依次验证：文字 → 小 JPG → 短微信语音 → MP3 文件播放。记录使用的 dsh/pet 版本和结果，不将私聊正文写入提交记录。
+## 本地网页
 
-## 发布与依赖
+前端为 `web/index.html`、`web/style.css`、`web/app.js`，没有打包流程。服务默认地址为 http://127.0.0.1:3210。不要把 Node 进程代理到公网来演示带有真实配置的实例。
 
-发布前同步 `package.json`、`package-lock.json` 的版本与更新记录。源码 ZIP 不包含运行依赖；如制作免安装依赖包，只从干净源码安装锁定依赖，再打包，保留依赖许可证，禁止打包本机 `data/` 和 `config.json`。`private: true` 阻止误发布到 npm。
+聊天和媒体接口可注入 fetcher，方便模拟模型、STT、TTS。演示或测试生成的回复不能被描述为实际模型或微信已经验证成功。
 
-本项目尚未指定对外开源许可证；将仓库改为公开前由维护者选择许可证。公开接口和第三方依赖来源见 README。
+## 兼容性与发布
+
+旧微信账号、状态文件继续使用。新增独立配置，不能覆盖旧配置或静默迁移密钥。`npm run legacy:wechat` 仅保留回退途径；两种微信通道不能同时运行。
+
+发布时同步 package 与锁文件版本。源码包只包含 Git 跟踪文件；运行依赖包需从干净源码安装，并保留许可证，不能夹带本机配置和数据。本项目尚未指定开源许可证。

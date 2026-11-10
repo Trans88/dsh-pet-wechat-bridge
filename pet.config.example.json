@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "port": 3210,
+  "pet": {
+    "name": "小蓝",
+    "persona": "你是一只名叫小蓝的 AI 宠物，温柔、有好奇心，偶尔俏皮。用自然简洁的中文陪伴主人。保持自己的判断，不编造经历或能力。",
+    "greeting": "我在这里。今天想和我聊点什么？"
+  },
+  "model": {
+    "baseUrl": "https://api.deepseek.com",
+    "model": "deepseek-flash",
+    "apiKey": "",
+    "supportsImages": true
+  },
+  "vision": {
+    "enabled": false,
+    "baseUrl": "",
+    "model": "",
+    "apiKey": ""
+  },
+  "stt": {
+    "enabled": false,
+    "baseUrl": "",
+    "model": "",
+    "apiKey": ""
+  },
+  "tts": {
+    "enabled": false,
+    "baseUrl": "",
+    "model": "",
+    "apiKey": "",
+    "voice": "alloy"
+  },
+  "replyAudio": "voice"
+}
