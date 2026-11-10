@@ -1,0 +1,16 @@
+node_modules/
+data/
+config.json
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+*.zip
+*.bundle
+dist/
+coverage/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
