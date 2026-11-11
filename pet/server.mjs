@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { timingSafeEqual, randomBytes } from 'node:crypto';
 import { BridgeError } from '../lib.mjs';
 
-const types = { '/': 'text/html; charset=utf-8', '/app.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8' };
+// These two public files contain no configuration, credentials or per-user data.
+const assets = { '/app.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8' };
 function equal(a, b) { const x = Buffer.from(a || ''), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); }
 async function body(req) {
   if (!(req.headers['content-type'] || '').startsWith('application/json')) throw new BridgeError('请求需要 JSON 格式。');
@@ -33,18 +34,27 @@ export function createPetServer({ root, config, store, core, models, wechat, tok
     };
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Referrer-Policy', 'same-origin');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
-    if (!allowedHosts.includes(req.headers.host) || (req.headers.origin && req.headers.origin !== origin) || req.headers['sec-fetch-site'] === 'cross-site') return send(403, { error: '请从本机地址打开宠物页面。' });
+    if (!allowedHosts.includes(req.headers.host)) return send(403, { error: '请从本机地址打开宠物页面。' });
     try {
       const url = new URL(req.url, origin);
-      if (req.method === 'GET' && Object.hasOwn(types, url.pathname)) {
-        const name = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
-        let file = readFileSync(join(root, 'web', name), 'utf8');
-        if (name === 'index.html') file = file.replace('__PET_TOKEN__', token);
-        return send(200, file, types[url.pathname]);
+      // Loading the public UI must not depend on browser Origin/Fetch-Metadata
+      // quirks. Keep the host restriction and the exact file allowlist, and apply
+      // the stricter origin checks below to the token-bearing page and all APIs.
+      if (req.method === 'GET' && Object.hasOwn(assets, url.pathname)) {
+        return send(200, readFileSync(join(root, 'web', url.pathname.slice(1)), 'utf8'), assets[url.pathname]);
       }
-      if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.3.0' });
+      if (req.method === 'GET' && url.pathname === '/favicon.ico') return send(204, '', 'image/x-icon');
+      const site = req.headers['sec-fetch-site'];
+      const sameOriginNull = req.headers.origin === 'null' && site === 'same-origin';
+      if ((req.headers.origin && req.headers.origin !== origin && !sameOriginNull) ||
+          (site && !['same-origin', 'none'].includes(site))) return send(403, { error: '请从本机地址打开宠物页面。' });
+      if (req.method === 'GET' && url.pathname === '/') {
+        const html = readFileSync(join(root, 'web', 'index.html'), 'utf8').replace('__PET_TOKEN__', token);
+        return send(200, html, 'text/html; charset=utf-8');
+      }
+      if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.3.1' });
       if (!equal(req.headers.authorization, `Bearer ${token}`)) return send(401, { error: '页面授权已过期，请刷新页面。' });
       const scope = url.searchParams.get('scope') || 'web:owner';
       if (req.method === 'GET') {

@@ -1,6 +1,6 @@
 # 独立宠物架构
 
-v0.3.0 的默认运行路径没有 dsh 依赖。
+v0.3.1 的默认运行路径没有 dsh 依赖。
 
 ## 模块
 
@@ -42,9 +42,9 @@ v0.3.0 的默认运行路径没有 dsh 依赖。
 
 ## HTTP 边界
 
-服务只监听 IPv4 loopback。Host 必须匹配当前端口的 `localhost` / `127.0.0.1`，请求 Origin 需同源，跨站 Fetch Metadata 请求被拒绝。网页通过启动时随机令牌调用 API，微信子进程从本机 `data/pet-runtime.json` 读取。重启后令牌失效。
+服务只监听 IPv4 loopback。Host 必须匹配当前端口的 `localhost` / `127.0.0.1`，首页和 API 的 Origin 需同源，跨站/仅同站的 Fetch Metadata 请求被拒绝；Origin 为 null 时须同时明确标记 same-origin。公开 JS、CSS 使用精确静态文件白名单，不套用 API 的来源校验；Host 校验始终生效。网页通过启动时随机令牌调用 API，微信子进程从本机 `data/pet-runtime.json` 读取。重启后令牌失效。
 
-静态路由只有 `/`、`/app.js`、`/style.css`，不能请求任意磁盘文件。响应禁止缓存，CSP 禁止第三方脚本、iframe 和外部连接；用户和模型文字以 textContent 渲染。请求体限制 12 MiB，模型响应、媒体下载均有超时和大小限制。
+静态路由只有 `/`、`/app.js`、`/style.css`，不能请求任意磁盘文件；`/favicon.ico` 返回空的 204。首页内嵌本次启动令牌，仍按私有路由校验来源。响应禁止缓存，CSP 禁止第三方脚本、iframe 和外部连接；用户和模型文字以 textContent 渲染。请求体限制 12 MiB，模型响应、媒体下载均有超时和大小限制。
 
 兼容模型可使用公网 HTTPS 或本机 HTTP；不跟随重定向发送凭证。原微信/CDN 的目的域名校验不变。
 
