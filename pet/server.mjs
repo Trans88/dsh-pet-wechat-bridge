@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { timingSafeEqual, randomBytes } from 'node:crypto';
 import { BridgeError } from '../lib.mjs';
 
-// These two public files contain no configuration, credentials or per-user data.
-const assets = { '/app.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8' };
+// Public code and bundled artwork contain no configuration or credentials.
+const assets = { '/app.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/assets/taolinghu.png': 'image/png' };
 function equal(a, b) { const x = Buffer.from(a || ''), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); }
 async function body(req) {
   if (!(req.headers['content-type'] || '').startsWith('application/json')) throw new BridgeError('请求需要 JSON 格式。');
@@ -43,7 +43,7 @@ export function createPetServer({ root, config, store, core, models, wechat, tok
       // quirks. Keep the host restriction and the exact file allowlist, and apply
       // the stricter source checks below to the token-bearing bootstrap page.
       if (req.method === 'GET' && Object.hasOwn(assets, url.pathname)) {
-        return send(200, readFileSync(join(root, 'web', url.pathname.slice(1)), 'utf8'), assets[url.pathname]);
+        return send(200, readFileSync(join(root, 'web', url.pathname.slice(1))), assets[url.pathname]);
       }
       if (req.method === 'GET' && url.pathname === '/favicon.ico') return send(204, '', 'image/x-icon');
       if (url.pathname === '/' || url.pathname === '/api/health') {
@@ -55,7 +55,7 @@ export function createPetServer({ root, config, store, core, models, wechat, tok
           const html = readFileSync(join(root, 'web', 'index.html'), 'utf8').replace('__PET_TOKEN__', token);
           return send(200, html, 'text/html; charset=utf-8');
         }
-        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.3.2' });
+        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.4.0' });
       }
       // APIs use an explicit, unguessable per-start bearer token, never cookies.
       // A valid token is authoritative even when Origin/Fetch Metadata is absent

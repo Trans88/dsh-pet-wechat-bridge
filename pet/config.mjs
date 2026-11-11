@@ -5,7 +5,7 @@ import { BridgeError, readJSONFile, saveJSONFile } from '../lib.mjs';
 export const defaults = {
   version: 1,
   port: 3210,
-  pet: { name: '小蓝', persona: '你是一只名叫小蓝的 AI 宠物，温柔、有好奇心，偶尔俏皮。用自然简洁的中文陪伴主人。保持自己的判断，不编造经历或能力。', greeting: '我在这里。今天想和我聊点什么？' },
+  pet: { name: '小蓝', appearance: 'taolinghu', persona: '你是一只名叫小蓝的 AI 宠物，温柔、有好奇心，偶尔俏皮。用自然简洁的中文陪伴主人。保持自己的判断，不编造经历或能力。', greeting: '我在这里。今天想和我聊点什么？' },
   model: { baseUrl: 'https://api.deepseek.com', model: 'deepseek-flash', apiKey: '', supportsImages: true },
   vision: { enabled: false, baseUrl: '', model: '', apiKey: '' },
   stt: { enabled: false, baseUrl: '', model: '', apiKey: '' },
@@ -35,6 +35,8 @@ export function validateConfig(value) {
   c.port = value.port ?? defaults.port;
   if (!Number.isInteger(c.port) || c.port < 1024 || c.port > 65535) throw new BridgeError('端口应为 1024–65535 的整数。');
   for (const key of ['name', 'persona', 'greeting']) c.pet[key] = string(value.pet?.[key] ?? c.pet[key], key === 'persona' ? 8000 : 200, `宠物${key}`);
+  c.pet.appearance = value.pet?.appearance ?? c.pet.appearance;
+  if (!['taolinghu', 'blue-cat'].includes(c.pet.appearance)) throw new BridgeError('请选择内置的宠物形象。');
   for (const kind of ['model', 'vision', 'stt', 'tts']) {
     const incoming = value[kind] || {};
     if (typeof incoming !== 'object' || Array.isArray(incoming)) throw new BridgeError(`${kind}配置格式错误。`);

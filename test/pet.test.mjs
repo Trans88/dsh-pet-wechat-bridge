@@ -46,6 +46,23 @@ test('invalid configuration cannot corrupt the existing file', t => {
   assert.throws(() => endpoint('https://service.test/?apiKey=secret', 'chat/completions'));
 });
 
+test('appearance upgrades old configs without changing persona or keys and persists a selection', t => {
+  const { root, config } = fixture(t);
+  const old = structuredClone(config.value); delete old.pet.appearance;
+  writeFileSync(config.path, JSON.stringify(old));
+  const upgraded = new Config(root);
+  assert.equal(upgraded.value.pet.appearance, 'taolinghu');
+  assert.equal(upgraded.value.pet.name, old.pet.name);
+  assert.equal(upgraded.value.pet.persona, old.pet.persona);
+  assert.equal(upgraded.provider('model').apiKey, old.model.apiKey);
+  assert.equal(readFileSync(config.path, 'utf8'), JSON.stringify(old), 'loading must not rewrite an existing file');
+  upgraded.update({ pet: { appearance: 'blue-cat' } });
+  assert.equal(new Config(root).value.pet.appearance, 'blue-cat');
+  const before = readFileSync(config.path, 'utf8');
+  assert.throws(() => upgraded.update({ pet: { appearance: 'https://foreign.test/image.png' } }), /形象/);
+  assert.equal(readFileSync(config.path, 'utf8'), before);
+});
+
 test('model receives persona and only the current conversation memory', async t => {
   let body;
   const f = fixture(t, async (_url, options) => { body = JSON.parse(options.body); return json({ choices: [{ message: { content: '收到' } }] }); });
@@ -217,6 +234,19 @@ test('public UI assets load without credentials while bootstrap routes retain so
     req.on('error', reject); req.end();
   });
   assert.equal(spoofedHostStatus, 403);
+});
+
+test('bundled pet artwork is served as an intact local PNG without API source checks', async t => {
+  const f = await httpFixture(t);
+  const response = await fetch(f.url + '/assets/taolinghu.png', { headers: { Origin: 'null', 'Sec-Fetch-Site': 'cross-site' } });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'image/png');
+  const bytes = Buffer.from(await response.arrayBuffer());
+  assert.deepEqual(bytes, readFileSync(join(f.root, 'web', 'assets', 'taolinghu.png')));
+  const sheet = PNG.sync.read(bytes);
+  assert.equal(sheet.width, 1536); assert.equal(sheet.height, 2288);
+  assert.equal(response.headers.get('access-control-allow-origin'), null);
+  assert.equal((await fetch(f.url + '/assets/account.json', { headers: f.headers })).status, 404);
 });
 
 test('authenticated APIs tolerate missing, opaque and inconsistent browser source headers', async t => {
