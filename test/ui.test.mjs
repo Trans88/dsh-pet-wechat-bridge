@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { JSDOM, VirtualConsole } from 'jsdom';
+import { JSDOM, VirtualConsole, ResourceLoader } from 'jsdom';
 import { PNG } from 'pngjs';
 import { Config } from '../pet/config.mjs';
 import { Store } from '../pet/store.mjs';
@@ -94,5 +94,53 @@ test('web setup, text/image chat, memory management and error states work agains
   await until(() => Boolean($('#memory-list button')), 'memory delete control');
   $('#memory-list button').click();
   await until(() => store.memories('web:owner').length === 0 && $('#memory-list').textContent.includes('空的'), 'forget fact rendered');
+  assert.deepEqual(errors, []);
+});
+
+test('homepage loads its own HTTP scripts and styles before settings can be opened and saved', async t => {
+  const root = mkdtempSync(join(tmpdir(), 'pet-ui-load-'));
+  cpSync(new URL('../web', import.meta.url), join(root, 'web'), { recursive: true });
+  const config = new Config(root), store = new Store(root), models = new Models(config), core = new PetCore(config, store, models);
+  const app = createPetServer({ root, config, store, models, core });
+  await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
+  const url = `http://127.0.0.1:${app.server.address().port}`;
+  const loaded = [], errors = [], console = new VirtualConsole();
+  console.on('jsdomError', error => errors.push(error.message));
+  class Assets extends ResourceLoader {
+    fetch(resource, options) {
+      const path = new URL(resource).pathname;
+      if (!['/app.js', '/style.css'].includes(path)) return super.fetch(resource, options);
+      const controller = new AbortController();
+      const result = (async () => {
+        // Exercise headers that previously made a public asset return 403 JSON.
+        const response = await fetch(resource, { headers: { Origin: 'null', 'Sec-Fetch-Site': 'cross-site' }, signal: controller.signal });
+        assert.equal(response.status, 200);
+        assert.ok(response.headers.get('content-type').startsWith(path.endsWith('.js') ? 'text/javascript' : 'text/css'));
+        loaded.push(path);
+        return Buffer.from(await response.arrayBuffer());
+      })();
+      result.abort = () => controller.abort();
+      return result;
+    }
+  }
+  let dom;
+  t.after(async () => { dom?.window.close(); app.abort(); await new Promise(resolve => app.server.close(resolve)); store.close(); rmSync(root, { recursive: true, force: true }); });
+  dom = await JSDOM.fromURL(url, {
+    runScripts: 'dangerously', resources: new Assets(), pretendToBeVisual: true, virtualConsole: console,
+    beforeParse(w) {
+      w.fetch = (path, options = {}) => fetch(new URL(path, url), { ...options, headers: { ...options.headers, Origin: 'null', 'Sec-Fetch-Site': 'same-origin' } });
+      w.setInterval = () => 0;
+    },
+  });
+  const $ = selector => dom.window.document.querySelector(selector);
+  await until(() => $('[name="pet.name"]').value === '小蓝', 'HTTP-loaded application initialized');
+  assert.deepEqual(loaded.sort(), ['/app.js', '/style.css']);
+  assert.ok(dom.window.document.styleSheets.length > 0);
+  $('[data-page="settings"]').click();
+  assert.equal($('#page-settings').hidden, false); assert.equal($('#page-home').hidden, true);
+  $('[name="pet.name"]').value = '正常加载的小蓝';
+  $('#settings-form button[type="submit"]').click();
+  await until(() => $('#settings-result').textContent.includes('已保存'), 'settings saved after resource load');
+  assert.equal(config.value.pet.name, '正常加载的小蓝');
   assert.deepEqual(errors, []);
 });

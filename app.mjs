@@ -59,7 +59,7 @@ if (command === 'check') {
     await new Promise((resolve, reject) => { app.server.once('error', reject); app.server.listen(config.value.port, '127.0.0.1', resolve); });
     const url = `http://127.0.0.1:${config.value.port}`;
     saveJSONFile(runtimePath, { url, token: app.token, pid: process.pid });
-    console.log(`\n小蓝 · 独立 AI 宠物 v0.3.0\n打开 ${url}\n首次使用：进入设置，填写模型 API Key。微信通道可在网页中连接。\n按 Ctrl+C 停止。`);
+    console.log(`\n小蓝 · 独立 AI 宠物 v0.3.1\n打开 ${url}\n首次使用：进入设置，填写模型 API Key。微信通道可在网页中连接。\n按 Ctrl+C 停止。`);
     if (!process.argv.includes('--no-open')) openBrowser(url);
     let stopping = false;
     const stop = async () => {

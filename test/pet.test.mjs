@@ -190,3 +190,29 @@ test('real local HTTP Weixin adapter reaches independent core and preserves acti
   f.config.update({ model: { supportsImages: false } });
   await assert.rejects(client.chat('看图', undefined, image), e => e.userMessage?.includes('图片'));
 });
+
+test('public UI assets load without API credentials while private routes retain origin protection', async t => {
+  const f = await httpFixture(t);
+  for (const headers of [{}, { Origin: 'null', 'Sec-Fetch-Site': 'same-origin' }, { Origin: 'null', 'Sec-Fetch-Site': 'cross-site' }, { Origin: 'https://foreign.test', 'Sec-Fetch-Site': 'cross-site' }]) {
+    for (const [path, mime] of [['/app.js', 'text/javascript'], ['/style.css', 'text/css']]) {
+      const response = await fetch(f.url + path, { headers });
+      assert.equal(response.status, 200, `${path} must not receive a JSON error instead of the resource`);
+      assert.ok(response.headers.get('content-type').startsWith(mime));
+      const content = await response.text();
+      assert.ok(!content.includes(f.app.token)); assert.ok(!content.includes('TEST-PRIVATE-KEY'));
+    }
+  }
+  assert.equal((await fetch(f.url + '/favicon.ico')).status, 204);
+  for (const path of ['/', '/api/state']) {
+    for (const headers of [{ Origin: 'null' }, { Origin: 'null', 'Sec-Fetch-Site': 'cross-site' }, { Origin: 'https://foreign.test', 'Sec-Fetch-Site': 'same-origin' }, { 'Sec-Fetch-Site': 'same-site' }]) {
+      assert.equal((await fetch(f.url + path, { headers: { ...f.headers, ...headers } })).status, 403);
+    }
+  }
+  assert.equal((await fetch(f.url + '/api/state', { headers: { Origin: 'null', 'Sec-Fetch-Site': 'same-origin' } })).status, 401);
+  assert.equal((await fetch(f.url + '/api/state', { headers: { ...f.headers, Origin: 'null', 'Sec-Fetch-Site': 'same-origin' } })).status, 200);
+  const spoofedHostStatus = await new Promise((resolve, reject) => {
+    const req = request(f.url + '/app.js', { headers: { Host: 'foreign.test' } }, res => { res.resume(); resolve(res.statusCode); });
+    req.on('error', reject); req.end();
+  });
+  assert.equal(spoofedHostStatus, 403);
+});
