@@ -18,7 +18,7 @@ async function body(req) {
   try { return JSON.parse(Buffer.concat(chunks)); } catch { throw new BridgeError('JSON 格式错误。'); }
 }
 
-export function createPetServer({ root, config, store, core, models, wechat, token = randomBytes(32).toString('hex') }) {
+export function createPetServer({ root, config, store, core, models, wechat, qq, token = randomBytes(32).toString('hex') }) {
   const active = new Set();
   const server = createServer(async (req, res) => {
     const controller = new AbortController();
@@ -55,7 +55,7 @@ export function createPetServer({ root, config, store, core, models, wechat, tok
           const html = readFileSync(join(root, 'web', 'index.html'), 'utf8').replace('__PET_TOKEN__', token);
           return send(200, html, 'text/html; charset=utf-8');
         }
-        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.4.0' });
+        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.6.0' });
       }
       // APIs use an explicit, unguessable per-start bearer token, never cookies.
       // A valid token is authoritative even when Origin/Fetch Metadata is absent
@@ -64,7 +64,7 @@ export function createPetServer({ root, config, store, core, models, wechat, tok
       if (!equal(req.headers.authorization, `Bearer ${token}`)) return send(401, { code: 'invalid_token', error: '页面授权已过期，请刷新页面。' });
       const scope = url.searchParams.get('scope') || 'web:owner';
       if (req.method === 'GET') {
-        if (url.pathname === '/api/state') return send(200, { config: config.public(), sessions: store.sessions(), wechat: wechat?.status() || { state: 'stopped' } });
+        if (url.pathname === '/api/state') return send(200, { config: config.public(), sessions: store.sessions(), care: core.interactions.status(), qq: qq?.status() || { state: 'stopped', contacts: [] }, wechat: wechat?.status() || { state: 'stopped' } });
         if (url.pathname === '/api/history') return send(200, { messages: store.history(scope), memories: store.memories(scope) });
         if (url.pathname === '/api/wechat/qr') {
           try { return send(200, readFileSync(join(root, 'data', 'login-qr.png')), 'image/png'); }
@@ -74,7 +74,18 @@ export function createPetServer({ root, config, store, core, models, wechat, tok
       if (req.method !== 'POST') return send(404, { error: '接口不存在。' });
       const input = await body(req);
       if (!input || typeof input !== 'object' || Array.isArray(input)) throw new BridgeError('请求内容须为对象。');
-      if (url.pathname === '/api/config') return send(200, { config: config.update(input) });
+      if (url.pathname === '/api/config') {
+        const before = JSON.stringify([config.qqCredentials(), config.value.qq.sandbox]);
+        const result = config.update(input);
+        if (input.qq && before !== JSON.stringify([config.qqCredentials(), config.value.qq.sandbox])) await qq?.stop();
+        return send(200, { config: result });
+      }
+      if (url.pathname === '/api/pet/interact') return send(200, await core.exclusive('web:owner', () => core.interactions.perform('web:owner', input.action, input.requestId)));
+      if (url.pathname === '/api/qq/start') {
+        if (!qq) throw new BridgeError('QQ 通道不可用，请重启宠物程序。');
+        await qq.start(); return send(200, { ok: true });
+      }
+      if (url.pathname === '/api/qq/stop') { await qq?.stop(); return send(200, { ok: true }); }
       if (url.pathname === '/api/chat') {
         const text = await core.chat(input, controller.signal);
         return send(200, { text });

@@ -11,6 +11,7 @@ export const defaults = {
   stt: { enabled: false, baseUrl: '', model: '', apiKey: '' },
   tts: { enabled: false, baseUrl: '', model: '', apiKey: '', voice: 'alloy' },
   replyAudio: 'voice',
+  qq: { appId: '', appSecret: '', autoConnect: false, sandbox: false, directMode: 'allowlist', allowedUsers: [], groupMode: 'disabled', allowedGroups: [] },
 };
 
 export function endpoint(base, path) {
@@ -53,6 +54,18 @@ export function validateConfig(value) {
   c.tts.voice = string(value.tts?.voice ?? c.tts.voice, 200, '音色');
   c.replyAudio = value.replyAudio ?? c.replyAudio;
   if (!['voice', 'always', 'off'].includes(c.replyAudio)) throw new BridgeError('语音回复模式错误。');
+  if (value.qq !== undefined && (!value.qq || typeof value.qq !== 'object' || Array.isArray(value.qq))) throw new BridgeError('QQ 配置格式错误。');
+  const qq = value.qq || {};
+  for (const key of Object.keys(c.qq)) if (qq[key] !== undefined) c.qq[key] = qq[key];
+  c.qq.appId = string(c.qq.appId, 100, 'QQ AppID', true);
+  if (c.qq.appId && !/^\d{1,30}$/.test(c.qq.appId)) throw new BridgeError('QQ AppID 应为开放平台提供的数字标识。');
+  c.qq.appSecret = string(c.qq.appSecret, 4096, 'QQ AppSecret', true);
+  for (const key of ['autoConnect', 'sandbox']) if (typeof c.qq[key] !== 'boolean') throw new BridgeError('QQ 开关应为布尔值。');
+  for (const key of ['directMode', 'groupMode']) if (!['disabled', 'allowlist', 'open'].includes(c.qq[key])) throw new BridgeError('QQ 访问范围错误。');
+  for (const key of ['allowedUsers', 'allowedGroups']) {
+    if (!Array.isArray(c.qq[key]) || c.qq[key].length > 100 || c.qq[key].some(v => typeof v !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(v))) throw new BridgeError('QQ 名单需填写 OpenID，每行一个，最多 100 个。');
+    c.qq[key] = [...new Set(c.qq[key])];
+  }
   return c;
 }
 
@@ -75,8 +88,14 @@ export class Config {
       c[kind].keyFromEnvironment = Boolean(process.env[kind === 'model' ? 'PET_API_KEY' : `PET_${kind.toUpperCase()}_API_KEY`]);
       delete c[kind].apiKey;
     }
+    c.qq.appId = this.qqCredentials().appId;
+    c.qq.hasSecret = Boolean(this.qqCredentials().appSecret);
+    c.qq.secretFromEnvironment = Boolean(process.env.QQBOT_SECRET);
+    c.qq.appIdFromEnvironment = Boolean(process.env.QQBOT_APPID);
+    delete c.qq.appSecret;
     return c;
   }
+  qqCredentials() { return { appId: process.env.QQBOT_APPID || this.value.qq.appId, appSecret: process.env.QQBOT_SECRET || this.value.qq.appSecret }; }
   update(patch) {
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new BridgeError('配置更新格式错误。');
     const next = structuredClone(this.value);
@@ -89,6 +108,13 @@ export class Config {
       if (patch[kind].clearKey === true) next[kind].apiKey = '';
     }
     for (const key of ['port', 'replyAudio']) if (patch[key] !== undefined) next[key] = patch[key];
+    if (patch.qq !== undefined) {
+      if (!patch.qq || typeof patch.qq !== 'object' || Array.isArray(patch.qq)) throw new BridgeError('QQ 配置格式错误。');
+      next.qq = { ...next.qq, ...patch.qq };
+      if (!patch.qq.appSecret) next.qq.appSecret = this.value.qq.appSecret;
+      if (patch.qq.appId !== undefined && patch.qq.appId !== this.value.qq.appId && !patch.qq.appSecret) next.qq.appSecret = '';
+      if (patch.qq.clearSecret === true) next.qq.appSecret = '';
+    }
     const validated = validateConfig(next);
     saveJSONFile(this.path, validated);
     this.value = validated;

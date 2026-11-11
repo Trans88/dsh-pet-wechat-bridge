@@ -32,5 +32,15 @@
     "apiKey": "",
     "voice": "alloy"
   },
-  "replyAudio": "voice"
+  "replyAudio": "voice",
+  "qq": {
+    "appId": "",
+    "appSecret": "",
+    "autoConnect": false,
+    "sandbox": false,
+    "directMode": "allowlist",
+    "allowedUsers": [],
+    "groupMode": "disabled",
+    "allowedGroups": []
+  }
 }

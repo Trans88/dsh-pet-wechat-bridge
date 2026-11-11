@@ -1,9 +1,9 @@
 {
   "name": "little-pet",
-  "version": "0.4.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
-  "description": "Independent AI companion with a local web app, persistent memory and Weixin bridge",
+  "description": "Independent AI companion with pet interactions, persistent memory, Weixin and official QQ channels",
   "engines": {
     "node": ">=22.13.0"
   },
@@ -16,6 +16,7 @@
     "legacy:wechat": "node bridge.mjs start --legacy"
   },
   "dependencies": {
+    "@tencent-connect/qqbot-nodejs": "1.0.5",
     "jpeg-js": "0.4.4",
     "pngjs": "5.0.0",
     "qrcode": "1.5.4",

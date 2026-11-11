@@ -18,7 +18,7 @@
       <button class="nav" data-page="channels"><span>◎</span>连接</button>
       <button class="nav" data-page="settings"><span>⚙</span>设置</button>
     </nav>
-    <div class="sidebar-foot"><span class="online-dot"></span> 本地的小小世界<small>独立运行 · v0.4.0</small></div>
+    <div class="sidebar-foot"><span class="online-dot"></span> 本地的小小世界<small>独立运行 · v0.6.0</small></div>
   </aside>
   <main>
     <header class="topbar"><div><span class="eyebrow" id="date-label">A LITTLE COMPANY</span><h1 id="page-title">欢迎回到小窝</h1></div><span class="pill" id="model-status">正在连接…</span></header>
@@ -29,14 +29,20 @@
         <div class="room-heading"><span class="pill light"><span class="online-dot"></span><span id="pet-mood">在这里陪你</span></span><span class="room-number">YOUR LITTLE FRIEND / 01</span></div>
         <div class="pet-stage">
           <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="spark spark-one">✦</span><span class="spark spark-two">✧</span>
-          <div class="pet-bubble" id="pet-bubble">今天也很高兴见到你。</div>
+          <div class="pet-bubble" id="pet-bubble" role="status" aria-live="polite">今天也很高兴见到你。</div>
+          <div id="pet-effects" class="pet-effects" aria-hidden="true"></div>
           <button id="pet-character" aria-label="摸摸宠物" class="pet-character" data-appearance="taolinghu">
             <span id="pet-sprite" class="pet-sprite" role="img" aria-label="桃铃狐，粉发狐耳、金瞳的小伙伴"><img id="pet-sprite-sheet" src="/assets/taolinghu.png" width="1536" height="2288" alt="" draggable="false"></span>
             <svg id="pet-cat" hidden viewBox="0 0 320 320" role="img" aria-label="一只蓝色的圆滚滚小猫"><defs><linearGradient id="fur" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#a8d4ff"/><stop offset="1" stop-color="#609fe6"/></linearGradient><linearGradient id="belly" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f4fbff"/><stop offset="1" stop-color="#d3eaff"/></linearGradient></defs><ellipse cx="161" cy="281" rx="94" ry="15" fill="#b0c7e1" opacity=".3"/><g class="cat-body"><path d="M230 221 Q298 227 274 184 Q266 173 258 183" fill="none" stroke="#79afea" stroke-width="25" stroke-linecap="round"/><ellipse cx="164" cy="220" rx="77" ry="60" fill="url(#fur)"/><ellipse cx="164" cy="230" rx="49" ry="39" fill="url(#belly)"/><ellipse cx="117" cy="269" rx="26" ry="13" fill="#76ade9"/><ellipse cx="210" cy="269" rx="26" ry="13" fill="#76ade9"/><path d="M82 125 Q69 56 91 55 L129 82 Q164 73 197 84 L237 55 Q254 57 243 128" fill="url(#fur)"/><path d="M91 72 L101 110 L119 90Z" fill="#d8eaff"/><path d="M230 72 L207 91 L231 108Z" fill="#d8eaff"/><ellipse cx="162" cy="150" rx="94" ry="77" fill="url(#fur)"/><path d="M129 80 Q139 99 151 109 M161 78 L167 103 M191 83 L184 106" stroke="#73a8e2" stroke-width="8" fill="none" stroke-linecap="round"/><g class="eyes"><ellipse cx="127" cy="148" rx="8" ry="12" fill="#244c73"/><ellipse cx="198" cy="148" rx="8" ry="12" fill="#244c73"/><circle cx="129" cy="144" r="2.5" fill="white"/><circle cx="200" cy="144" r="2.5" fill="white"/></g><ellipse cx="107" cy="171" rx="15" ry="7" fill="#efb6c9" opacity=".65"/><ellipse cx="217" cy="171" rx="15" ry="7" fill="#efb6c9" opacity=".65"/><path d="M155 166 Q162 162 169 166 L162 172Z" fill="#3c6590"/><path d="M162 172 Q160 184 151 179 M162 172 Q164 184 173 179" stroke="#3c6590" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M84 160 L105 165 M82 178 L103 176 M223 166 L243 161 M224 177 L246 180" stroke="#5790cd" stroke-width="3" stroke-linecap="round"/><path d="M101 217 Q108 234 123 230 M222 216 Q216 235 204 230" fill="none" stroke="#5998da" stroke-width="7" stroke-linecap="round"/></g></svg>
           </button>
         </div>
         <div class="pet-profile"><span class="eyebrow">NICE TO MEET YOU</span><h2 id="pet-name">小蓝</h2><p id="pet-greeting">我在这里。今天想和我聊点什么？</p></div>
-        <div class="pet-actions"><button id="pat-button">♡ 摸摸头</button><button id="sleep-button">☾ 打个盹</button></div>
+        <div class="care-panel" aria-label="宠物状态">
+          <div class="bond-line"><span id="bond-label">初见的小伙伴</span><span>♡ <strong id="bond-value">0</strong></span></div>
+          <div class="care-meters"><label>心情 <span id="mood-value">70</span><progress id="mood-meter" max="100" value="70">70</progress></label><label>饱食 <span id="fullness-value">70</span><progress id="fullness-meter" max="100" value="70">70</progress></label><label>精力 <span id="energy-value">80</span><progress id="energy-meter" max="100" value="80">80</progress></label></div>
+        </div>
+        <div class="pet-actions"><button id="pat-button" data-interaction="pat">♡ 摸摸头</button><button data-interaction="feed">🍪 投喂</button><button data-interaction="hug">🫂 抱抱</button><button data-interaction="play">🧶 逗逗它</button><button data-interaction="dance">♫ 跳个舞</button><button id="sleep-button" data-interaction="sleep">☾ 打个盹</button></div>
+        <details class="care-diary"><summary>我们的互动小记</summary><ul id="care-journal"><li>摸摸头，留下今天的第一件小事。</li></ul></details>
         <div class="room-footer"><span>陪伴，从一句话开始</span><span>✧</span></div>
       </div>
       <div class="chat-card">
@@ -60,7 +66,19 @@
     <section id="page-channels" class="page" hidden>
       <div class="section-intro"><h2>换个地方，继续陪伴</h2><p>宠物的性格相同，聊天和记忆各自保存。</p></div>
       <div class="channel-grid"><article class="surface channel-card"><div class="channel-symbol green">微</div><h3>微信</h3><p>复用已绑定的微信 Bot 私聊，支持文字、图片和语音处理。</p><span class="pill" id="wechat-status">未连接</span><div class="button-row"><button class="primary" id="wechat-start">连接微信</button><button id="wechat-stop">断开</button><button id="wechat-login">重新扫码</button></div><p class="muted">换号请先断开，再重新扫码。若手机要求验证码，在启动程序的终端输入。</p><button class="text-button" id="qr-refresh">显示 / 刷新二维码</button><img id="wechat-qr" alt="微信登录二维码" hidden></article>
-      <article class="surface channel-card"><div class="channel-symbol blue">Q</div><h3>QQ</h3><p>计划通过 QQ 官方机器人接口接入私聊与群聊。</p><span class="pill">后续版本</span><p class="muted">本版尚未实现 QQ 通道；无需为此安装或启动 dsh 插件。</p></article></div>
+      <article class="surface channel-card qq-card"><div class="channel-symbol blue">Q</div><h3>QQ</h3><p>把小伙伴带进私聊和群里的 @ 对话。可以聊天，也能发 /抱抱、/投喂 和 /宠物。</p><span class="pill" id="qq-status">未连接</span><p class="inline-error" id="qq-error" role="status" hidden></p>
+        <form id="qq-form" class="qq-form">
+          <label class="field">机器人 AppID<input name="appId" inputmode="numeric" autocomplete="off" maxlength="30" placeholder="QQ 开放平台的 AppID"></label>
+          <label class="field">AppSecret<input name="appSecret" type="password" autocomplete="new-password" placeholder="填写机器人密钥"><small id="qq-secret-hint">密钥保存后不会回显</small></label>
+          <div class="form-grid"><label class="field">私聊范围<select name="directMode"><option value="allowlist">仅指定联系人</option><option value="open">所有可联系机器人的人</option><option value="disabled">关闭私聊</option></select></label><label class="field">群聊范围<select name="groupMode"><option value="disabled">关闭群聊</option><option value="allowlist">仅指定群，需 @</option><option value="open">所有已加入的群，需 @</option></select></label></div>
+          <details><summary>指定联系人和群</summary><label class="field">联系人 OpenID<textarea name="allowedUsers" rows="2" placeholder="每行一个；不是 QQ 号"></textarea></label><label class="field">群 OpenID<textarea name="allowedGroups" rows="2" placeholder="每行一个；不是群号"></textarea></label><p class="muted">先连接，再给机器人发一句话；下方会出现 OpenID，点击即可填入名单，保存后生效。</p></details>
+          <label class="check"><input name="sandbox" type="checkbox">使用开放平台沙箱环境</label><label class="check"><input name="autoConnect" type="checkbox">启动宠物时自动连接 QQ</label>
+          <button type="submit">保存 QQ 配置</button><span id="qq-result" role="status"></span>
+        </form>
+        <div class="button-row"><button class="primary" id="qq-start">连接 QQ</button><button id="qq-stop">断开</button></div>
+        <div id="qq-contacts" class="qq-contacts"></div>
+        <details class="qq-guide"><summary>第一次接入 QQ</summary><ol><li>到 <a href="https://q.qq.com/" target="_blank" rel="noreferrer">QQ 开放平台</a> 创建机器人并获取 AppID / AppSecret，启用所需的单聊或群聊能力。</li><li>按平台配置测试人员、测试群及 IP 白名单；接入方式选择 WebSocket。</li><li>保存配置，点击「连接 QQ」。若只允许指定联系人，发消息后把下方 OpenID 加入名单并保存。</li></ol><p class="muted">接入的是机器人账号。目前支持文字与宠物互动；图片、语音可使用网页或微信。平台实际权限以你的机器人后台为准。</p></details>
+      </article></div>
     </section>
 
     <section id="page-settings" class="page" hidden>

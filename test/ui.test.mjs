@@ -16,7 +16,7 @@ import { PetCore } from '../pet/core.mjs';
 import { createPetServer } from '../pet/server.mjs';
 
 async function until(predicate, label) {
-  for (let n = 0; n < 100; n++) { if (predicate()) return; await delay(10); }
+  for (let n = 0; n < 300; n++) { if (predicate()) return; await delay(10); }
   assert.fail(`UI did not reach expected state: ${label}`);
 }
 
@@ -105,13 +105,30 @@ test('web setup, text/image chat, memory management and error states work agains
 
   $('#voice-button').click();
   assert.match($('#toast').textContent, /语音识别/);
-  $('#sleep-button').click(); assert.ok($('#pet-character').classList.contains('sleeping'));
+  $('#sleep-button').click(); await until(() => $('#pet-character').classList.contains('sleeping'), 'sleep state persisted');
   assert.equal($('#pet-character').dataset.animation, 'sleeping');
   assert.equal($('#pet-sprite-sheet').style.top, '-500%');
   assert.equal($('#pet-sprite-sheet').style.left, '-700%');
-  $('#pat-button').click(); assert.ok(!$('#pet-character').classList.contains('sleeping'));
+  await until(() => !$('#pat-button').disabled, 'interaction cooldown finished');
+  $('#pat-button').click(); await until(() => !$('#pet-character').classList.contains('sleeping'), 'pat wakes pet');
   assert.equal($('#pet-character').dataset.animation, 'petting');
   assert.equal($('#pet-sprite-sheet').style.top, '-300%');
+  assert.equal($('#bond-value').textContent, '1');
+  assert.match($('#care-journal').textContent, /摸摸头/);
+  await until(() => !$('#pat-button').disabled, 'pat finished');
+  $('[data-interaction="feed"]').click();
+  await until(() => Number($('#fullness-value').textContent) > 80, 'feeding updates fullness');
+  assert.equal($('#pet-character').dataset.interaction, 'feed');
+  assert.equal(calls.length, 2, 'pet interactions never call the model');
+  $('[data-page="channels"]').click();
+  $('#qq-form [name="appId"]').value = '123456';
+  $('#qq-form [name="appSecret"]').value = 'UI-QQ-SECRET';
+  $('#qq-form [name="allowedUsers"]').value = 'person1\nperson2';
+  $('#qq-form button[type="submit"]').click();
+  await until(() => $('#qq-result').textContent.includes('已保存'), 'QQ settings saved');
+  assert.equal(config.value.qq.appSecret, 'UI-QQ-SECRET');
+  assert.deepEqual(config.value.qq.allowedUsers, ['person1', 'person2']);
+  assert.equal($('#qq-form [name="appSecret"]').value, '', 'QQ secret never echoed');
 
   $('[data-page="memory"]').click();
   await until(() => $('#memory-list').textContent.includes('空的'), 'memory page');
