@@ -280,6 +280,26 @@ main {
   width:100%;
   overflow:visible
 }
+.pet-character[data-appearance="taolinghu"] {
+  animation:none
+}
+.pet-sprite {
+  position:relative;
+  display:block;
+  width:100%;
+  aspect-ratio:192/208;
+  overflow:hidden;
+  pointer-events:none
+}
+.pet-sprite img {
+  position:absolute;
+  width:800%;
+  height:1100%;
+  max-width:none;
+  left:0;
+  top:0;
+  user-select:none
+}
 .pet-character .eyes {
   transform-origin:162px 150px;
   animation:blink 7s infinite

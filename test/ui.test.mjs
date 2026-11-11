@@ -39,6 +39,9 @@ test('web setup, text/image chat, memory management and error states work agains
   // This test drives refreshes through UI actions; don't leave background polls at teardown.
   w.setInterval = () => 0;
   w.crypto.randomUUID = randomUUID;
+  let motionListener;
+  const motionPreference = { matches: false, addEventListener: (_event, listener) => { motionListener = listener; } };
+  w.matchMedia = () => motionPreference;
   w.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
   w.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
   t.after(async () => { w.close(); app.abort(); await new Promise(resolve => app.server.close(resolve)); store.close(); rmSync(root, { recursive: true, force: true }); });
@@ -46,18 +49,45 @@ test('web setup, text/image chat, memory management and error states work agains
   await until(() => $('#model-status').textContent === '等待配置模型', 'initial setup');
   await until(() => $('[name="pet.name"]').value === '小蓝', 'settings populated');
   assert.equal($('#setup-note').hidden, false);
+  assert.equal($('#pet-character').dataset.appearance, 'taolinghu');
+  assert.equal($('#pet-sprite').hidden, false);
+  assert.equal($('#pet-cat').hasAttribute('hidden'), true);
+  await until(() => $('#pet-sprite-sheet').style.left !== '0%', 'idle animation advances');
+  Object.defineProperty(w.document, 'hidden', { configurable: true, value: true });
+  w.document.dispatchEvent(new w.Event('visibilitychange'));
+  const pausedFrame = $('#pet-sprite-sheet').style.left;
+  await delay(350);
+  assert.equal($('#pet-sprite-sheet').style.left, pausedFrame, 'background tabs pause animation');
+  motionPreference.matches = true; motionListener();
+  Object.defineProperty(w.document, 'hidden', { configurable: true, value: false });
+  w.document.dispatchEvent(new w.Event('visibilitychange'));
+  await delay(350);
+  assert.equal($('#pet-sprite-sheet').style.left, '0%', 'reduced motion holds a still frame');
+  motionPreference.matches = false; motionListener();
+  await until(() => $('#pet-sprite-sheet').style.left !== '0%', 'animation resumes');
 
   $('[data-page="settings"]').click();
   assert.equal($('#page-home').hidden, true);
   $('[name="pet.name"]').value = '团子';
+  $('[name="pet.appearance"]').value = 'blue-cat';
   $('[name="model.apiKey"]').value = 'UI-TEST-KEY';
   $('#settings-form button[type="submit"]').click();
   await until(() => $('#settings-result').textContent.includes('已保存'), 'settings saved');
   assert.equal(config.value.pet.name, '团子'); assert.equal(config.provider('model').apiKey, 'UI-TEST-KEY');
   assert.equal($('[name="model.apiKey"]').value, '', 'saved key is never echoed into the password field');
+  assert.equal(config.value.pet.appearance, 'blue-cat');
+  assert.equal($('#pet-sprite').hidden, true);
+  assert.equal($('#pet-cat').hasAttribute('hidden'), false, 'SVG must be visible after switching back');
+  $('[name="pet.appearance"]').value = 'taolinghu';
+  $('#settings-form button[type="submit"]').click();
+  await until(() => $('#settings-result').textContent.includes('已保存'), 'fox appearance saved');
+  assert.equal(config.value.pet.appearance, 'taolinghu');
+  assert.equal($('#pet-character').dataset.appearance, 'taolinghu');
 
   $('[data-page="home"]').click();
   $('#message-input').value = '你好'; $('#send-button').click();
+  assert.equal($('#pet-character').dataset.animation, 'thinking');
+  assert.equal($('#pet-sprite-sheet').style.top, '-800%');
   await until(() => store.history('web:owner').length === 2 && !$('#send-button').disabled, 'first reply');
   assert.match($('#messages').textContent, /测试回复/);
   assert.equal($('#messages img'), null, 'model HTML must remain plain text');
@@ -76,7 +106,12 @@ test('web setup, text/image chat, memory management and error states work agains
   $('#voice-button').click();
   assert.match($('#toast').textContent, /语音识别/);
   $('#sleep-button').click(); assert.ok($('#pet-character').classList.contains('sleeping'));
+  assert.equal($('#pet-character').dataset.animation, 'sleeping');
+  assert.equal($('#pet-sprite-sheet').style.top, '-500%');
+  assert.equal($('#pet-sprite-sheet').style.left, '-700%');
   $('#pat-button').click(); assert.ok(!$('#pet-character').classList.contains('sleeping'));
+  assert.equal($('#pet-character').dataset.animation, 'petting');
+  assert.equal($('#pet-sprite-sheet').style.top, '-300%');
 
   $('[data-page="memory"]').click();
   await until(() => $('#memory-list').textContent.includes('空的'), 'memory page');
@@ -94,6 +129,11 @@ test('web setup, text/image chat, memory management and error states work agains
   await until(() => Boolean($('#memory-list button')), 'memory delete control');
   $('#memory-list button').click();
   await until(() => store.memories('web:owner').length === 0 && $('#memory-list').textContent.includes('空的'), 'forget fact rendered');
+  $('#pet-sprite-sheet').dispatchEvent(new w.Event('error'));
+  assert.equal($('#pet-character').dataset.appearance, 'blue-cat');
+  assert.equal($('#pet-cat').hasAttribute('hidden'), false);
+  assert.match($('#toast').textContent, /图片未能加载/);
+  assert.equal(config.value.pet.appearance, 'taolinghu', 'temporary image failure must not overwrite the saved selection');
   assert.deepEqual(errors, []);
 });
 

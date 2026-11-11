@@ -3,7 +3,54 @@ const token = $('meta[name="pet-token"]').content;
 const titles = { home: '欢迎回到小窝', memory: '我们的小小记忆', channels: '连接你的日常', settings: '让它更像你的小伙伴' };
 let state, scope = 'web:owner', page = 'home', attachment, pendingRequestId, sending = false, sleeping = false, recorder, recordTimer, toastTimer, lastUpdate = 0;
 let historyRevision = 0, memoryRevision = 0;
+let avatarTimer, patTimer, petting = false, avatarKey, spriteFailed = false;
+const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+// Original ChatGPT atlas: 8 columns, 11 rows, 192 x 208 pixels per cell.
+// Use only the occupied frames in each row. Rest holds the final closed-eye pose.
+const avatarAnimations = {
+  idle: { row: 0, durations: [280, 110, 110, 140, 140, 320] },
+  petting: { row: 3, durations: [140, 140, 140, 280] },
+  thinking: { row: 8, durations: [150, 150, 150, 150, 150, 280] },
+  sleeping: { row: 5, column: 7, durations: [0] },
+};
 const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
+
+function renderAvatar(force = false) {
+  const selected = state?.config.pet.appearance || 'taolinghu';
+  const appearance = selected === 'taolinghu' && !spriteFailed ? 'taolinghu' : 'blue-cat';
+  const animation = sending ? 'thinking' : sleeping ? 'sleeping' : petting ? 'petting' : 'idle';
+  const playing = appearance === 'taolinghu' && page === 'home' && !document.hidden && !reducedMotion?.matches;
+  const key = `${appearance}/${animation}/${playing}`;
+  if (!force && avatarKey === key) return;
+  avatarKey = key; clearTimeout(avatarTimer);
+  const character = $('#pet-character');
+  character.dataset.appearance = appearance;
+  character.dataset.animation = animation;
+  $('#pet-sprite').hidden = appearance !== 'taolinghu';
+  $('#pet-cat').toggleAttribute('hidden', appearance !== 'blue-cat');
+  if (appearance !== 'taolinghu') return;
+  const sequence = avatarAnimations[animation], sheet = $('#pet-sprite-sheet');
+  let frame = 0;
+  function draw() {
+    sheet.style.left = `${-100 * (sequence.column ?? frame)}%`;
+    sheet.style.top = `${-100 * sequence.row}%`;
+    if (playing && sequence.durations[frame] > 0) {
+      avatarTimer = setTimeout(() => { frame = (frame + 1) % sequence.durations.length; draw(); }, sequence.durations[frame]);
+    }
+  }
+  draw();
+}
+function spriteLoadFailed() {
+  spriteFailed = true; renderAvatar();
+  if ((state?.config.pet.appearance || 'taolinghu') === 'taolinghu') toast('桃铃狐图片未能加载，暂时显示蓝猫。请刷新页面重试。');
+}
+$('#pet-sprite-sheet').addEventListener('error', spriteLoadFailed);
+if ($('#pet-sprite-sheet').complete && !$('#pet-sprite-sheet').naturalWidth) spriteLoadFailed();
+document.addEventListener('visibilitychange', () => renderAvatar());
+reducedMotion?.addEventListener('change', () => renderAvatar());
+window.addEventListener('pagehide', () => { clearTimeout(avatarTimer); clearTimeout(patTimer); petting = false; $('#pet-character').classList.remove('patted'); avatarKey = undefined; });
+window.addEventListener('pageshow', () => renderAvatar(true));
+renderAvatar();
 
 async function api(path, data, binary = false) {
   const response = await fetch(path, { mode: 'same-origin', credentials: 'omit', method: data === undefined ? 'GET' : 'POST', headers: { Authorization: `Bearer ${token}`, ...(data === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: data === undefined ? undefined : JSON.stringify(data) });
@@ -17,6 +64,7 @@ function toast(text) { $('#toast').textContent = text; $('#toast').hidden = fals
 function chatError(text) { $('#chat-error').textContent = text || ''; $('#chat-error').hidden = !text; }
 function showPage(next) {
   page = next;
+  renderAvatar();
   document.querySelectorAll('.page').forEach(node => { node.hidden = node.id !== `page-${next}`; });
   document.querySelectorAll('.nav').forEach(node => node.classList.toggle('active', node.dataset.page === next));
   $('#page-title').textContent = titles[next];
@@ -29,6 +77,7 @@ $('#date-label').textContent = new Date().toLocaleDateString('zh-CN', { month: '
 
 async function loadState(initial = false) {
   state = await api('/api/state');
+  renderAvatar();
   $('#pet-name').textContent = state.config.pet.name;
   $('#pet-greeting').textContent = state.config.pet.greeting;
   document.title = `${state.config.pet.name} · 你的 AI 宠物`;
@@ -89,6 +138,7 @@ async function refreshHistory() {
 
 function setBusy(busy) {
   sending = busy;
+  renderAvatar();
   for (const id of ['send-button', 'image-button', 'voice-button', 'message-input', 'clear-chat', 'remove-image']) $(`#${id}`).disabled = busy;
   $('.room').classList.toggle('busy', busy);
   $('#pet-mood').textContent = busy ? '正在认真听你说' : sleeping ? '打个小盹' : '在这里陪你';
@@ -149,9 +199,9 @@ $('#voice-button').addEventListener('click', async () => {
   } catch (e) { stream?.getTracks().forEach(track => track.stop()); toast(e.name === 'NotAllowedError' ? '没有获得麦克风权限，请在浏览器中允许录音。' : e.message); }
 });
 
-function pat() { const pet = $('#pet-character'); pet.classList.remove('patted', 'sleeping'); sleeping = false; $('#sleep-button').textContent = '☾ 打个盹'; void pet.offsetWidth; pet.classList.add('patted'); $('#pet-mood').textContent = '心情变好了'; $('#pet-bubble').textContent = '蹭蹭你的手，收到喜欢啦。'; setTimeout(() => pet.classList.remove('patted'), 1300); }
+function pat() { const pet = $('#pet-character'); pet.classList.remove('patted', 'sleeping'); sleeping = false; petting = true; clearTimeout(patTimer); $('#sleep-button').textContent = '☾ 打个盹'; void pet.offsetWidth; pet.classList.add('patted'); $('#pet-mood').textContent = '心情变好了'; $('#pet-bubble').textContent = '蹭蹭你的手，收到喜欢啦。'; renderAvatar(true); patTimer = setTimeout(() => { petting = false; pet.classList.remove('patted'); renderAvatar(); }, 1400); }
 $('#pet-character').addEventListener('click', pat); $('#pat-button').addEventListener('click', pat);
-$('#sleep-button').addEventListener('click', () => { sleeping = !sleeping; $('#pet-character').classList.toggle('sleeping', sleeping); $('#sleep-button').textContent = sleeping ? '☀ 醒来啦' : '☾ 打个盹'; $('#pet-mood').textContent = sleeping ? '打个小盹' : '在这里陪你'; $('#pet-bubble').textContent = sleeping ? '呼噜…有话随时叫我。' : '精神满满，继续陪你。'; });
+$('#sleep-button').addEventListener('click', () => { sleeping = !sleeping; petting = false; clearTimeout(patTimer); $('#pet-character').classList.remove('patted'); $('#pet-character').classList.toggle('sleeping', sleeping); $('#sleep-button').textContent = sleeping ? '☀ 醒来啦' : '☾ 打个盹'; $('#pet-mood').textContent = sleeping ? '打个小盹' : '在这里陪你'; $('#pet-bubble').textContent = sleeping ? '呼噜…有话随时叫我。' : '精神满满，继续陪你。'; renderAvatar(); });
 
 $('#clear-chat').addEventListener('click', () => $('#confirm-dialog').showModal());
 $('#cancel-clear').addEventListener('click', () => $('#confirm-dialog').close());
@@ -205,7 +255,7 @@ $('#settings-form').addEventListener('submit', async event => {
     if (!input.name) continue; const [kind, key] = input.name.split('.'), value = input.type === 'checkbox' ? input.checked : input.value;
     if (key) { patch[kind] ||= {}; patch[kind][key] = value; } else patch[kind] = value;
   }
-  try { await api('/api/config', patch); await loadState(); fillSettings(); $('#settings-result').textContent = '已保存，下次聊天生效'; }
+  try { await api('/api/config', patch); await loadState(); fillSettings(); $('#settings-result').textContent = '已保存，形象已更新；人设和模型将在下次聊天生效'; }
   catch (e) { toast(e.message); } finally { button.disabled = false; }
 });
 
