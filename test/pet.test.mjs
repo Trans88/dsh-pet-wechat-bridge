@@ -159,16 +159,16 @@ async function httpFixture(t) {
   return { ...f, app, url, headers: { Authorization: `Bearer ${app.token}`, 'Content-Type': 'application/json' } };
 }
 
-test('HTTP serves the app while rejecting unauthorized, cross-origin and rebinding requests', async t => {
+test('HTTP protects the bootstrap page, API credentials and Host boundary', async t => {
   const f = await httpFixture(t);
   assert.equal((await fetch(f.url + '/api/state')).status, 401);
-  assert.equal((await fetch(f.url + '/api/state', { headers: { ...f.headers, Origin: 'https://evil.test' } })).status, 403);
+  assert.equal((await fetch(f.url + '/', { headers: { Origin: 'https://evil.test' } })).status, 403);
   const spoofedHostStatus = await new Promise((resolve, reject) => {
     const req = request(f.url + '/', { headers: { Host: 'evil.test' } }, res => { res.resume(); resolve(res.statusCode); });
     req.on('error', reject); req.end();
   });
   assert.equal(spoofedHostStatus, 403);
-  assert.equal((await fetch(f.url + '/api/state', { headers: { ...f.headers, 'Sec-Fetch-Site': 'cross-site' } })).status, 403);
+  assert.equal((await fetch(f.url + '/', { headers: { 'Sec-Fetch-Site': 'cross-site' } })).status, 403);
   const html = await (await fetch(f.url)).text(); assert.ok(html.includes(f.app.token));
   const state = await (await fetch(f.url + '/api/state', { headers: f.headers })).text(); assert.ok(!state.includes('TEST-PRIVATE-KEY'));
   assert.equal((await fetch(f.url + '/pet.config.json', { headers: f.headers })).status, 404);
@@ -191,7 +191,7 @@ test('real local HTTP Weixin adapter reaches independent core and preserves acti
   await assert.rejects(client.chat('看图', undefined, image), e => e.userMessage?.includes('图片'));
 });
 
-test('public UI assets load without API credentials while private routes retain origin protection', async t => {
+test('public UI assets load without credentials while bootstrap routes retain source protection', async t => {
   const f = await httpFixture(t);
   for (const headers of [{}, { Origin: 'null', 'Sec-Fetch-Site': 'same-origin' }, { Origin: 'null', 'Sec-Fetch-Site': 'cross-site' }, { Origin: 'https://foreign.test', 'Sec-Fetch-Site': 'cross-site' }]) {
     for (const [path, mime] of [['/app.js', 'text/javascript'], ['/style.css', 'text/css']]) {
@@ -203,9 +203,11 @@ test('public UI assets load without API credentials while private routes retain 
     }
   }
   assert.equal((await fetch(f.url + '/favicon.ico')).status, 204);
-  for (const path of ['/', '/api/state']) {
+  for (const path of ['/', '/api/health']) {
     for (const headers of [{ Origin: 'null' }, { Origin: 'null', 'Sec-Fetch-Site': 'cross-site' }, { Origin: 'https://foreign.test', 'Sec-Fetch-Site': 'same-origin' }, { 'Sec-Fetch-Site': 'same-site' }]) {
-      assert.equal((await fetch(f.url + path, { headers: { ...f.headers, ...headers } })).status, 403);
+      const response = await fetch(f.url + path, { headers: { ...f.headers, ...headers } });
+      assert.equal(response.status, 403);
+      assert.equal((await response.json()).code, 'page_source_rejected');
     }
   }
   assert.equal((await fetch(f.url + '/api/state', { headers: { Origin: 'null', 'Sec-Fetch-Site': 'same-origin' } })).status, 401);
@@ -215,4 +217,69 @@ test('public UI assets load without API credentials while private routes retain 
     req.on('error', reject); req.end();
   });
   assert.equal(spoofedHostStatus, 403);
+});
+
+test('authenticated APIs tolerate missing, opaque and inconsistent browser source headers', async t => {
+  const f = await httpFixture(t);
+  const sources = [
+    {},
+    { Origin: 'null' },
+    { Origin: 'null', 'Sec-Fetch-Site': 'same-origin' },
+    { Origin: 'null', 'Sec-Fetch-Site': 'cross-site' },
+    { Origin: 'null', 'Sec-Fetch-Site': 'same-site' },
+    { Origin: f.url, 'Sec-Fetch-Site': 'cross-site' },
+    { Origin: 'https://rewritten.test', 'Sec-Fetch-Site': 'cross-site' },
+    { 'Sec-Fetch-Site': 'same-site' },
+  ];
+  for (const [index, source] of sources.entries()) {
+    const headers = { ...f.headers, ...source };
+    const state = await fetch(f.url + '/api/state', { headers });
+    assert.equal(state.status, 200, `valid page token, source headers: ${JSON.stringify(source)}`);
+    assert.equal((await state.json()).config.pet.name, '小蓝');
+    assert.equal(state.headers.get('access-control-allow-origin'), null);
+    const saved = await fetch(f.url + '/api/memory/add', { method: 'POST', headers, body: JSON.stringify({ text: `测试记忆 ${index}` }) });
+    assert.equal(saved.status, 200);
+    await saved.json();
+  }
+  assert.equal(f.store.memories('web:owner').length, sources.length);
+});
+
+test('private routes reject unknown tokens, ambient credentials, preflights and invalid Hosts', async t => {
+  const f = await httpFixture(t), other = await httpFixture(t);
+  f.store.remember('web:owner', 'PRIVATE-TEST-MEMORY');
+  const routes = [
+    ['GET', '/api/state'], ['GET', '/api/history'], ['GET', '/api/wechat/qr'],
+    ...['config', 'chat', 'history/clear', 'memory/add', 'memory/delete', 'stt', 'tts', 'wechat/start', 'wechat/login', 'wechat/stop'].map(path => ['POST', `/api/${path}`]),
+  ];
+  for (const credentials of [{}, { Authorization: 'Bearer incorrect' }, { Authorization: `Bearer ${other.app.token}` }, { Cookie: `pet-token=${f.app.token}` }]) {
+    for (const [method, path] of routes) {
+      const response = await fetch(f.url + path, {
+        method, headers: { ...credentials, Origin: 'null', 'Sec-Fetch-Site': 'cross-site', 'Content-Type': 'application/json' },
+        body: method === 'POST' ? JSON.stringify({ pet: { name: '未经授权修改' }, text: '不得执行' }) : undefined,
+      });
+      assert.equal(response.status, 401, `${method} ${path}`);
+      assert.equal((await response.json()).code, 'invalid_token');
+      assert.equal(response.headers.get('access-control-allow-origin'), null);
+    }
+  }
+  assert.equal((await fetch(`${f.url}/api/state?token=${f.app.token}`)).status, 401);
+  const preflight = await fetch(f.url + '/api/config', { method: 'OPTIONS', headers: { Origin: 'https://foreign.test', 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'authorization,content-type' } });
+  assert.equal(preflight.status, 401);
+  for (const header of ['access-control-allow-origin', 'access-control-allow-headers', 'access-control-allow-credentials']) assert.equal(preflight.headers.get(header), null);
+  await preflight.json();
+  const plain = await fetch(f.url + '/api/config', { method: 'POST', headers: { ...f.headers, 'Content-Type': 'text/plain' }, body: '{}' });
+  assert.equal(plain.status, 400); await plain.json();
+  for (const path of ['/', '/app.js', '/api/state']) {
+    const response = await new Promise((resolve, reject) => {
+      const req = request(f.url + path, { headers: { ...f.headers, Host: 'foreign.test' } }, res => {
+        let body = ''; res.setEncoding('utf8'); res.on('data', chunk => { body += chunk; });
+        res.on('end', () => resolve({ status: res.statusCode, body: JSON.parse(body) }));
+      });
+      req.on('error', reject); req.end();
+    });
+    assert.equal(response.status, 403); assert.equal(response.body.code, 'invalid_host');
+  }
+  assert.equal(f.config.value.pet.name, '小蓝');
+  assert.equal(f.store.memories('web:owner').length, 1);
+  assert.equal(f.store.history('web:owner').length, 0);
 });

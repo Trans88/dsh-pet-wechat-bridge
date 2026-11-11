@@ -6,7 +6,7 @@ let historyRevision = 0, memoryRevision = 0;
 const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
 
 async function api(path, data, binary = false) {
-  const response = await fetch(path, { method: data === undefined ? 'GET' : 'POST', headers: { Authorization: `Bearer ${token}`, ...(data === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: data === undefined ? undefined : JSON.stringify(data) });
+  const response = await fetch(path, { mode: 'same-origin', credentials: 'omit', method: data === undefined ? 'GET' : 'POST', headers: { Authorization: `Bearer ${token}`, ...(data === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: data === undefined ? undefined : JSON.stringify(data) });
   if (!response.ok) {
     const result = await response.json().catch(() => ({}));
     throw new Error(result.error || `请求失败（${response.status}）`);

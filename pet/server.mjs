@@ -36,26 +36,32 @@ export function createPetServer({ root, config, store, core, models, wechat, tok
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'same-origin');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
-    if (!allowedHosts.includes(req.headers.host)) return send(403, { error: '请从本机地址打开宠物页面。' });
+    if (!allowedHosts.includes(req.headers.host)) return send(403, { code: 'invalid_host', error: `访问地址不受支持，请在运行宠物程序的电脑上打开 http://127.0.0.1:${port}/。` });
     try {
       const url = new URL(req.url, origin);
       // Loading the public UI must not depend on browser Origin/Fetch-Metadata
       // quirks. Keep the host restriction and the exact file allowlist, and apply
-      // the stricter origin checks below to the token-bearing page and all APIs.
+      // the stricter source checks below to the token-bearing bootstrap page.
       if (req.method === 'GET' && Object.hasOwn(assets, url.pathname)) {
         return send(200, readFileSync(join(root, 'web', url.pathname.slice(1)), 'utf8'), assets[url.pathname]);
       }
       if (req.method === 'GET' && url.pathname === '/favicon.ico') return send(204, '', 'image/x-icon');
-      const site = req.headers['sec-fetch-site'];
-      const sameOriginNull = req.headers.origin === 'null' && site === 'same-origin';
-      if ((req.headers.origin && req.headers.origin !== origin && !sameOriginNull) ||
-          (site && !['same-origin', 'none'].includes(site))) return send(403, { error: '请从本机地址打开宠物页面。' });
-      if (req.method === 'GET' && url.pathname === '/') {
-        const html = readFileSync(join(root, 'web', 'index.html'), 'utf8').replace('__PET_TOKEN__', token);
-        return send(200, html, 'text/html; charset=utf-8');
+      if (url.pathname === '/' || url.pathname === '/api/health') {
+        const site = req.headers['sec-fetch-site'];
+        const sameOriginNull = req.headers.origin === 'null' && site === 'same-origin';
+        if ((req.headers.origin && req.headers.origin !== origin && !sameOriginNull) ||
+            (site && !['same-origin', 'none'].includes(site))) return send(403, { code: 'page_source_rejected', error: `页面来源校验失败，请新建标签页并直接输入 http://127.0.0.1:${port}/。` });
+        if (req.method === 'GET' && url.pathname === '/') {
+          const html = readFileSync(join(root, 'web', 'index.html'), 'utf8').replace('__PET_TOKEN__', token);
+          return send(200, html, 'text/html; charset=utf-8');
+        }
+        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.3.2' });
       }
-      if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.3.1' });
-      if (!equal(req.headers.authorization, `Bearer ${token}`)) return send(401, { error: '页面授权已过期，请刷新页面。' });
+      // APIs use an explicit, unguessable per-start bearer token, never cookies.
+      // A valid token is authoritative even when Origin/Fetch Metadata is absent
+      // or rewritten. Do not enable CORS: foreign pages cannot read the bootstrap
+      // token or pass a preflight for Authorization. Host checks still apply.
+      if (!equal(req.headers.authorization, `Bearer ${token}`)) return send(401, { code: 'invalid_token', error: '页面授权已过期，请刷新页面。' });
       const scope = url.searchParams.get('scope') || 'web:owner';
       if (req.method === 'GET') {
         if (url.pathname === '/api/state') return send(200, { config: config.public(), sessions: store.sessions(), wechat: wechat?.status() || { state: 'stopped' } });
