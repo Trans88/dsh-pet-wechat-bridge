@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#f5f6f9">
   <title>小蓝 · 你的 AI 宠物</title>
   <link rel="stylesheet" href="/style.css">
+  <script src="/voice.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
@@ -18,7 +19,7 @@
       <button class="nav" data-page="channels"><span>◎</span>连接</button>
       <button class="nav" data-page="settings"><span>⚙</span>设置</button>
     </nav>
-    <div class="sidebar-foot"><span class="online-dot"></span> 本地的小小世界<small>独立运行 · v0.4.0</small></div>
+    <div class="sidebar-foot"><span class="online-dot"></span> 本地的小小世界<small>独立运行 · v0.5.0</small></div>
   </aside>
   <main>
     <header class="topbar"><div><span class="eyebrow" id="date-label">A LITTLE COMPANY</span><h1 id="page-title">欢迎回到小窝</h1></div><span class="pill" id="model-status">正在连接…</span></header>
@@ -42,6 +43,11 @@
       <div class="chat-card">
         <div class="chat-header"><div><h2>和我说说吧</h2><span id="session-caption">网页 · 主人</span></div><button class="icon-button" id="clear-chat" title="清空当前聊天记录" aria-label="清空当前聊天记录">↺</button></div>
         <div class="messages" id="messages" role="log" aria-live="polite"></div>
+        <div class="voice-bar" id="voice-bar">
+          <div class="voice-actions"><button type="button" id="voice-chat-button" aria-pressed="false">♩ 开始语音对话</button><button type="button" id="voice-finish-button" hidden>说完了</button><button type="button" id="voice-interrupt-button" hidden>打断，换我说</button><button type="button" id="voice-stop-button" hidden>停止朗读</button></div>
+          <p id="voice-status" role="status" aria-live="polite">说说今天的小事，让它用声音陪你。</p>
+          <p id="voice-transcript" hidden></p>
+        </div>
         <div id="chat-error" class="inline-error" role="alert" hidden></div>
         <form id="chat-form" class="composer">
           <div id="attachment-preview" hidden><img id="attachment-image" alt="待发送图片"><span>已添加图片</span><button type="button" id="remove-image" aria-label="移除图片">×</button></div>
@@ -69,6 +75,16 @@
         <div class="surface settings-section"><div class="section-label"><span>01</span><h3>形象与人设</h3></div><div class="form-grid"><label class="field full">宠物形象<select name="pet.appearance"><option value="taolinghu">桃铃狐 · 粉发狐耳</option><option value="blue-cat">蓝猫 · 经典形象</option></select><small>保存后立即换装；名字和性格可以单独设置。</small></label><label class="field">名字<input name="pet.name" maxlength="200" required></label><label class="field">欢迎语<input name="pet.greeting" maxlength="200" required></label><label class="field full">性格与说话方式<textarea name="pet.persona" rows="4" maxlength="8000" required></textarea></label></div></div>
         <div class="surface settings-section"><div class="section-label"><span>02</span><h3>聊天模型</h3></div><p class="muted">使用 Chat Completions 兼容接口。Base URL 填接口前缀，例如 https://api.deepseek.com，或本机服务的 /v1 地址。</p><div class="form-grid"><label class="field">Base URL<input name="model.baseUrl" type="url" required></label><label class="field">模型名称<input name="model.model" required></label><label class="field full">API Key<input name="model.apiKey" type="password" autocomplete="new-password" placeholder="填写服务商 API Key"><small id="model-key-hint">密钥只保存在本机配置中</small></label><label class="check"><input name="model.supportsImages" type="checkbox">这个模型支持图片输入</label></div><p class="muted">勾选不能让文字模型获得看图能力；必须选择实际支持图片的模型。</p></div>
         <div class="surface settings-section"><div class="section-label"><span>03</span><h3>图片与声音</h3></div><p class="muted">可选配置。语音服务需支持兼容的 /audio/transcriptions 或 /audio/speech 接口，DeepSeek 聊天 API Key 不会自动开启语音。</p><div id="optional-providers"></div><label class="field">微信语音回复<select name="replyAudio"><option value="voice">仅对语音消息回复音频</option><option value="always">每次都回复音频</option><option value="off">只回复文字</option></select></label></div>
+        <div class="surface settings-section"><div class="section-label"><span>04</span><h3>语音对话</h3></div><p class="muted">点击小窝里的「开始语音对话」后，说完会自动发送，听完回复后继续下一轮。离开小窝、切到后台或点击结束，会关闭麦克风。</p><div class="form-grid">
+          <label class="field">语音识别<select name="voice.input"><option value="auto">自动：已配置 STT 优先，否则使用浏览器</option><option value="browser">浏览器识别</option><option value="server">已配置的 STT 服务</option></select></label>
+          <label class="field">宠物声音<select name="voice.output"><option value="auto">自动：已配置 TTS 优先，否则使用系统声音</option><option value="browser">系统声音</option><option value="server">已配置的 TTS 服务</option></select></label>
+          <label class="field">浏览器识别 / 系统朗读语言<select name="voice.language"><option value="zh-CN">普通话</option><option value="zh-TW">中文（台湾）</option><option value="en-US">英语</option><option value="ja-JP">日语</option></select></label>
+          <label class="field">系统音色<select name="voice.browserVoice" id="browser-voice"><option value="">跟随对话语言</option></select><small>可用音色取决于浏览器和操作系统；TTS 音色在上方服务设置中填写并保存后试听。</small></label>
+          <label class="field">语速（0.5–2）<input name="voice.rate" type="number" min="0.5" max="2" step="0.1" required></label>
+          <label class="field">系统声音音调（0.5–2）<input name="voice.pitch" type="number" min="0.5" max="2" step="0.1" required></label>
+          <label class="field">停顿多久发送（STT 录音模式）<select name="voice.silenceMs" data-number><option value="1000">1 秒</option><option value="1500">1.5 秒</option><option value="2000">2 秒</option><option value="3000">3 秒</option></select><small>浏览器识别模式由浏览器判断句子结束；也可以点击「说完了」。</small></label>
+          <label class="check"><input name="voice.autoSpeak" type="checkbox">文字聊天也自动朗读回复</label>
+        </div><p class="muted">浏览器识别可能使用浏览器厂商的联网服务，能否使用取决于浏览器、地区和网络；不可用时可配置独立 STT。系统声音无需另填 TTS 密钥。语音对话是轮流说话，宠物开口时暂停收音。</p><button type="button" id="voice-preview-button">试听当前声音</button></div>
         <div class="settings-save"><span id="settings-result" role="status"></span><button class="primary" type="submit">保存设置</button></div>
       </form>
     </section>

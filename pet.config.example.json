@@ -32,5 +32,15 @@
     "apiKey": "",
     "voice": "alloy"
   },
-  "replyAudio": "voice"
+  "replyAudio": "voice",
+  "voice": {
+    "input": "auto",
+    "output": "auto",
+    "autoSpeak": false,
+    "language": "zh-CN",
+    "browserVoice": "",
+    "rate": 1,
+    "pitch": 1,
+    "silenceMs": 1500
+  }
 }

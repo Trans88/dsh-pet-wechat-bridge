@@ -1,6 +1,6 @@
 # 独立宠物架构
 
-v0.4.0 的默认运行路径没有 dsh 依赖。
+v0.5.0 的默认运行路径没有 dsh 依赖。
 
 ## 模块
 
@@ -14,6 +14,7 @@ v0.4.0 的默认运行路径没有 dsh 依赖。
 | `pet/server.mjs` | 网页静态资源和带鉴权的本地 API |
 | `pet/http-client.mjs` | 微信到本地核心的适配；绑定身份派生会话键 |
 | `web/` | 不依赖构建工具或 CDN 的网页、原创 SVG 宠物、设置和记忆管理 |
+| `web/voice.js` | 浏览器语音状态机、麦克风生命周期、语音回合、系统与服务端朗读 |
 | `bridge.mjs` | 微信扫码、实例锁、长轮询与消息队列；默认连接独立核心 |
 | `lib.mjs` | 微信协议、持久化队列与旧版 pet 客户端 |
 | `media.mjs` | 微信媒体解密、图片压缩、SILK 解码、语音上传 |
@@ -23,6 +24,22 @@ v0.4.0 的默认运行路径没有 dsh 依赖。
 网页直接调用本地 `/api/chat`。微信消息经 `bridge.mjs` 与 `LocalPet` 转为同一接口的请求，由 `PetCore` 加入本会话的人设、长期记忆和近期历史，再请求模型。成功后用 SQLite 事务写入用户消息、回复与去重记录。生成失败不写入半个对话。
 
 微信桥接的已有收件箱保持原格式。消息 ID 同时传给核心，避免核心成功、桥接未收到响应时重复消耗模型。无法确认已发送的微信消息仍沿用保守策略，不自动重发。
+
+## 网页语音
+
+`PetVoice` 独立于 DOM，通过 `getConfig`、`api`、`onState`、`onTranscript`、`onError` 与页面连接。`app.js` 负责状态呈现、草稿和原有 `/api/chat` 调用，语音对话仍使用 `web:owner` 的历史、记忆及消息幂等。不会从网页向微信会话代发语音或文字。
+
+状态依次为请求麦克风、听取本句、转写、等待回复、播放回复；播放结束再进入下一轮。浏览器识别使用 `SpeechRecognition` 或 `webkitSpeechRecognition`，服务端识别使用 `getUserMedia` + `MediaRecorder`，完成后提交 `/api/stt`。浏览器识别服务可能联网，其音频传输由浏览器实现负责，不经过本地 `/api/stt`。
+
+默认输入方式在已启用 STT 时选用该服务，否则选浏览器识别；输出方式同理优先 TTS，再使用 `speechSynthesis`。显式选择的服务不可用时报告错误，不在失败后静默切换提供方。`voice.language` 仅控制浏览器识别和系统合成语言，不新增服务端 STT/TTS 的请求参数。系统音色列表可能异步就绪，通过 `voiceschanged` 更新。浏览器音色可能来自本地或远程服务，不保证离线。
+
+麦克风与扬声器分时工作，不做唤醒词或全双工。每句录音最多 60 秒、8 MiB；实际 MIME 通过 `MediaRecorder.isTypeSupported` 选择，等待最终 `dataavailable` 和 `stop` 后再上传。服务端模式用 Web Audio 分析信号，检测到有效声音后按 `voice.silenceMs` 判断停顿；AudioContext 无法运行时依然可手动结束录音，60 秒上限保留。浏览器识别的句末判定由浏览器控制。
+
+每次开始产生新的 generation 和 AbortController；停止会使旧回调失效、取消请求、释放录音轨道和 Web Audio、停止播放并清理定时器与 Blob URL。麦克风授权晚于停止返回时立即释放轨道。页面隐藏、离开小窝、切换会话和退出触发清理。服务端通过响应连接关闭中止模型/媒体请求；停止不回滚此前已经成功保存的聊天。
+
+话筒输入只追加到草稿，语音对话则自动发送识别结果。`voice.autoSpeak` 默认为 false，只控制普通文字聊天的新回复；手动朗读和已经开始的语音对话可以播放。网页按最多 500 字符分段朗读完整回复；服务端 TTS 接口和微信既有单次限制保持不变。`voice.rate` 控制系统合成语速和 MP3 播放速度，`voice.pitch` 仅用于系统合成。
+
+语音配置校验后与已有配置一同持久化，读取旧文件时自动补默认值但不强制重写文件。新增配置不保存服务密钥；STT/TTS 密钥沿用原有隔离、脱敏规则。模拟测试覆盖控制流与取消竞态，真实识别准确率、音色及设备权限仍需要实机验证。
 
 ## 会话与记忆
 
@@ -48,7 +65,7 @@ v0.4.0 的默认运行路径没有 dsh 依赖。
 
 这一区分遵循显式随机令牌与自定义请求头的鉴权方式，来源校验用于保护未持有令牌的首页加载。参考 [OWASP 的令牌与 AJAX/API 请求头说明](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#transmitting-csrf-tokens-in-synchronized-patterns)。
 
-静态路由只有 `/`、`/app.js`、`/style.css`、`/assets/taolinghu.png`，不能请求任意磁盘文件；静态文件按 Buffer 返回，避免 PNG 经 UTF-8 解码损坏；`/favicon.ico` 返回空的 204。首页内嵌本次启动令牌，仍按私有路由校验来源。响应禁止缓存，CSP 禁止第三方脚本、iframe 和外部连接；用户和模型文字以 textContent 渲染。请求体限制 12 MiB，模型响应、媒体下载均有超时和大小限制。
+静态路由只有 `/`、`/app.js`、`/voice.js`、`/style.css`、`/assets/taolinghu.png`，不能请求任意磁盘文件；静态文件按 Buffer 返回，避免 PNG 经 UTF-8 解码损坏；`/favicon.ico` 返回空的 204。首页内嵌本次启动令牌，仍按私有路由校验来源。响应禁止缓存，CSP 禁止第三方脚本、iframe 和页面脚本的外部连接；用户和模型文字以 textContent 渲染。请求体限制 12 MiB，模型响应、媒体下载均有超时和大小限制。CSP 不代表浏览器自身的语音服务离线运行。
 
 兼容模型可使用公网 HTTPS 或本机 HTTP；不跟随重定向发送凭证。原微信/CDN 的目的域名校验不变。
 

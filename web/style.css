@@ -1027,3 +1027,33 @@ dialog p {
     transition:none!important
   }
 }
+
+.voice-bar {
+  margin:0 17px 12px;
+  padding:12px 14px;
+  border:1px solid #e4ebf7;
+  border-radius:14px;
+  background:#f7faff;
+  flex-shrink:0;
+}
+.voice-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.voice-actions button { font-size:11px; padding:8px 10px; color:#547ba8; }
+#voice-chat-button { background:#e8f0fc; border-color:#d4e2f5; }
+#voice-chat-button[aria-pressed="true"] { background:#fceceb; color:#ad635c; border-color:#f2d5d0; }
+#voice-status { margin:9px 0 0; font-size:11px; line-height:1.7; color:#8294ac; }
+#voice-transcript { margin:8px 0 0; font-size:12px; line-height:1.7; color:#526f93; max-height:64px; overflow:auto; overflow-wrap:anywhere; }
+.voice-bar[data-phase="listening"] { border-color:#9ec0df; background:#f0f7fd; }
+.voice-bar[data-phase="speaking"] { border-color:#b8cfc0; background:#f3f9f5; }
+.voice-bar[data-phase="listening"] #voice-status::before,
+.voice-bar[data-phase="speaking"] #voice-status::before {
+  content:''; display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:7px; background:#87b59c; animation:voice-pulse 1.4s ease-in-out infinite;
+}
+.pet-character.speaking { animation:voice-nod .9s ease-in-out infinite; }
+@keyframes voice-nod { 0%,100% { transform:translateY(0) rotate(-1deg); } 50% { transform:translateY(-4px) rotate(1deg); } }
+@keyframes voice-pulse { 50% { opacity:.35; } }
+@media (max-width:480px) {
+  .voice-bar { margin:0 12px 10px; padding:10px; }
+  .voice-actions { gap:6px; }
+  .voice-actions button { font-size:10px; }
+  .composer-tools #input-hint { max-width:130px; line-height:1.6; }
+}

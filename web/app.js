@@ -1,8 +1,10 @@
 const $ = selector => document.querySelector(selector);
 const token = $('meta[name="pet-token"]').content;
 const titles = { home: '欢迎回到小窝', memory: '我们的小小记忆', channels: '连接你的日常', settings: '让它更像你的小伙伴' };
-let state, scope = 'web:owner', page = 'home', attachment, pendingRequestId, sending = false, sleeping = false, recorder, recordTimer, toastTimer, lastUpdate = 0;
+let state, scope = 'web:owner', page = 'home', attachment, pendingRequestId, sending = false, sleeping = false, toastTimer, lastUpdate = 0;
 let historyRevision = 0, memoryRevision = 0;
+let voiceUI = { phase: 'idle', active: false, mode: null };
+let previewVoice;
 let avatarTimer, patTimer, petting = false, avatarKey, spriteFailed = false;
 const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
 // Original ChatGPT atlas: 8 columns, 11 rows, 192 x 208 pixels per cell.
@@ -19,6 +21,7 @@ function renderAvatar(force = false) {
   const selected = state?.config.pet.appearance || 'taolinghu';
   const appearance = selected === 'taolinghu' && !spriteFailed ? 'taolinghu' : 'blue-cat';
   const animation = sending ? 'thinking' : sleeping ? 'sleeping' : petting ? 'petting' : 'idle';
+  $('#pet-character').classList.toggle('speaking', voiceUI.phase === 'speaking');
   const playing = appearance === 'taolinghu' && page === 'home' && !document.hidden && !reducedMotion?.matches;
   const key = `${appearance}/${animation}/${playing}`;
   if (!force && avatarKey === key) return;
@@ -46,14 +49,14 @@ function spriteLoadFailed() {
 }
 $('#pet-sprite-sheet').addEventListener('error', spriteLoadFailed);
 if ($('#pet-sprite-sheet').complete && !$('#pet-sprite-sheet').naturalWidth) spriteLoadFailed();
-document.addEventListener('visibilitychange', () => renderAvatar());
+document.addEventListener('visibilitychange', () => { if (document.hidden) { voice.stop(); previewVoice?.stop(); } renderAvatar(); });
 reducedMotion?.addEventListener('change', () => renderAvatar());
-window.addEventListener('pagehide', () => { clearTimeout(avatarTimer); clearTimeout(patTimer); petting = false; $('#pet-character').classList.remove('patted'); avatarKey = undefined; });
+window.addEventListener('pagehide', () => { voice.stop(); previewVoice?.stop(); clearTimeout(avatarTimer); clearTimeout(patTimer); petting = false; $('#pet-character').classList.remove('patted'); avatarKey = undefined; });
 window.addEventListener('pageshow', () => renderAvatar(true));
 renderAvatar();
 
-async function api(path, data, binary = false) {
-  const response = await fetch(path, { mode: 'same-origin', credentials: 'omit', method: data === undefined ? 'GET' : 'POST', headers: { Authorization: `Bearer ${token}`, ...(data === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: data === undefined ? undefined : JSON.stringify(data) });
+async function api(path, data, binary = false, signal) {
+  const response = await fetch(path, { signal, mode: 'same-origin', credentials: 'omit', method: data === undefined ? 'GET' : 'POST', headers: { Authorization: `Bearer ${token}`, ...(data === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: data === undefined ? undefined : JSON.stringify(data) });
   if (!response.ok) {
     const result = await response.json().catch(() => ({}));
     throw new Error(result.error || `请求失败（${response.status}）`);
@@ -63,6 +66,7 @@ async function api(path, data, binary = false) {
 function toast(text) { $('#toast').textContent = text; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 4500); }
 function chatError(text) { $('#chat-error').textContent = text || ''; $('#chat-error').hidden = !text; }
 function showPage(next) {
+  voice.stop(); previewVoice?.stop();
   page = next;
   renderAvatar();
   document.querySelectorAll('.page').forEach(node => { node.hidden = node.id !== `page-${next}`; });
@@ -96,6 +100,7 @@ async function loadState(initial = false) {
   const updated = state.sessions.find(s => s.scope === scope)?.updated || 0;
   if (initial || (!sending && updated !== lastUpdate && page === 'home')) { lastUpdate = updated; await refreshHistory(); }
   if (initial) fillSettings();
+  renderVoice();
 }
 
 async function refreshHistory() {
@@ -120,9 +125,8 @@ async function refreshHistory() {
     bubble.append(document.createTextNode(msg.text)); item.append(bubble);
     if (msg.role === 'assistant') {
       const speak = el('button', 'read-aloud', '♩ 朗读'); speak.addEventListener('click', async () => {
-        speak.disabled = true;
-        try { const blob = await api('/api/tts', { text: msg.text }, true), url = URL.createObjectURL(blob), audio = new Audio(url); audio.onended = audio.onerror = () => URL.revokeObjectURL(url); await audio.play(); }
-        catch (e) { toast(e.message); } finally { speak.disabled = false; }
+        if (sending || voiceUI.active || ['requesting', 'listening', 'transcribing'].includes(voiceUI.phase)) return toast('请先结束当前语音对话或录音。');
+        try { await voice.speak(msg.text); } catch (e) { toast(e.message); }
       }); item.append(speak);
     }
     box.append(item);
@@ -131,30 +135,94 @@ async function refreshHistory() {
   const readOnly = scope !== 'web:owner';
   $('#session-caption').textContent = readOnly ? '微信 · 私聊记录（只读）' : '网页 · 主人';
   $('#chat-form').hidden = readOnly;
+  $('#voice-bar').hidden = readOnly && voiceUI.phase === 'idle';
+  $('#voice-chat-button').hidden = readOnly;
   if (readOnly) {
     const back = el('button', 'text-button', '返回网页聊天 →'); back.addEventListener('click', () => { scope = 'web:owner'; refreshHistory().catch(e => toast(e.message)); }); box.prepend(back);
   }
 }
 
-function setBusy(busy) {
-  sending = busy;
+function renderVoice() {
+  const { phase, active, mode } = voiceUI;
+  $('#voice-bar').hidden = scope !== 'web:owner' && phase === 'idle';
+  $('#voice-chat-button').hidden = scope !== 'web:owner';
+  const listening = phase === 'listening';
+  const captureBusy = ['requesting', 'listening', 'transcribing'].includes(phase);
+  const locked = sending || active || captureBusy;
+  for (const id of ['send-button', 'image-button', 'message-input', 'clear-chat', 'remove-image']) $(`#${id}`).disabled = locked;
+  $('#voice-button').disabled = sending || active || ['requesting', 'transcribing'].includes(phase);
+  $('#voice-button').classList.toggle('recording', listening);
+  $('#voice-button').setAttribute('aria-pressed', String(listening));
+  $('#voice-chat-button').disabled = !active && (sending || captureBusy || !state);
+  $('#voice-chat-button').textContent = active ? '■ 结束语音对话' : '♩ 开始语音对话';
+  $('#voice-chat-button').setAttribute('aria-pressed', String(active));
+  $('#voice-finish-button').hidden = !listening;
+  $('#voice-interrupt-button').hidden = !(active && phase === 'speaking');
+  $('#voice-stop-button').hidden = !(!active && phase !== 'idle');
+  $('#voice-stop-button').textContent = phase === 'speaking' ? '停止朗读' : '取消录音';
+  const labels = { idle: '说说今天的小事，让它用声音陪你。', requesting: '正在打开麦克风…', listening: '正在听你说，停顿后自动结束，也可点击「说完了」。', transcribing: '正在把声音变成文字…', thinking: '听到了，让我想一想…', speaking: '宠物正在说话…' };
+  $('#voice-status').textContent = labels[phase] || labels.idle;
+  if (listening && mode === 'dictation') $('#voice-status').textContent = '正在录音，再点一次话筒结束；识别后可编辑发送。';
+  $('#voice-bar').dataset.phase = phase;
+  $('#voice-transcript').textContent = voiceUI.text || '';
+  $('#voice-transcript').hidden = !voiceUI.text;
+  $('#input-hint').textContent = active ? '语音对话中 · 可随时结束' : captureBusy ? '正在使用麦克风' : 'Enter 发送 · Shift + Enter 换行';
+  $('.room').classList.toggle('busy', sending);
+  $('#pet-mood').textContent = phase === 'listening' ? '竖起耳朵听你说' : phase === 'speaking' ? '有话想对你说' : sending ? '正在认真想' : sleeping ? '打个小盹' : '在这里陪你';
+  $('#pet-bubble').textContent = phase === 'listening' ? '我在听呢，你说。' : phase === 'speaking' ? '轮到我啦～' : sending ? '让我想一想…' : '今天也很高兴见到你。';
+  $('#send-button').textContent = sending ? '…' : '↑';
   renderAvatar();
-  for (const id of ['send-button', 'image-button', 'voice-button', 'message-input', 'clear-chat', 'remove-image']) $(`#${id}`).disabled = busy;
-  $('.room').classList.toggle('busy', busy);
-  $('#pet-mood').textContent = busy ? '正在认真听你说' : sleeping ? '打个小盹' : '在这里陪你';
-  $('#pet-bubble').textContent = busy ? '让我想一想…' : '今天也很高兴见到你。';
-  $('#send-button').textContent = busy ? '…' : '↑';
 }
-$('#chat-form').addEventListener('submit', async event => {
-  event.preventDefault(); if (sending) return;
-  const text = $('#message-input').value.trim(); if (!text && !attachment) return;
+function setBusy(busy) { sending = busy; renderVoice(); }
+async function sendMessage(text, { signal, fromVoice = false } = {}) {
+  if (sending) throw new Error('正在回复上一条消息，请稍等。');
   chatError(''); setBusy(true);
   try {
     pendingRequestId ||= crypto.randomUUID();
-    await api('/api/chat', { scope: 'web:owner', text, attachment, requestId: pendingRequestId });
-    $('#message-input').value = ''; clearImage(); await refreshHistory();
-  } catch (e) { chatError(e.message); }
-  finally { setBusy(false); $('#message-input').focus(); }
+    const result = await api('/api/chat', { scope: 'web:owner', text, attachment: fromVoice ? undefined : attachment, requestId: pendingRequestId }, false, signal);
+    $('#message-input').value = ''; clearImage();
+    await refreshHistory();
+    return result.text;
+  } catch (e) {
+    if (e.name !== 'AbortError') chatError(e.message);
+    throw e;
+  } finally { setBusy(false); }
+}
+const voice = new window.PetVoice({
+  api, getConfig: () => state?.config || {},
+  onState: next => { voiceUI = next; renderVoice(); },
+  onError: error => { toast(error.message || String(error)); },
+  onTranscript: async (text, { mode, signal }) => {
+    pendingRequestId = undefined;
+    if (mode === 'dictation') {
+      const input = $('#message-input');
+      input.value = [input.value.trim(), text].filter(Boolean).join(' ').slice(0, 8000);
+      input.focus(); return;
+    }
+    $('#message-input').value = text;
+    return sendMessage(text, { signal, fromVoice: true });
+  },
+});
+$('#voice-chat-button').addEventListener('click', () => {
+  if (voiceUI.active) { voice.stop(); return; }
+  if (sending || !state || page !== 'home' || scope !== 'web:owner') return;
+  if ($('#message-input').value.trim() || attachment) return toast('请先发送或清空输入框和图片，再开始语音对话。');
+  sleeping = false; $('#pet-character').classList.remove('sleeping'); $('#sleep-button').textContent = '☾ 打个盹';
+  chatError(''); voice.startConversation();
+});
+$('#voice-button').addEventListener('click', () => { if (state && !sending && !voiceUI.active) voice.toggleDictation(); });
+$('#voice-finish-button').addEventListener('click', () => voice.finishListening());
+$('#voice-interrupt-button').addEventListener('click', () => voice.interrupt());
+$('#voice-stop-button').addEventListener('click', () => voice.stop());
+$('#chat-form').addEventListener('submit', async event => {
+  event.preventDefault(); if (sending || voiceUI.active || ['requesting', 'listening', 'transcribing'].includes(voiceUI.phase)) return;
+  const text = $('#message-input').value.trim(); if (!text && !attachment) return;
+  voice.stop();
+  try {
+    const reply = await sendMessage(text);
+    if (state.config.voice?.autoSpeak && page === 'home' && !document.hidden) await voice.speak(reply);
+  } catch (e) { if (e.name !== 'AbortError') chatError(e.message); }
+  finally { if (!voiceUI.active) $('#message-input').focus(); }
 });
 $('#message-input').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); $('#chat-form').requestSubmit(); } });
 $('#message-input').addEventListener('input', () => { pendingRequestId = undefined; });
@@ -172,36 +240,10 @@ $('#image-input').addEventListener('change', async () => {
 function clearImage() { pendingRequestId = undefined; attachment = undefined; $('#attachment-preview').hidden = true; $('#attachment-image').removeAttribute('src'); }
 $('#remove-image').addEventListener('click', clearImage);
 
-$('#voice-button').addEventListener('click', async () => {
-  if (recorder?.state === 'recording') { recorder.stop(); return; }
-  if (!state.config.stt.enabled) return toast('请先在设置中启用语音识别服务。');
-  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') return toast('此浏览器不支持录音，请使用新版 Chrome 或 Edge。');
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mimeType = ['audio/webm', 'audio/mp4', 'audio/ogg'].find(type => MediaRecorder.isTypeSupported(type));
-    if (!mimeType) throw new Error('浏览器没有可用的录音格式。');
-    const chunks = []; recorder = new MediaRecorder(stream, { mimeType });
-    recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
-    recorder.onstop = async () => {
-      clearTimeout(recordTimer); stream.getTracks().forEach(track => track.stop());
-      $('#voice-button').classList.remove('recording'); $('#input-hint').textContent = '正在识别录音…'; $('#voice-button').disabled = true;
-      try {
-        const blob = new Blob(chunks, { type: mimeType }); if (blob.size > 8 * 1024 * 1024) throw new Error('录音太大，请缩短后重试。');
-        const result = await api('/api/stt', { audio: (await dataUrl(blob)).split(',')[1], mediaType: mimeType });
-        pendingRequestId = undefined; $('#message-input').value = result.text; $('#message-input').focus();
-      } catch (e) { toast(e.message); }
-      finally { $('#voice-button').disabled = false; $('#input-hint').textContent = 'Enter 发送 · Shift + Enter 换行'; }
-    };
-    recorder.onerror = () => { stream.getTracks().forEach(track => track.stop()); clearTimeout(recordTimer); toast('录音失败，请检查麦克风。'); };
-    recorder.start(); recordTimer = setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 60000);
-    $('#voice-button').classList.add('recording'); $('#input-hint').textContent = '正在录音，再次点击结束（最长 60 秒）';
-  } catch (e) { stream?.getTracks().forEach(track => track.stop()); toast(e.name === 'NotAllowedError' ? '没有获得麦克风权限，请在浏览器中允许录音。' : e.message); }
-});
 
 function pat() { const pet = $('#pet-character'); pet.classList.remove('patted', 'sleeping'); sleeping = false; petting = true; clearTimeout(patTimer); $('#sleep-button').textContent = '☾ 打个盹'; void pet.offsetWidth; pet.classList.add('patted'); $('#pet-mood').textContent = '心情变好了'; $('#pet-bubble').textContent = '蹭蹭你的手，收到喜欢啦。'; renderAvatar(true); patTimer = setTimeout(() => { petting = false; pet.classList.remove('patted'); renderAvatar(); }, 1400); }
 $('#pet-character').addEventListener('click', pat); $('#pat-button').addEventListener('click', pat);
-$('#sleep-button').addEventListener('click', () => { sleeping = !sleeping; petting = false; clearTimeout(patTimer); $('#pet-character').classList.remove('patted'); $('#pet-character').classList.toggle('sleeping', sleeping); $('#sleep-button').textContent = sleeping ? '☀ 醒来啦' : '☾ 打个盹'; $('#pet-mood').textContent = sleeping ? '打个小盹' : '在这里陪你'; $('#pet-bubble').textContent = sleeping ? '呼噜…有话随时叫我。' : '精神满满，继续陪你。'; renderAvatar(); });
+$('#sleep-button').addEventListener('click', () => { voice.stop(); sleeping = !sleeping; petting = false; clearTimeout(patTimer); $('#pet-character').classList.remove('patted'); $('#pet-character').classList.toggle('sleeping', sleeping); $('#sleep-button').textContent = sleeping ? '☀ 醒来啦' : '☾ 打个盹'; $('#pet-mood').textContent = sleeping ? '打个小盹' : '在这里陪你'; $('#pet-bubble').textContent = sleeping ? '呼噜…有话随时叫我。' : '精神满满，继续陪你。'; renderAvatar(); });
 
 $('#clear-chat').addEventListener('click', () => $('#confirm-dialog').showModal());
 $('#cancel-clear').addEventListener('click', () => $('#confirm-dialog').close());
@@ -229,7 +271,7 @@ $('#memory-form').addEventListener('submit', async event => {
   try { await api('/api/memory/add', { scope: $('#memory-scope').value, text: $('#memory-input').value }); $('#memory-input').value = ''; await renderMemories(); }
   catch (e) { toast(e.message); } finally { button.disabled = false; }
 });
-$('#view-session').addEventListener('click', () => { scope = $('#memory-scope').value; showPage('home'); });
+$('#view-session').addEventListener('click', () => { voice.stop(); scope = $('#memory-scope').value; showPage('home'); });
 
 for (const [kind, label] of [['vision', '独立图片模型'], ['stt', '语音识别 STT'], ['tts', '语音合成 TTS']]) {
   const block = el('details', 'provider-block'); block.append(el('summary', '', label));
@@ -239,20 +281,54 @@ for (const [kind, label] of [['vision', '独立图片模型'], ['stt', '语音�
   }
   block.append(form); $('#optional-providers').append(block);
 }
+function fillBrowserVoices(selected = $('#browser-voice').value) {
+  const select = $('#browser-voice');
+  select.replaceChildren();
+  const automatic = el('option', '', '跟随对话语言'); automatic.value = ''; select.append(automatic);
+  for (const item of window.speechSynthesis?.getVoices() || []) {
+    const option = el('option', '', `${item.name} · ${item.lang}`); option.value = item.voiceURI || item.name; select.append(option);
+  }
+  if (selected && !Array.from(select.options).some(option => option.value === selected)) {
+    const unavailable = el('option', '', `${selected}（此设备暂不可用，将使用默认音色）`); unavailable.value = selected; select.append(unavailable);
+  }
+  select.value = selected;
+}
+window.speechSynthesis?.addEventListener('voiceschanged', () => fillBrowserVoices());
+$('#voice-preview-button').addEventListener('click', async () => {
+  if (!state) return;
+  const button = $('#voice-preview-button');
+  if (previewVoice?.phase === 'speaking') { previewVoice.stop(); return; }
+  const config = structuredClone(state.config);
+  for (const input of $('#settings-form').elements) {
+    const [kind, key] = (input.name || '').split('.');
+    if (kind !== 'voice') continue;
+    config.voice[key] = input.type === 'checkbox' ? input.checked : input.type === 'number' || input.hasAttribute('data-number') ? Number(input.value) : input.value;
+  }
+  previewVoice?.stop();
+  previewVoice = new window.PetVoice({ api, getConfig: () => config, onState: next => { button.textContent = next.phase === 'speaking' ? '停止试听' : '试听当前声音'; }, onError: e => toast(e.message || String(e)) });
+  try { await previewVoice.speak(`你好，我是${state.config.pet.name}。很高兴用声音陪你聊天。`); }
+  catch (e) { toast(e.message); }
+});
 function fillSettings() {
+  fillBrowserVoices(state.config.voice?.browserVoice || '');
   for (const input of $('#settings-form').elements) {
     if (!input.name) continue;
     const [kind, key] = input.name.split('.'); const value = key ? state.config[kind]?.[key] : state.config[kind];
     if (key === 'apiKey') { input.value = ''; input.placeholder = state.config[kind].keyFromEnvironment ? '正在使用环境变量；清空或替换需要修改环境变量' : state.config[kind].hasKey ? '已保存；留空保持不变' : '填写服务商 API Key'; }
     else if (input.type === 'checkbox') input.checked = Boolean(value);
-    else input.value = value ?? '';
+    else {
+      if (input.tagName === 'SELECT' && value !== undefined && !Array.from(input.options).some(option => option.value === String(value))) {
+        const option = el('option', '', String(value)); option.value = String(value); input.append(option);
+      }
+      input.value = value ?? '';
+    }
   }
   $('#model-key-hint').textContent = state.config.model.keyFromEnvironment ? '环境变量 PET_API_KEY 优先于配置文件' : '密钥保存在本机 pet.config.json，不会返回到页面或提交到 Git';
 }
 $('#settings-form').addEventListener('submit', async event => {
   event.preventDefault(); const patch = {}, button = event.submitter; button.disabled = true; $('#settings-result').textContent = '';
   for (const input of event.currentTarget.elements) {
-    if (!input.name) continue; const [kind, key] = input.name.split('.'), value = input.type === 'checkbox' ? input.checked : input.value;
+    if (!input.name) continue; const [kind, key] = input.name.split('.'), value = input.type === 'checkbox' ? input.checked : input.type === 'number' || input.hasAttribute('data-number') ? Number(input.value) : input.value;
     if (key) { patch[kind] ||= {}; patch[kind][key] = value; } else patch[kind] = value;
   }
   try { await api('/api/config', patch); await loadState(); fillSettings(); $('#settings-result').textContent = '已保存，形象已更新；人设和模型将在下次聊天生效'; }

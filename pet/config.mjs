@@ -10,6 +10,7 @@ export const defaults = {
   vision: { enabled: false, baseUrl: '', model: '', apiKey: '' },
   stt: { enabled: false, baseUrl: '', model: '', apiKey: '' },
   tts: { enabled: false, baseUrl: '', model: '', apiKey: '', voice: 'alloy' },
+  voice: { input: 'auto', output: 'auto', autoSpeak: false, language: 'zh-CN', browserVoice: '', rate: 1, pitch: 1, silenceMs: 1500 },
   replyAudio: 'voice',
 };
 
@@ -51,6 +52,22 @@ export function validateConfig(value) {
   c.model.supportsImages = value.model?.supportsImages ?? c.model.supportsImages;
   if (typeof c.model.supportsImages !== 'boolean') throw new BridgeError('图片能力应为布尔值。');
   c.tts.voice = string(value.tts?.voice ?? c.tts.voice, 200, '音色');
+  if (value.voice !== undefined) {
+    if (!value.voice || typeof value.voice !== 'object' || Array.isArray(value.voice)) throw new BridgeError('语音对话配置必须是对象。');
+    for (const key of Object.keys(c.voice)) if (value.voice[key] !== undefined) c.voice[key] = value.voice[key];
+  }
+  for (const key of ['input', 'output']) {
+    if (!['auto', 'browser', 'server'].includes(c.voice[key])) throw new BridgeError(`语音${key === 'input' ? '识别' : '播放'}方式不正确。`);
+  }
+  if (typeof c.voice.autoSpeak !== 'boolean') throw new BridgeError('自动朗读应为布尔值。');
+  c.voice.language = string(c.voice.language, 40, '语音语言');
+  try { c.voice.language = Intl.getCanonicalLocales(c.voice.language)[0]; }
+  catch { throw new BridgeError('语音语言须使用有效的语言代码，例如 zh-CN 或 en-US。'); }
+  c.voice.browserVoice = string(c.voice.browserVoice, 200, '浏览器音色', true);
+  for (const key of ['rate', 'pitch']) {
+    if (typeof c.voice[key] !== 'number' || !Number.isFinite(c.voice[key]) || c.voice[key] < 0.5 || c.voice[key] > 2) throw new BridgeError(`${key === 'rate' ? '语速' : '音调'}应为 0.5–2 之间的数字。`);
+  }
+  if (!Number.isInteger(c.voice.silenceMs) || c.voice.silenceMs < 500 || c.voice.silenceMs > 5000) throw new BridgeError('停顿时间应为 500–5000 毫秒的整数。');
   c.replyAudio = value.replyAudio ?? c.replyAudio;
   if (!['voice', 'always', 'off'].includes(c.replyAudio)) throw new BridgeError('语音回复模式错误。');
   return c;
@@ -87,6 +104,10 @@ export class Config {
       if (kind !== 'pet' && patch[kind].baseUrl && !patch[kind].apiKey && this.value[kind].baseUrl &&
           endpoint(patch[kind].baseUrl, '').origin !== endpoint(this.value[kind].baseUrl, '').origin) next[kind].apiKey = '';
       if (patch[kind].clearKey === true) next[kind].apiKey = '';
+    }
+    if (patch.voice !== undefined) {
+      if (!patch.voice || typeof patch.voice !== 'object' || Array.isArray(patch.voice)) throw new BridgeError('语音对话配置必须是对象。');
+      next.voice = { ...next.voice, ...patch.voice };
     }
     for (const key of ['port', 'replyAudio']) if (patch[key] !== undefined) next[key] = patch[key];
     const validated = validateConfig(next);
