@@ -1,6 +1,6 @@
 # 独立宠物架构
 
-v0.3.2 的默认运行路径没有 dsh 依赖。
+v0.4.0 的默认运行路径没有 dsh 依赖。
 
 ## 模块
 
@@ -48,9 +48,15 @@ v0.3.2 的默认运行路径没有 dsh 依赖。
 
 这一区分遵循显式随机令牌与自定义请求头的鉴权方式，来源校验用于保护未持有令牌的首页加载。参考 [OWASP 的令牌与 AJAX/API 请求头说明](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#transmitting-csrf-tokens-in-synchronized-patterns)。
 
-静态路由只有 `/`、`/app.js`、`/style.css`，不能请求任意磁盘文件；`/favicon.ico` 返回空的 204。首页内嵌本次启动令牌，仍按私有路由校验来源。响应禁止缓存，CSP 禁止第三方脚本、iframe 和外部连接；用户和模型文字以 textContent 渲染。请求体限制 12 MiB，模型响应、媒体下载均有超时和大小限制。
+静态路由只有 `/`、`/app.js`、`/style.css`、`/assets/taolinghu.png`，不能请求任意磁盘文件；静态文件按 Buffer 返回，避免 PNG 经 UTF-8 解码损坏；`/favicon.ico` 返回空的 204。首页内嵌本次启动令牌，仍按私有路由校验来源。响应禁止缓存，CSP 禁止第三方脚本、iframe 和外部连接；用户和模型文字以 textContent 渲染。请求体限制 12 MiB，模型响应、媒体下载均有超时和大小限制。
 
 兼容模型可使用公网 HTTPS 或本机 HTTP；不跟随重定向发送凭证。原微信/CDN 的目的域名校验不变。
+
+## 宠物外观
+
+`pet.appearance` 仅接受 `taolinghu` 和 `blue-cat`，缺省为桃铃狐；读取旧配置不写回文件，不改变已有名字和人设。原图是随项目提供的 8 × 11 动画图集；网页以 192 × 208 单格视窗、百分比偏移与逐帧时长播放，不请求 ChatGPT。帧表和原始文件散列见 `web/assets/README.md`。
+
+状态优先级为思考、休息、摸头、待机。切换状态会取消上一帧定时器，后台标签页、非小窝页面与减少动态效果停止定时播放；页面退出清理定时器。图片加载失败只临时回退 SVG 蓝猫，不改保存的选择。
 
 ## 生命周期
 
