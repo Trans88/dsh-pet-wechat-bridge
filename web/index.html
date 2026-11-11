@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#f5f6f9">
   <title>小蓝 · 你的 AI 宠物</title>
   <link rel="stylesheet" href="/style.css">
+  <script src="/voice.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
@@ -13,12 +14,13 @@
   <aside class="sidebar">
     <a class="brand" href="/" aria-label="宠物首页"><span class="brand-mark">p.</span><span>little pet<small>你的日常，有个小伙伴</small></span></a>
     <nav aria-label="主导航">
-      <button class="nav active" data-page="home"><span>◉</span>小窝</button>
+      <button class="nav active" data-page="home"><span>◉</span>小窝 <span id="home-unread" class="unread-badge" hidden></span></button>
+      <button class="nav" data-page="exploration"><span>✧</span>探索</button>
       <button class="nav" data-page="memory"><span>▤</span>记忆</button>
       <button class="nav" data-page="channels"><span>◎</span>连接</button>
       <button class="nav" data-page="settings"><span>⚙</span>设置</button>
     </nav>
-    <div class="sidebar-foot"><span class="online-dot"></span> 本地的小小世界<small>独立运行 · v0.4.0</small></div>
+    <div class="sidebar-foot"><span class="online-dot"></span> 本地的小小世界<small>独立运行 · v0.7.0</small></div>
   </aside>
   <main>
     <header class="topbar"><div><span class="eyebrow" id="date-label">A LITTLE COMPANY</span><h1 id="page-title">欢迎回到小窝</h1></div><span class="pill" id="model-status">正在连接…</span></header>
@@ -29,19 +31,30 @@
         <div class="room-heading"><span class="pill light"><span class="online-dot"></span><span id="pet-mood">在这里陪你</span></span><span class="room-number">YOUR LITTLE FRIEND / 01</span></div>
         <div class="pet-stage">
           <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="spark spark-one">✦</span><span class="spark spark-two">✧</span>
-          <div class="pet-bubble" id="pet-bubble">今天也很高兴见到你。</div>
+          <div class="pet-bubble" id="pet-bubble" role="status" aria-live="polite">今天也很高兴见到你。</div>
+          <div id="pet-effects" class="pet-effects" aria-hidden="true"></div>
           <button id="pet-character" aria-label="摸摸宠物" class="pet-character" data-appearance="taolinghu">
             <span id="pet-sprite" class="pet-sprite" role="img" aria-label="桃铃狐，粉发狐耳、金瞳的小伙伴"><img id="pet-sprite-sheet" src="/assets/taolinghu.png" width="1536" height="2288" alt="" draggable="false"></span>
             <svg id="pet-cat" hidden viewBox="0 0 320 320" role="img" aria-label="一只蓝色的圆滚滚小猫"><defs><linearGradient id="fur" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#a8d4ff"/><stop offset="1" stop-color="#609fe6"/></linearGradient><linearGradient id="belly" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f4fbff"/><stop offset="1" stop-color="#d3eaff"/></linearGradient></defs><ellipse cx="161" cy="281" rx="94" ry="15" fill="#b0c7e1" opacity=".3"/><g class="cat-body"><path d="M230 221 Q298 227 274 184 Q266 173 258 183" fill="none" stroke="#79afea" stroke-width="25" stroke-linecap="round"/><ellipse cx="164" cy="220" rx="77" ry="60" fill="url(#fur)"/><ellipse cx="164" cy="230" rx="49" ry="39" fill="url(#belly)"/><ellipse cx="117" cy="269" rx="26" ry="13" fill="#76ade9"/><ellipse cx="210" cy="269" rx="26" ry="13" fill="#76ade9"/><path d="M82 125 Q69 56 91 55 L129 82 Q164 73 197 84 L237 55 Q254 57 243 128" fill="url(#fur)"/><path d="M91 72 L101 110 L119 90Z" fill="#d8eaff"/><path d="M230 72 L207 91 L231 108Z" fill="#d8eaff"/><ellipse cx="162" cy="150" rx="94" ry="77" fill="url(#fur)"/><path d="M129 80 Q139 99 151 109 M161 78 L167 103 M191 83 L184 106" stroke="#73a8e2" stroke-width="8" fill="none" stroke-linecap="round"/><g class="eyes"><ellipse cx="127" cy="148" rx="8" ry="12" fill="#244c73"/><ellipse cx="198" cy="148" rx="8" ry="12" fill="#244c73"/><circle cx="129" cy="144" r="2.5" fill="white"/><circle cx="200" cy="144" r="2.5" fill="white"/></g><ellipse cx="107" cy="171" rx="15" ry="7" fill="#efb6c9" opacity=".65"/><ellipse cx="217" cy="171" rx="15" ry="7" fill="#efb6c9" opacity=".65"/><path d="M155 166 Q162 162 169 166 L162 172Z" fill="#3c6590"/><path d="M162 172 Q160 184 151 179 M162 172 Q164 184 173 179" stroke="#3c6590" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M84 160 L105 165 M82 178 L103 176 M223 166 L243 161 M224 177 L246 180" stroke="#5790cd" stroke-width="3" stroke-linecap="round"/><path d="M101 217 Q108 234 123 230 M222 216 Q216 235 204 230" fill="none" stroke="#5998da" stroke-width="7" stroke-linecap="round"/></g></svg>
           </button>
         </div>
         <div class="pet-profile"><span class="eyebrow">NICE TO MEET YOU</span><h2 id="pet-name">小蓝</h2><p id="pet-greeting">我在这里。今天想和我聊点什么？</p></div>
-        <div class="pet-actions"><button id="pat-button">♡ 摸摸头</button><button id="sleep-button">☾ 打个盹</button></div>
+        <div class="care-panel" aria-label="宠物状态">
+          <div class="bond-line"><span id="bond-label">初见的小伙伴</span><span>♡ <strong id="bond-value">0</strong></span></div>
+          <div class="care-meters"><label>心情 <span id="mood-value">70</span><progress id="mood-meter" max="100" value="70">70</progress></label><label>饱食 <span id="fullness-value">70</span><progress id="fullness-meter" max="100" value="70">70</progress></label><label>精力 <span id="energy-value">80</span><progress id="energy-meter" max="100" value="80">80</progress></label></div>
+        </div>
+        <div class="pet-actions"><button id="pat-button" data-interaction="pat">♡ 摸摸头</button><button data-interaction="feed">🍪 投喂</button><button data-interaction="hug">🫂 抱抱</button><button data-interaction="play">🧶 逗逗它</button><button data-interaction="dance">♫ 跳个舞</button><button id="sleep-button" data-interaction="sleep">☾ 打个盹</button></div>
+        <details class="care-diary"><summary>我们的互动小记</summary><ul id="care-journal"><li>摸摸头，留下今天的第一件小事。</li></ul></details>
         <div class="room-footer"><span>陪伴，从一句话开始</span><span>✧</span></div>
       </div>
       <div class="chat-card">
         <div class="chat-header"><div><h2>和我说说吧</h2><span id="session-caption">网页 · 主人</span></div><button class="icon-button" id="clear-chat" title="清空当前聊天记录" aria-label="清空当前聊天记录">↺</button></div>
         <div class="messages" id="messages" role="log" aria-live="polite"></div>
+        <div class="voice-bar" id="voice-bar">
+          <div class="voice-actions"><button type="button" id="voice-chat-button" aria-pressed="false">♩ 开始语音对话</button><button type="button" id="voice-finish-button" hidden>说完了</button><button type="button" id="voice-interrupt-button" hidden>打断，换我说</button><button type="button" id="voice-stop-button" hidden>停止朗读</button></div>
+          <p id="voice-status" role="status" aria-live="polite">说说今天的小事，让它用声音陪你。</p>
+          <p id="voice-transcript" hidden></p>
+        </div>
         <div id="chat-error" class="inline-error" role="alert" hidden></div>
         <form id="chat-form" class="composer">
           <div id="attachment-preview" hidden><img id="attachment-image" alt="待发送图片"><span>已添加图片</span><button type="button" id="remove-image" aria-label="移除图片">×</button></div>
@@ -49,6 +62,32 @@
           <div class="composer-tools"><div><button type="button" class="icon-button" id="image-button" title="添加图片" aria-label="添加图片">▧</button><button type="button" class="icon-button" id="voice-button" title="录音转文字" aria-label="录音转文字">♩</button><span id="input-hint">Enter 发送 · Shift + Enter 换行</span></div><button type="submit" id="send-button" class="send-button" aria-label="发送消息">↑</button></div>
           <input type="file" id="image-input" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
         </form>
+      </div>
+    </section>
+
+    <section id="page-exploration" class="page" hidden>
+      <div class="section-intro"><span class="eyebrow">A LITTLE CURIOSITY</span><h2>带着新鲜事，回来找你</h2><p>去小红书读一些感兴趣的图文。遇到值得聊的内容，就带着原文链接回小窝分享。</p></div>
+      <div class="exploration-summary surface"><div><span class="pill" id="exploration-status">尚未开启</span><p id="exploration-next">先连接小红书，再设置它的兴趣。</p></div><div class="exploration-count"><strong id="exploration-count">0 / 3</strong><span>今日主动分享</span></div></div>
+      <div class="exploration-grid">
+        <div>
+          <article class="surface exploration-panel"><div class="section-label"><span>01</span><h3>连接小红书</h3></div><p>打开独立的浏览器窗口，用你的小红书账号扫码。完成后回到这里检查登录。</p><span class="pill" id="xhs-status">未连接</span><p class="muted" id="xhs-message">首次登录、验证码和重新登录都由你在浏览器中完成。</p><div class="button-row"><button class="primary" id="xhs-login">打开小红书登录</button><button id="xhs-verify">检查登录</button></div><p class="muted">自动浏览默认在后台进行。遇到验证会暂停，可再次打开登录窗口处理。</p></article>
+          <article class="surface exploration-panel"><div class="section-label"><span>02</span><h3>它的探索节奏</h3></div>
+            <form id="exploration-form"><div class="form-grid">
+              <label class="field full">感兴趣的话题<textarea name="interests" rows="3" maxlength="450" placeholder="例如：数码科技、自然卷发型、周末散步" required></textarea><small>用逗号或换行分隔，最多 10 个；每轮轮换一个话题。</small></label>
+              <label class="field">探索间隔<select name="intervalMinutes"><option value="30">每 30 分钟</option><option value="60">每 1 小时</option><option value="120">每 2 小时</option><option value="240">每 4 小时</option><option value="1440">每 24 小时</option></select></label>
+              <label class="field">每天最多主动聊几次<input name="dailyLimit" type="number" min="1" max="10" required></label>
+              <label class="field">免打扰开始<input name="quietStart" type="time" required></label><label class="field">免打扰结束<input name="quietEnd" type="time" required></label>
+              <label class="field full">时区<input name="timeZone" placeholder="Asia/Shanghai" required><small>开始和结束设为相同时间可关闭免打扰。</small></label>
+              <label class="field full">使用的浏览器<select name="browser"><option value="auto">自动选择已安装的浏览器</option><option value="msedge">Microsoft Edge</option><option value="chrome">Google Chrome</option><option value="chromium">Chromium</option></select></label>
+              <label class="check full"><input name="headless" type="checkbox">自动探索时隐藏浏览器窗口</label>
+              <label class="check full exploration-consent"><input name="enabled" type="checkbox">允许自动探索，并在小窝主动找我聊天</label>
+            </div><p class="muted">每轮最多读 3 篇图文的文字。笔记摘录和网页聊天上下文会交给你配置的聊天模型；小红书登录状态留在本机。</p><div class="button-row"><button class="primary" type="submit">保存探索设置</button><span id="exploration-result" role="status"></span></div></form>
+          </article>
+        </div>
+        <div>
+          <article class="surface exploration-panel"><div class="section-label"><span>03</span><h3>此刻的小小动态</h3></div><div class="button-row"><button class="primary" id="exploration-run">现在去逛逛</button><button id="exploration-stop">停止并关闭自动探索</button></div><p class="muted">手动探索也遵守免打扰和聊天次数限制。刚聊完会等 10 分钟，连续两次分享未获回复时会安静至少 12 小时。</p><div id="exploration-events" class="exploration-events" role="log" aria-live="polite"></div></article>
+          <article class="surface exploration-panel"><div class="discovery-heading"><h3>探索手记</h3><button class="text-button" id="exploration-clear">清除手记</button></div><p class="muted">只记录实际读到的文字和来源；暂不理解笔记图片或视频。主动消息在「小窝」接收，微信主动推送尚未启用。</p><div id="exploration-notes"></div></article>
+        </div>
       </div>
     </section>
 
@@ -60,7 +99,19 @@
     <section id="page-channels" class="page" hidden>
       <div class="section-intro"><h2>换个地方，继续陪伴</h2><p>宠物的性格相同，聊天和记忆各自保存。</p></div>
       <div class="channel-grid"><article class="surface channel-card"><div class="channel-symbol green">微</div><h3>微信</h3><p>复用已绑定的微信 Bot 私聊，支持文字、图片和语音处理。</p><span class="pill" id="wechat-status">未连接</span><div class="button-row"><button class="primary" id="wechat-start">连接微信</button><button id="wechat-stop">断开</button><button id="wechat-login">重新扫码</button></div><p class="muted">换号请先断开，再重新扫码。若手机要求验证码，在启动程序的终端输入。</p><button class="text-button" id="qr-refresh">显示 / 刷新二维码</button><img id="wechat-qr" alt="微信登录二维码" hidden></article>
-      <article class="surface channel-card"><div class="channel-symbol blue">Q</div><h3>QQ</h3><p>计划通过 QQ 官方机器人接口接入私聊与群聊。</p><span class="pill">后续版本</span><p class="muted">本版尚未实现 QQ 通道；无需为此安装或启动 dsh 插件。</p></article></div>
+      <article class="surface channel-card qq-card"><div class="channel-symbol blue">Q</div><h3>QQ</h3><p>把小伙伴带进私聊和群里的 @ 对话。可以聊天，也能发 /抱抱、/投喂 和 /宠物。</p><span class="pill" id="qq-status">未连接</span><p class="inline-error" id="qq-error" role="status" hidden></p>
+        <form id="qq-form" class="qq-form">
+          <label class="field">机器人 AppID<input name="appId" inputmode="numeric" autocomplete="off" maxlength="30" placeholder="QQ 开放平台的 AppID"></label>
+          <label class="field">AppSecret<input name="appSecret" type="password" autocomplete="new-password" placeholder="填写机器人密钥"><small id="qq-secret-hint">密钥保存后不会回显</small></label>
+          <div class="form-grid"><label class="field">私聊范围<select name="directMode"><option value="allowlist">仅指定联系人</option><option value="open">所有可联系机器人的人</option><option value="disabled">关闭私聊</option></select></label><label class="field">群聊范围<select name="groupMode"><option value="disabled">关闭群聊</option><option value="allowlist">仅指定群，需 @</option><option value="open">所有已加入的群，需 @</option></select></label></div>
+          <details><summary>指定联系人和群</summary><label class="field">联系人 OpenID<textarea name="allowedUsers" rows="2" placeholder="每行一个；不是 QQ 号"></textarea></label><label class="field">群 OpenID<textarea name="allowedGroups" rows="2" placeholder="每行一个；不是群号"></textarea></label><p class="muted">先连接，再给机器人发一句话；下方会出现 OpenID，点击即可填入名单，保存后生效。</p></details>
+          <label class="check"><input name="sandbox" type="checkbox">使用开放平台沙箱环境</label><label class="check"><input name="autoConnect" type="checkbox">启动宠物时自动连接 QQ</label>
+          <button type="submit">保存 QQ 配置</button><span id="qq-result" role="status"></span>
+        </form>
+        <div class="button-row"><button class="primary" id="qq-start">连接 QQ</button><button id="qq-stop">断开</button></div>
+        <div id="qq-contacts" class="qq-contacts"></div>
+        <details class="qq-guide"><summary>第一次接入 QQ</summary><ol><li>到 <a href="https://q.qq.com/" target="_blank" rel="noreferrer">QQ 开放平台</a> 创建机器人并获取 AppID / AppSecret，启用所需的单聊或群聊能力。</li><li>按平台配置测试人员、测试群及 IP 白名单；接入方式选择 WebSocket。</li><li>保存配置，点击「连接 QQ」。若只允许指定联系人，发消息后把下方 OpenID 加入名单并保存。</li></ol><p class="muted">接入的是机器人账号。目前支持文字与宠物互动；图片、语音可使用网页或微信。平台实际权限以你的机器人后台为准。</p></details>
+      </article></div>
     </section>
 
     <section id="page-settings" class="page" hidden>
@@ -69,6 +120,16 @@
         <div class="surface settings-section"><div class="section-label"><span>01</span><h3>形象与人设</h3></div><div class="form-grid"><label class="field full">宠物形象<select name="pet.appearance"><option value="taolinghu">桃铃狐 · 粉发狐耳</option><option value="blue-cat">蓝猫 · 经典形象</option></select><small>保存后立即换装；名字和性格可以单独设置。</small></label><label class="field">名字<input name="pet.name" maxlength="200" required></label><label class="field">欢迎语<input name="pet.greeting" maxlength="200" required></label><label class="field full">性格与说话方式<textarea name="pet.persona" rows="4" maxlength="8000" required></textarea></label></div></div>
         <div class="surface settings-section"><div class="section-label"><span>02</span><h3>聊天模型</h3></div><p class="muted">使用 Chat Completions 兼容接口。Base URL 填接口前缀，例如 https://api.deepseek.com，或本机服务的 /v1 地址。</p><div class="form-grid"><label class="field">Base URL<input name="model.baseUrl" type="url" required></label><label class="field">模型名称<input name="model.model" required></label><label class="field full">API Key<input name="model.apiKey" type="password" autocomplete="new-password" placeholder="填写服务商 API Key"><small id="model-key-hint">密钥只保存在本机配置中</small></label><label class="check"><input name="model.supportsImages" type="checkbox">这个模型支持图片输入</label></div><p class="muted">勾选不能让文字模型获得看图能力；必须选择实际支持图片的模型。</p></div>
         <div class="surface settings-section"><div class="section-label"><span>03</span><h3>图片与声音</h3></div><p class="muted">可选配置。语音服务需支持兼容的 /audio/transcriptions 或 /audio/speech 接口，DeepSeek 聊天 API Key 不会自动开启语音。</p><div id="optional-providers"></div><label class="field">微信语音回复<select name="replyAudio"><option value="voice">仅对语音消息回复音频</option><option value="always">每次都回复音频</option><option value="off">只回复文字</option></select></label></div>
+        <div class="surface settings-section"><div class="section-label"><span>04</span><h3>语音对话</h3></div><p class="muted">点击小窝里的「开始语音对话」后，说完会自动发送，听完回复后继续下一轮。离开小窝、切到后台或点击结束，会关闭麦克风。</p><div class="form-grid">
+          <label class="field">语音识别<select name="voice.input"><option value="auto">自动：已配置 STT 优先，否则使用浏览器</option><option value="browser">浏览器识别</option><option value="server">已配置的 STT 服务</option></select></label>
+          <label class="field">宠物声音<select name="voice.output"><option value="auto">自动：已配置 TTS 优先，否则使用系统声音</option><option value="browser">系统声音</option><option value="server">已配置的 TTS 服务</option></select></label>
+          <label class="field">浏览器识别 / 系统朗读语言<select name="voice.language"><option value="zh-CN">普通话</option><option value="zh-TW">中文（台湾）</option><option value="en-US">英语</option><option value="ja-JP">日语</option></select></label>
+          <label class="field">系统音色<select name="voice.browserVoice" id="browser-voice"><option value="">跟随对话语言</option></select><small>可用音色取决于浏览器和操作系统；TTS 音色在上方服务设置中填写并保存后试听。</small></label>
+          <label class="field">语速（0.5–2）<input name="voice.rate" type="number" min="0.5" max="2" step="0.1" required></label>
+          <label class="field">系统声音音调（0.5–2）<input name="voice.pitch" type="number" min="0.5" max="2" step="0.1" required></label>
+          <label class="field">停顿多久发送（STT 录音模式）<select name="voice.silenceMs" data-number><option value="1000">1 秒</option><option value="1500">1.5 秒</option><option value="2000">2 秒</option><option value="3000">3 秒</option></select><small>浏览器识别模式由浏览器判断句子结束；也可以点击「说完了」。</small></label>
+          <label class="check"><input name="voice.autoSpeak" type="checkbox">文字聊天也自动朗读回复</label>
+        </div><p class="muted">浏览器识别可能使用浏览器厂商的联网服务，能否使用取决于浏览器、地区和网络；不可用时可配置独立 STT。系统声音无需另填 TTS 密钥。语音对话是轮流说话，宠物开口时暂停收音。</p><button type="button" id="voice-preview-button">试听当前声音</button></div>
         <div class="settings-save"><span id="settings-result" role="status"></span><button class="primary" type="submit">保存设置</button></div>
       </form>
     </section>
@@ -76,5 +137,6 @@
 </div>
 <div id="toast" role="status" hidden></div>
 <dialog id="confirm-dialog"><h3>清空这个会话的聊天记录？</h3><p>此操作不能撤销。单独保存的长期记忆会保留。</p><div class="button-row"><button id="cancel-clear">取消</button><button class="primary" id="confirm-clear">清空记录</button></div></dialog>
+<dialog id="exploration-clear-dialog"><h3>清除探索手记？</h3><p>将停止本轮探索，删除笔记摘录、探索动态和小窝中的主动分享。普通聊天、长期记忆与小红书登录保留；自动探索开关和每日限额不重置。</p><div class="button-row"><button id="exploration-clear-cancel">取消</button><button class="primary" id="exploration-clear-confirm">清除手记</button></div></dialog>
 </body>
 </html>

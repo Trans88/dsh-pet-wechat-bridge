@@ -32,5 +32,39 @@
     "apiKey": "",
     "voice": "alloy"
   },
-  "replyAudio": "voice"
+  "replyAudio": "voice",
+  "exploration": {
+    "enabled": false,
+    "interests": [
+      "数码科技",
+      "生活趣事"
+    ],
+    "intervalMinutes": 60,
+    "dailyLimit": 3,
+    "quietStart": "23:00",
+    "quietEnd": "09:00",
+    "timeZone": "Asia/Shanghai",
+    "browser": "auto",
+    "headless": true
+  },
+  "voice": {
+    "input": "auto",
+    "output": "auto",
+    "autoSpeak": false,
+    "language": "zh-CN",
+    "browserVoice": "",
+    "rate": 1,
+    "pitch": 1,
+    "silenceMs": 1500
+  },
+  "qq": {
+    "appId": "",
+    "appSecret": "",
+    "autoConnect": false,
+    "sandbox": false,
+    "directMode": "allowlist",
+    "allowedUsers": [],
+    "groupMode": "disabled",
+    "allowedGroups": []
+  }
 }

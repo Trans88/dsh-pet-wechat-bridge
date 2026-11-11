@@ -1,6 +1,10 @@
 // Test the dependency chain, not merely the existence of qrcode/package.json.
 // No network access and no files written.
 try {
+  const { chromium } = await import('playwright');
+  if (typeof chromium.launchPersistentContext !== 'function') throw new Error('missing browser driver');
+  const { QQBot } = await import('@tencent-connect/qqbot-nodejs');
+  if (typeof QQBot !== 'function') throw new Error('QQ SDK unavailable');
   const { default: QRCode } = await import('qrcode');
   const png = await QRCode.toBuffer('local-dependency-check', { width: 64 });
   if (!Buffer.isBuffer(png) || png.readUInt32BE(16) !== 64) throw new Error('invalid PNG');

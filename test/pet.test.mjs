@@ -279,7 +279,7 @@ test('private routes reject unknown tokens, ambient credentials, preflights and 
   f.store.remember('web:owner', 'PRIVATE-TEST-MEMORY');
   const routes = [
     ['GET', '/api/state'], ['GET', '/api/history'], ['GET', '/api/wechat/qr'],
-    ...['config', 'chat', 'history/clear', 'memory/add', 'memory/delete', 'stt', 'tts', 'wechat/start', 'wechat/login', 'wechat/stop'].map(path => ['POST', `/api/${path}`]),
+    ...['config', 'chat', 'history/clear', 'memory/add', 'memory/delete', 'stt', 'tts', 'wechat/start', 'wechat/login', 'wechat/stop', 'pet/interact', 'qq/start', 'qq/stop'].map(path => ['POST', `/api/${path}`]),
   ];
   for (const credentials of [{}, { Authorization: 'Bearer incorrect' }, { Authorization: `Bearer ${other.app.token}` }, { Cookie: `pet-token=${f.app.token}` }]) {
     for (const [method, path] of routes) {

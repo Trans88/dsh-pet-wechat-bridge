@@ -16,7 +16,7 @@ import { PetCore } from '../pet/core.mjs';
 import { createPetServer } from '../pet/server.mjs';
 
 async function until(predicate, label) {
-  for (let n = 0; n < 100; n++) { if (predicate()) return; await delay(10); }
+  for (let n = 0; n < 300; n++) { if (predicate()) return; await delay(10); }
   assert.fail(`UI did not reach expected state: ${label}`);
 }
 
@@ -45,6 +45,7 @@ test('web setup, text/image chat, memory management and error states work agains
   w.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
   w.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
   t.after(async () => { w.close(); app.abort(); await new Promise(resolve => app.server.close(resolve)); store.close(); rmSync(root, { recursive: true, force: true }); });
+  w.eval(readFileSync(join(root, 'web', 'voice.js'), 'utf8'));
   w.eval(readFileSync(join(root, 'web', 'app.js'), 'utf8'));
   await until(() => $('#model-status').textContent === '等待配置模型', 'initial setup');
   await until(() => $('[name="pet.name"]').value === '小蓝', 'settings populated');
@@ -104,14 +105,32 @@ test('web setup, text/image chat, memory management and error states work agains
   assert.equal($('#attachment-preview').hidden, true);
 
   $('#voice-button').click();
+  await until(() => $('#toast').textContent.includes('语音识别'), 'unsupported speech recognition is explained');
   assert.match($('#toast').textContent, /语音识别/);
-  $('#sleep-button').click(); assert.ok($('#pet-character').classList.contains('sleeping'));
+  $('#sleep-button').click(); await until(() => $('#pet-character').classList.contains('sleeping'), 'sleep state persisted');
   assert.equal($('#pet-character').dataset.animation, 'sleeping');
   assert.equal($('#pet-sprite-sheet').style.top, '-500%');
   assert.equal($('#pet-sprite-sheet').style.left, '-700%');
-  $('#pat-button').click(); assert.ok(!$('#pet-character').classList.contains('sleeping'));
+  await until(() => !$('#pat-button').disabled, 'interaction cooldown finished');
+  $('#pat-button').click(); await until(() => !$('#pet-character').classList.contains('sleeping'), 'pat wakes pet');
   assert.equal($('#pet-character').dataset.animation, 'petting');
   assert.equal($('#pet-sprite-sheet').style.top, '-300%');
+  assert.equal($('#bond-value').textContent, '1');
+  assert.match($('#care-journal').textContent, /摸摸头/);
+  await until(() => !$('#pat-button').disabled, 'pat finished');
+  $('[data-interaction="feed"]').click();
+  await until(() => Number($('#fullness-value').textContent) > 80, 'feeding updates fullness');
+  assert.equal($('#pet-character').dataset.interaction, 'feed');
+  assert.equal(calls.length, 2, 'pet interactions never call the model');
+  $('[data-page="channels"]').click();
+  $('#qq-form [name="appId"]').value = '123456';
+  $('#qq-form [name="appSecret"]').value = 'UI-QQ-SECRET';
+  $('#qq-form [name="allowedUsers"]').value = 'person1\nperson2';
+  $('#qq-form button[type="submit"]').click();
+  await until(() => $('#qq-result').textContent.includes('已保存'), 'QQ settings saved');
+  assert.equal(config.value.qq.appSecret, 'UI-QQ-SECRET');
+  assert.deepEqual(config.value.qq.allowedUsers, ['person1', 'person2']);
+  assert.equal($('#qq-form [name="appSecret"]').value, '', 'QQ secret never echoed');
 
   $('[data-page="memory"]').click();
   await until(() => $('#memory-list').textContent.includes('空的'), 'memory page');
@@ -157,7 +176,7 @@ test(`HTTP-loaded homepage can initialize, save settings and chat: ${label}`, as
   class Assets extends ResourceLoader {
     fetch(resource, options) {
       const path = new URL(resource).pathname;
-      if (!['/app.js', '/style.css'].includes(path)) return super.fetch(resource, options);
+      if (!['/app.js', '/voice.js', '/style.css'].includes(path)) return super.fetch(resource, options);
       const controller = new AbortController();
       const result = (async () => {
         // Exercise headers that previously made a public asset return 403 JSON.
@@ -183,7 +202,7 @@ test(`HTTP-loaded homepage can initialize, save settings and chat: ${label}`, as
   });
   const $ = selector => dom.window.document.querySelector(selector);
   await until(() => $('[name="pet.name"]').value === '小蓝', 'HTTP-loaded application initialized');
-  assert.deepEqual(loaded.sort(), ['/app.js', '/style.css']);
+  assert.deepEqual(loaded.sort(), ['/app.js', '/style.css', '/voice.js']);
   assert.ok(dom.window.document.styleSheets.length > 0);
   $('[data-page="settings"]').click();
   assert.equal($('#page-settings').hidden, false); assert.equal($('#page-home').hidden, true);
@@ -200,3 +219,201 @@ test(`HTTP-loaded homepage can initialize, save settings and chat: ${label}`, as
   assert.deepEqual(errors, []);
 });
 }
+
+// Mock only the browser's speech devices; chat/config/history still use the real
+// HTTP handlers, model adapter and SQLite store. No real microphone or API key.
+function speechDevices(w) {
+  const recognizers = [], spoken = [];
+  let cancelCount = 0;
+  class Recognition {
+    constructor() { this.running = false; this.aborted = false; recognizers.push(this); }
+    start() { this.running = true; queueMicrotask(() => { if (this.running) this.onstart?.(); }); }
+    stop() { this.running = false; queueMicrotask(() => this.onend?.()); }
+    abort() { this.aborted = true; this.stop(); }
+    final(text) {
+      this.onspeechstart?.();
+      const result = [{ transcript: text }]; result.isFinal = true;
+      this.onresult?.({ resultIndex: 0, results: [result] });
+      this.stop();
+    }
+  }
+  w.SpeechRecognition = Recognition;
+  w.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
+  w.speechSynthesis = {
+    getVoices: () => [{ name: '测试中文声音', voiceURI: 'test-zh-CN', lang: 'zh-CN' }],
+    addEventListener() {}, removeEventListener() {},
+    speak(utterance) { spoken.push(utterance); queueMicrotask(() => utterance.onstart?.()); },
+    cancel() { cancelCount++; },
+  };
+  return { recognizers, spoken, get cancelCount() { return cancelCount; } };
+}
+
+async function speechFixture(t) {
+  const root = mkdtempSync(join(tmpdir(), 'pet-ui-voice-'));
+  cpSync(new URL('../web', import.meta.url), join(root, 'web'), { recursive: true });
+  const config = new Config(root), store = new Store(root), calls = [];
+  config.update({ model: { baseUrl: 'https://model.example.test/v1' }, voice: { input: 'browser', output: 'browser' } });
+  const otherScope = `wechat:${'a'.repeat(64)}`;
+  store.ensure(otherScope, '微信测试会话');
+  store.append(otherScope, '微信里的问题', undefined, '微信里的回答');
+  const models = new Models(config, async (_url, options) => {
+    const request = JSON.parse(options.body); calls.push(request);
+    return new Response(JSON.stringify({ choices: [{ message: { content: `我听到了：${request.messages.at(-1).content}` } }] }), { headers: { 'Content-Type': 'application/json' } });
+  });
+  const core = new PetCore(config, store, models), app = createPetServer({ root, config, store, core, models });
+  await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
+  const url = `http://127.0.0.1:${app.server.address().port}`, html = await (await fetch(url)).text();
+  const errors = [], console = new VirtualConsole(); console.on('jsdomError', error => errors.push(error.message));
+  const dom = new JSDOM(html, { url, runScripts: 'outside-only', pretendToBeVisual: true, virtualConsole: console });
+  const w = dom.window, $ = selector => w.document.querySelector(selector), devices = speechDevices(w);
+  w.fetch = (path, options) => fetch(new URL(path, url), options);
+  w.setInterval = () => 0; w.crypto.randomUUID = randomUUID;
+  w.structuredClone = structuredClone;
+  // Native fetch requires its own realm's AbortSignal. Production browser fetch
+  // and the controller naturally share a realm; jsdom and Node's fetch do not.
+  w.AbortController = AbortController; w.AbortSignal = AbortSignal;
+  t.after(async () => {
+    w.dispatchEvent(new w.Event('pagehide')); app.abort();
+    await new Promise(resolve => app.server.close(resolve));
+    await delay(0); w.close(); store.close(); rmSync(root, { recursive: true, force: true });
+  });
+  w.eval(readFileSync(join(root, 'web', 'voice.js'), 'utf8'));
+  w.eval(readFileSync(join(root, 'web', 'app.js'), 'utf8'));
+  await until(() => $('[name="pet.name"]').value === '小蓝', 'voice UI initialized');
+  return { root, config, store, models, core, calls, w, $, devices, errors, otherScope };
+}
+
+test('voice conversation sends one transcript, speaks its reply and listens again; interruption and ending cleanly stop it', async t => {
+  const { $, store, calls, devices, errors } = await speechFixture(t);
+  assert.equal(devices.recognizers.length, 0, 'opening the page must never start the microphone');
+  assert.equal(devices.spoken.length, 0);
+  $('#voice-chat-button').click();
+  await until(() => $('#voice-bar').dataset.phase === 'listening', 'first microphone turn');
+  assert.equal($('#voice-chat-button').getAttribute('aria-pressed'), 'true');
+  assert.equal($('#send-button').disabled, true, 'text sending is locked during a voice conversation');
+  assert.equal($('#voice-finish-button').hidden, false);
+  const first = devices.recognizers[0]; first.final('今天有点累');
+  await until(() => devices.spoken.length === 1, 'reply begins speaking').catch(error => {
+    t.diagnostic(`phase=${$('#voice-bar').dataset.phase}; toast=${$('#toast').textContent}; chat=${$('#chat-error').textContent}`); throw error;
+  });
+  assert.equal(first.running, false, 'microphone ends before reply playback');
+  assert.equal(calls.length, 1);
+  assert.equal(store.history('web:owner')[0].text, '今天有点累');
+  assert.equal(devices.spoken[0].text, '我听到了：今天有点累');
+  assert.equal($('#voice-interrupt-button').hidden, false);
+  assert.equal($('#pet-character').classList.contains('speaking'), true);
+  devices.spoken[0].onend();
+  await until(() => devices.recognizers.length === 2 && $('#voice-bar').dataset.phase === 'listening', 'next microphone turn');
+  devices.recognizers[1].final('陪我说说话');
+  await until(() => devices.spoken.length === 2, 'second reply begins speaking');
+  $('#voice-interrupt-button').click();
+  await until(() => devices.recognizers.length === 3 && $('#voice-bar').dataset.phase === 'listening', 'interruption starts a new microphone turn');
+  assert.ok(devices.cancelCount > 0, 'interrupt cancels current speech');
+  const last = devices.recognizers.at(-1), lateResult = last.onresult, lateEnd = last.onend;
+  $('#voice-chat-button').click();
+  assert.equal(last.aborted, true);
+  assert.equal($('#voice-chat-button').getAttribute('aria-pressed'), 'false');
+  assert.equal($('#voice-bar').dataset.phase, 'idle');
+  assert.equal($('#send-button').disabled, false);
+  const late = [{ transcript: '停止后不应发送' }]; late.isFinal = true;
+  lateResult({ results: [late] }); lateEnd();
+  await delay(400);
+  assert.equal(calls.length, 2);
+  assert.equal(devices.recognizers.length, 3, 'stopped conversation must never automatically resume');
+  assert.equal(store.history('web:owner').length, 4);
+  assert.deepEqual(errors, []);
+});
+
+test('voice input preserves a text draft, page changes stop capture, and non-web history has no voice controls', async t => {
+  const { $, w, devices, calls, otherScope, errors } = await speechFixture(t);
+  $('#message-input').value = '原来的草稿';
+  $('#voice-chat-button').click();
+  assert.equal(devices.recognizers.length, 0, 'conversation start must not discard an existing draft');
+  assert.match($('#toast').textContent, /输入框/);
+  $('#voice-button').click();
+  await until(() => $('#voice-bar').dataset.phase === 'listening', 'dictation starts');
+  devices.recognizers[0].final('补充一句');
+  await until(() => $('#voice-bar').dataset.phase === 'idle', 'dictation fills draft');
+  assert.equal($('#message-input').value, '原来的草稿 补充一句');
+  assert.equal(calls.length, 0, 'dictation must wait for explicit sending');
+  $('#message-input').value = '';
+  $('#voice-chat-button').click();
+  await until(() => $('#voice-bar').dataset.phase === 'listening', 'conversation restarted');
+  $('[data-page="settings"]').click();
+  assert.equal(devices.recognizers.at(-1).aborted, true);
+  assert.equal($('#voice-bar').dataset.phase, 'idle');
+  $('[data-page="home"]').click();
+  $('#voice-chat-button').click();
+  await until(() => $('#voice-bar').dataset.phase === 'listening', 'conversation before hiding tab');
+  Object.defineProperty(w.document, 'hidden', { configurable: true, value: true });
+  w.document.dispatchEvent(new w.Event('visibilitychange'));
+  assert.equal(devices.recognizers.at(-1).aborted, true);
+  assert.equal($('#voice-bar').dataset.phase, 'idle');
+  Object.defineProperty(w.document, 'hidden', { configurable: true, value: false });
+  $('[data-page="memory"]').click();
+  $('#memory-scope').value = otherScope; $('#view-session').click();
+  await until(() => $('#chat-form').hidden && $('#messages').textContent.includes('微信里的回答'), 'read-only channel history loaded');
+  assert.equal($('#voice-bar').hidden, true);
+  assert.equal($('#voice-chat-button').hidden, true);
+  assert.equal($('#chat-form').hidden, true);
+  assert.match($('#messages').textContent, /微信里的回答/);
+  assert.deepEqual(errors, []);
+});
+
+test('text auto-speech is opt-in, saved voice settings reach playback, and stopping speech leaves the reply visible', async t => {
+  const { $, config, devices, store, errors } = await speechFixture(t);
+  $('#message-input').value = '先用文字聊'; $('#send-button').click();
+  await until(() => store.history('web:owner').length === 2 && !$('#send-button').disabled, 'text-only reply');
+  assert.equal(devices.spoken.length, 0, 'text replies are silent by default');
+  $('[data-page="settings"]').click();
+  $('[name="voice.autoSpeak"]').checked = true;
+  $('[name="voice.rate"]').value = '1.2';
+  $('[name="voice.pitch"]').value = '1.1';
+  $('[name="voice.browserVoice"]').value = 'test-zh-CN';
+  $('#settings-form button[type="submit"]').click();
+  await until(() => $('#settings-result').textContent.includes('已保存'), 'voice settings saved');
+  assert.equal(config.value.voice.autoSpeak, true);
+  assert.equal(config.value.voice.rate, 1.2);
+  $('[data-page="home"]').click();
+  $('#message-input').value = '现在请说出来'; $('#send-button').click();
+  await until(() => devices.spoken.length === 1, 'text reply auto-speech');
+  const utterance = devices.spoken[0];
+  assert.equal(utterance.text, '我听到了：现在请说出来');
+  assert.equal(utterance.rate, 1.2); assert.equal(utterance.pitch, 1.1);
+  assert.equal(utterance.voice.voiceURI, 'test-zh-CN');
+  assert.equal($('#voice-stop-button').hidden, false);
+  $('#voice-stop-button').click();
+  await until(() => $('#voice-bar').dataset.phase === 'idle', 'speech cancelled');
+  assert.ok(devices.cancelCount > 0);
+  assert.match($('#messages').textContent, /我听到了：现在请说出来/);
+  assert.equal(store.history('web:owner').length, 4);
+  assert.equal(devices.recognizers.length, 0, 'automatic reading never activates the microphone');
+  assert.deepEqual(errors, []);
+});
+
+test('navigating away while a voice reply is pending cancels it and ignores a late provider response', async t => {
+  let releaseReply, modelSignal;
+  t.after(() => releaseReply?.());
+  const { $, devices, models, core, errors } = await speechFixture(t);
+  models.fetcher = async (_url, options) => {
+    modelSignal = options.signal;
+    await new Promise(resolve => { releaseReply = resolve; });
+    // Deliberately simulate a provider that finishes despite cancellation.
+    return new Response(JSON.stringify({ choices: [{ message: { content: '已经结束的对话不应朗读这一句' } }] }), { headers: { 'Content-Type': 'application/json' } });
+  };
+  $('#voice-chat-button').click();
+  await until(() => $('#voice-bar').dataset.phase === 'listening', 'voice capture begins');
+  devices.recognizers[0].final('等一下再回答');
+  await until(() => Boolean(releaseReply) && $('#voice-bar').dataset.phase === 'thinking', 'provider request starts');
+  $('[data-page="settings"]').click();
+  assert.equal($('#voice-bar').dataset.phase, 'idle');
+  await until(() => modelSignal.aborted, 'navigation abort reaches the model request');
+  releaseReply();
+  await until(() => core.pending.size === 0, 'late provider response settles');
+  await delay(400);
+  assert.equal(devices.spoken.length, 0, 'a stopped conversation must not speak a late reply');
+  assert.equal(devices.recognizers.length, 1, 'a stopped conversation must not start another listening turn');
+  assert.equal($('#page-settings').hidden, false);
+  assert.equal($('#voice-chat-button').getAttribute('aria-pressed'), 'false');
+  assert.deepEqual(errors, []);
+});

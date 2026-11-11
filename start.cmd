@@ -10,10 +10,10 @@ if errorlevel 1 (
 )
 node dependency-check.mjs >nul 2>nul
 if errorlevel 1 (
-  echo 二维码依赖缺失或不完整，正在通过 npm 官方源重新安装……
+  echo 运行依赖缺失或不完整，正在通过 npm 官方源重新安装……
   call npm ci --omit=dev --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
   if errorlevel 1 (
-    echo 依赖安装失败。请重新下载包含 node_modules 的完整修正版，解压后运行。
+    echo 依赖安装失败。请检查网络，或在此目录执行 npm ci 后重新运行。
     pause
     exit /b 1
   )

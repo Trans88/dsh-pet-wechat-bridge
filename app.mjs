@@ -7,6 +7,9 @@ import { Store } from './pet/store.mjs';
 import { Models } from './pet/model.mjs';
 import { PetCore } from './pet/core.mjs';
 import { createPetServer } from './pet/server.mjs';
+import { XiaohongshuExplorer } from './pet/explorer.mjs';
+import { Autonomy } from './pet/autonomy.mjs';
+import { QQBridge } from './pet/qq.mjs';
 import { BridgeError, saveJSONFile } from './lib.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -51,20 +54,28 @@ if (command === 'check') {
   console.log(`聊天模型：${config.value.model.model}；API Key：${config.provider('model').apiKey ? '已配置' : '未配置（本机模型可以不需要）'}`);
   console.log(`图片：${config.value.model.supportsImages || config.value.vision.enabled ? '已配置能力，请用实际图片验证' : '未开启'}；STT：${config.value.stt.enabled ? '已启用' : '未启用'}；TTS：${config.value.tts.enabled ? '已启用' : '未启用'}`);
   console.log('不依赖 dsh 或 dsh-pet；此检查不调用模型、不发送消息。');
+  console.log(`自主探索：${config.value.exploration.enabled ? '已开启' : '未开启'}；登录及频率设置在网页「探索」。`);
+  console.log(`QQ：${config.qqCredentials().appId && config.qqCredentials().appSecret ? '凭据已配置，连接后才能验证' : '未配置'}；互动：摸头、投喂、抱抱、玩耍、跳舞、睡觉。`);
 } else if (command === 'start') {
   const store = new Store(root), models = new Models(config), core = new PetCore(config, store, models), wechat = new WechatProcess();
-  const app = createPetServer({ root, config, store, core, models, wechat });
+  const explorer = new XiaohongshuExplorer(root, config), autonomy = new Autonomy({ config, store, core, models, explorer });
+  const qq = new QQBridge({ config, store, core });
+  const app = createPetServer({ root, config, store, core, models, wechat, autonomy, qq });
   const runtimePath = join(root, 'data', 'pet-runtime.json');
   try {
     await new Promise((resolve, reject) => { app.server.once('error', reject); app.server.listen(config.value.port, '127.0.0.1', resolve); });
     const url = `http://127.0.0.1:${config.value.port}`;
     saveJSONFile(runtimePath, { url, token: app.token, pid: process.pid });
-    console.log(`\nLittle Pet · 独立 AI 宠物 v0.4.0\n打开 ${url}\n首次使用：进入设置，填写模型 API Key。微信通道可在网页中连接。\n按 Ctrl+C 停止。`);
+    console.log(`\nLittle Pet · 独立 AI 宠物 v0.7.0\n打开 ${url}\n首次使用：进入设置，填写模型 API Key。自主浏览请进入「探索」扫码登录并开启。\n按 Ctrl+C 停止。`);
+    autonomy.start();
+    if (config.value.qq.autoConnect) qq.start().catch(e => console.error(e.message));
     if (!process.argv.includes('--no-open')) openBrowser(url);
     let stopping = false;
     const stop = async () => {
       if (stopping) return; stopping = true;
       app.abort();
+      await autonomy.stop();
+      await qq.stop();
       await wechat.stop();
       await new Promise(resolve => app.server.close(resolve));
       store.close();

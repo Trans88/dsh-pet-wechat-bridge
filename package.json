@@ -1,22 +1,25 @@
 {
   "name": "little-pet",
-  "version": "0.4.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
-  "description": "Independent AI companion with a local web app, persistent memory and Weixin bridge",
+  "description": "Independent AI companion with pet interactions, persistent memory, Weixin and official QQ channels",
   "engines": {
     "node": ">=22.13.0"
   },
   "scripts": {
     "start": "node app.mjs start",
     "check": "node app.mjs check",
+    "browser:install": "playwright install chromium",
     "login": "node bridge.mjs login",
     "test": "node --test test/*.test.mjs",
     "wechat": "node bridge.mjs start",
     "legacy:wechat": "node bridge.mjs start --legacy"
   },
   "dependencies": {
+    "@tencent-connect/qqbot-nodejs": "1.0.5",
     "jpeg-js": "0.4.4",
+    "playwright": "1.65.0",
     "pngjs": "5.0.0",
     "qrcode": "1.5.4",
     "silk-wasm": "3.7.1"
