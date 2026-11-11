@@ -1,6 +1,6 @@
 # 独立宠物架构
 
-v0.3.1 的默认运行路径没有 dsh 依赖。
+v0.3.2 的默认运行路径没有 dsh 依赖。
 
 ## 模块
 
@@ -42,7 +42,11 @@ v0.3.1 的默认运行路径没有 dsh 依赖。
 
 ## HTTP 边界
 
-服务只监听 IPv4 loopback。Host 必须匹配当前端口的 `localhost` / `127.0.0.1`，首页和 API 的 Origin 需同源，跨站/仅同站的 Fetch Metadata 请求被拒绝；Origin 为 null 时须同时明确标记 same-origin。公开 JS、CSS 使用精确静态文件白名单，不套用 API 的来源校验；Host 校验始终生效。网页通过启动时随机令牌调用 API，微信子进程从本机 `data/pet-runtime.json` 读取。重启后令牌失效。
+服务只监听 IPv4 loopback。所有请求的 Host 必须匹配当前端口的 `localhost` / `127.0.0.1`。公开 JS、CSS 使用精确文件白名单；含令牌的首页与不含用户数据的 `/api/health` 继续校验 Origin/Fetch Metadata，拒绝外站来源和仅同站请求；Origin 为 null 时须同时明确标记 same-origin。
+
+其他接口一律要求 `Authorization: Bearer <本次启动的 32 字节随机令牌>`，使用常量时间比较。已经持有正确令牌的请求不再被 Origin/Fetch Metadata 二次否决，兼容来源头缺失、null 或被改写的环境。接口不使用 Cookie、URL 查询参数或来源头作为授权凭据；不返回 CORS 允许头，浏览器跨域预检无法通过，普通跨站请求也无法携带正确令牌。网页 fetch 限制为 same-origin 并省略 Cookie。微信子进程从本机 `data/pet-runtime.json` 读取令牌；重启后旧令牌失效。不要在后续改动中开放 CORS 或引入隐式 Cookie 鉴权而不重新评估这一边界。
+
+这一区分遵循显式随机令牌与自定义请求头的鉴权方式，来源校验用于保护未持有令牌的首页加载。参考 [OWASP 的令牌与 AJAX/API 请求头说明](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#transmitting-csrf-tokens-in-synchronized-patterns)。
 
 静态路由只有 `/`、`/app.js`、`/style.css`，不能请求任意磁盘文件；`/favicon.ico` 返回空的 204。首页内嵌本次启动令牌，仍按私有路由校验来源。响应禁止缓存，CSP 禁止第三方脚本、iframe 和外部连接；用户和模型文字以 textContent 渲染。请求体限制 12 MiB，模型响应、媒体下载均有超时和大小限制。
 

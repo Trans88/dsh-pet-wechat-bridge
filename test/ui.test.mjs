@@ -97,10 +97,18 @@ test('web setup, text/image chat, memory management and error states work agains
   assert.deepEqual(errors, []);
 });
 
-test('homepage loads its own HTTP scripts and styles before settings can be opened and saved', async t => {
+for (const [label, sourceHeaders] of [
+  ['opaque origin with same-origin metadata', { Origin: 'null', 'Sec-Fetch-Site': 'same-origin' }],
+  ['opaque origin without metadata', { Origin: 'null' }],
+  ['opaque origin with cross-site metadata', { Origin: 'null', 'Sec-Fetch-Site': 'cross-site' }],
+  ['rewritten origin with same-site metadata', { Origin: 'https://rewritten.test', 'Sec-Fetch-Site': 'same-site' }],
+]) {
+test(`HTTP-loaded homepage can initialize, save settings and chat: ${label}`, async t => {
   const root = mkdtempSync(join(tmpdir(), 'pet-ui-load-'));
   cpSync(new URL('../web', import.meta.url), join(root, 'web'), { recursive: true });
-  const config = new Config(root), store = new Store(root), models = new Models(config), core = new PetCore(config, store, models);
+  const config = new Config(root), store = new Store(root);
+  const models = new Models(config, async () => new Response(JSON.stringify({ choices: [{ message: { content: '本地接口测试回复' } }] }), { headers: { 'Content-Type': 'application/json' } }));
+  const core = new PetCore(config, store, models);
   const app = createPetServer({ root, config, store, models, core });
   await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
   const url = `http://127.0.0.1:${app.server.address().port}`;
@@ -128,8 +136,9 @@ test('homepage loads its own HTTP scripts and styles before settings can be open
   dom = await JSDOM.fromURL(url, {
     runScripts: 'dangerously', resources: new Assets(), pretendToBeVisual: true, virtualConsole: console,
     beforeParse(w) {
-      w.fetch = (path, options = {}) => fetch(new URL(path, url), { ...options, headers: { ...options.headers, Origin: 'null', 'Sec-Fetch-Site': 'same-origin' } });
+      w.fetch = (path, options = {}) => fetch(new URL(path, url), { ...options, headers: { ...options.headers, ...sourceHeaders } });
       w.setInterval = () => 0;
+      w.crypto.randomUUID = randomUUID;
     },
   });
   const $ = selector => dom.window.document.querySelector(selector);
@@ -139,8 +148,15 @@ test('homepage loads its own HTTP scripts and styles before settings can be open
   $('[data-page="settings"]').click();
   assert.equal($('#page-settings').hidden, false); assert.equal($('#page-home').hidden, true);
   $('[name="pet.name"]').value = '正常加载的小蓝';
+  $('[name="model.apiKey"]').value = 'HTTP-UI-TEST-KEY';
   $('#settings-form button[type="submit"]').click();
   await until(() => $('#settings-result').textContent.includes('已保存'), 'settings saved after resource load');
   assert.equal(config.value.pet.name, '正常加载的小蓝');
+  $('[data-page="home"]').click();
+  $('#message-input').value = '你好'; $('#send-button').click();
+  await until(() => store.history('web:owner').length === 2 && !$('#send-button').disabled, 'chat completed after resource load');
+  assert.match($('#messages').textContent, /本地接口测试回复/);
+  assert.equal($('#chat-error').hidden, true);
   assert.deepEqual(errors, []);
 });
+}
