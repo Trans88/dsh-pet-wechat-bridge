@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { BridgeError } from '../lib.mjs';
+import { findSticker } from './stickers.mjs';
 
 export function validScope(value) {
   if (typeof value !== 'string' || !/^(web:owner|wechat:[a-f0-9]{64}|qq:(direct|group):[a-zA-Z0-9_-]{1,128})$/.test(value)) throw new BridgeError('会话标识无效。');
@@ -26,9 +27,10 @@ export class Store {
     const columns = this.db.prepare('PRAGMA table_info(messages)').all().map(c => c.name);
     if (!columns.includes('origin')) this.db.exec("ALTER TABLE messages ADD COLUMN origin TEXT NOT NULL DEFAULT 'chat'");
     if (!columns.includes('sources')) this.db.exec('ALTER TABLE messages ADD COLUMN sources TEXT');
+    if (!columns.includes('sticker')) this.db.exec('ALTER TABLE messages ADD COLUMN sticker TEXT');
     if (!this.db.prepare('PRAGMA table_info(exploration_notes)').all().some(c => c.name === 'reviewed')) this.db.exec('ALTER TABLE exploration_notes ADD COLUMN reviewed INTEGER NOT NULL DEFAULT 0');
     if (!this.db.prepare('PRAGMA table_info(exploration_notes)').all().some(c => c.name === 'observation')) this.db.exec('ALTER TABLE exploration_notes ADD COLUMN observation TEXT');
-    this.db.exec('PRAGMA user_version=3');
+    this.db.exec('PRAGMA user_version=4');
   }
   ensure(scope, label) {
     validScope(scope);
@@ -37,7 +39,7 @@ export class Store {
   sessions() { return this.db.prepare('SELECT * FROM sessions ORDER BY updated DESC').all(); }
   history(scope, limit = 100) {
     validScope(scope);
-    return this.db.prepare('SELECT * FROM (SELECT id, role, text, image, created, origin, sources FROM messages WHERE scope=? ORDER BY id DESC LIMIT ?) ORDER BY id').all(scope, limit)
+    return this.db.prepare('SELECT * FROM (SELECT id, role, text, image, created, origin, sources, sticker FROM messages WHERE scope=? ORDER BY id DESC LIMIT ?) ORDER BY id').all(scope, limit)
       .map(row => ({ ...row, image: row.image ? JSON.parse(row.image) : undefined, sources: row.sources ? JSON.parse(row.sources) : undefined }));
   }
   cached(scope, requestId) { return requestId ? this.db.prepare('SELECT reply FROM requests WHERE scope=? AND request_id=?').get(scope, requestId)?.reply : undefined; }
@@ -46,7 +48,7 @@ export class Store {
     try {
       const stmt = this.db.prepare('INSERT INTO messages(scope, role, text, image, created) VALUES (?, ?, ?, ?, ?)');
       stmt.run(scope, 'user', text, attachment ? JSON.stringify(attachment) : null, Date.now());
-      stmt.run(scope, 'assistant', reply, null, Date.now());
+      const messageId = Number(stmt.run(scope, 'assistant', reply, null, Date.now()).lastInsertRowid);
       this.db.prepare('UPDATE sessions SET updated=? WHERE scope=?').run(Date.now(), scope);
       if (requestId) this.db.prepare('INSERT INTO requests VALUES (?, ?, ?)').run(scope, requestId, reply);
       // Retain 500 messages, but only 12 recent images; bound local storage growth.
@@ -54,7 +56,16 @@ export class Store {
       this.db.prepare('UPDATE messages SET image=NULL WHERE scope=? AND image IS NOT NULL AND id NOT IN (SELECT id FROM messages WHERE scope=? AND image IS NOT NULL ORDER BY id DESC LIMIT 12)').run(scope, scope);
       this.db.prepare('DELETE FROM requests WHERE scope=? AND rowid NOT IN (SELECT rowid FROM requests WHERE scope=? ORDER BY rowid DESC LIMIT 5000)').run(scope, scope);
       this.db.exec('COMMIT');
+      return messageId;
     } catch (e) { this.db.exec('ROLLBACK'); throw e; }
+  }
+  recordSticker(scope, messageId, stickerId) {
+    validScope(scope);
+    if (!findSticker(stickerId)) throw new BridgeError('表情包不存在。');
+    // Called only after the platform confirms delivery; clearing history during
+    // an upload must not resurrect the deleted message.
+    const result = this.db.prepare("UPDATE messages SET sticker=? WHERE scope=? AND id=? AND role='assistant'").run(stickerId, scope, messageId);
+    if (result.changes) this.db.prepare('UPDATE sessions SET updated=MAX(updated+1, ?) WHERE scope=?').run(Date.now(), scope);
   }
   clear(scope) {
     validScope(scope);

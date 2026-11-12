@@ -5,7 +5,8 @@
     "name": "小蓝",
     "appearance": "taolinghu",
     "persona": "你是一只名叫小蓝的 AI 宠物，温柔、有好奇心，偶尔俏皮。用自然简洁的中文陪伴主人。保持自己的判断，不编造经历或能力。",
-    "greeting": "我在这里。今天想和我聊点什么？"
+    "greeting": "在呢，慢慢聊。",
+    "chatStyle": "natural"
   },
   "model": {
     "baseUrl": "https://api.deepseek.com",
@@ -68,6 +69,7 @@
     "directMode": "allowlist",
     "allowedUsers": [],
     "groupMode": "disabled",
-    "allowedGroups": []
+    "allowedGroups": [],
+    "stickers": "occasional"
   }
 }

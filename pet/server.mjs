@@ -3,9 +3,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { timingSafeEqual, randomBytes } from 'node:crypto';
 import { BridgeError } from '../lib.mjs';
+import { STICKERS } from './stickers.mjs';
 
 // Public code and bundled artwork contain no configuration or credentials.
 const assets = { '/app.js': 'text/javascript; charset=utf-8', '/voice.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/assets/taolinghu.png': 'image/png' };
+for (const sticker of STICKERS) assets[sticker.url] = 'image/png';
 function equal(a, b) { const x = Buffer.from(a || ''), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); }
 async function body(req) {
   if (!(req.headers['content-type'] || '').startsWith('application/json')) throw new BridgeError('请求需要 JSON 格式。');
@@ -55,7 +57,7 @@ export function createPetServer({ root, config, store, core, models, wechat, aut
           const html = readFileSync(join(root, 'web', 'index.html'), 'utf8').replace('__PET_TOKEN__', token);
           return send(200, html, 'text/html; charset=utf-8');
         }
-        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.7.3' });
+        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.9.0' });
       }
       // APIs use an explicit, unguessable per-start bearer token, never cookies.
       // A valid token is authoritative even when Origin/Fetch Metadata is absent
@@ -65,7 +67,7 @@ export function createPetServer({ root, config, store, core, models, wechat, aut
       const scope = url.searchParams.get('scope') || 'web:owner';
       if (req.method === 'GET') {
         if (url.pathname === '/api/model/balance') return send(200, await models.balance(controller.signal));
-        if (url.pathname === '/api/state') return send(200, { config: config.public(), sessions: store.sessions(), exploration: autonomy?.status() || null, care: core.interactions.status(), qq: qq?.status() || { state: 'stopped', contacts: [] }, wechat: wechat?.status() || { state: 'stopped' } });
+        if (url.pathname === '/api/state') return send(200, { config: config.public(), stickers: STICKERS, sessions: store.sessions(), exploration: autonomy?.status() || null, care: core.interactions.status(), qq: qq?.status() || { state: 'stopped', contacts: [] }, wechat: wechat?.status() || { state: 'stopped' } });
         if (url.pathname === '/api/exploration' && autonomy) return send(200, autonomy.details());
         if (url.pathname === '/api/history') return send(200, { messages: store.history(scope), memories: store.memories(scope) });
         if (url.pathname === '/api/wechat/qr') {
