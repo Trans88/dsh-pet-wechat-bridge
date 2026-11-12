@@ -4,34 +4,39 @@
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   let state, prefs = {}, petting = false, busy = false, polling = false, disposed = false;
   let bubbleTimer, effectTimer, patTimer, clickTimer, pollTimer, point, lastHit, lastJournal = 0, lastReply = 0, initial = true;
-  let pixels, sourceWidth, sourceHeight;
+  let pixels, sourceWidth, sourceHeight, bubbleDuration = 0, chat;
+  const lifetime = new AbortController();
   // Reuse the existing vector blue-cat artwork when that appearance is selected.
   const avatar = new window.PetAvatar({ character, sprite: $('#pet-sprite'), sheet, cat: $('#pet-cat'), onError: () => say('形象加载失败，请从右键菜单打开设置并重新选择形象。') });
-  async function api(path, data) {
+  async function api(path, data, binary = false, signal) {
     const response = await fetch(path, { method: data === undefined ? 'GET' : 'POST', credentials: 'omit', mode: 'same-origin',
       headers: { Authorization: `Bearer ${token}`, ...(data === undefined ? {} : { 'Content-Type': 'application/json' }) },
-      body: data === undefined ? undefined : JSON.stringify(data), signal: AbortSignal.timeout(12000) });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || '暂时连接不上小窝。');
-    return result;
+      body: data === undefined ? undefined : JSON.stringify(data), signal: AbortSignal.any([lifetime.signal, AbortSignal.timeout(['/api/chat', '/api/stt', '/api/tts'].includes(path) ? 120000 : 12000), ...(signal ? [signal] : [])]) });
+    if (!response.ok) { const result = await response.json().catch(() => ({})); throw new Error(result.error || '暂时连接不上小窝。'); }
+    return binary ? response.blob() : response.json();
   }
   function say(text, ms = 8000) {
     if (disposed) return;
-    $('#bubble').textContent = String(text).slice(0, 500); $('#bubble').hidden = false;
-    clearTimeout(bubbleTimer); bubbleTimer = setTimeout(() => { $('#bubble').hidden = true; }, ms);
+    $('#bubble-text').textContent = String(text); $('#bubble-text').scrollTop = 0; $('#bubble').hidden = false;
+    bubbleDuration = String(text).length > 180 ? 0 : ms; scheduleBubble();
+  }
+  function scheduleBubble() {
+    clearTimeout(bubbleTimer);
+    if (bubbleDuration && !$('#bubble').matches(':hover, :focus-within')) bubbleTimer = setTimeout(() => { $('#bubble').hidden = true; }, bubbleDuration);
   }
   function render() {
     avatar.render({ appearance: state?.config.pet.appearance || 'taolinghu',
-      animation: state?.care.sleeping ? 'sleeping' : petting ? 'petting' : 'idle',
+      animation: chat?.busy || chat?.voiceState.phase === 'thinking' ? 'thinking' : state?.care.sleeping ? 'sleeping' : petting ? 'petting' : 'idle',
       playing: !document.hidden && !reduced.matches });
-    $('#mood').textContent = state?.care.moodLabel || '在这里陪你';
+    $('#mood').textContent = chat?.voiceState.phase === 'listening' ? '正在听你说' : chat?.voiceState.phase === 'speaking' ? '正在说话' : state?.care.moodLabel || '在这里陪你';
+    character.classList.toggle('speaking', chat?.voiceState.phase === 'speaking');
   }
   function settings(value) {
     prefs = value || {};
     document.documentElement.style.setProperty('--pet-side', `${({ small: 220, medium: 280, large: 340 })[prefs.size] || 280}px`);
   }
   async function interact(action) {
-    if (busy || disposed) return;
+    if (busy || chat.busy || chat.voiceState.active || disposed) return;
     busy = true;
     try {
       const result = await api('/api/pet/interact', { action, requestId: crypto.randomUUID() });
@@ -53,14 +58,16 @@
     polling = true;
     try {
       state = await api('/api/desktop/state');
-      if (!initial && state.reply?.id > lastReply && (!prefs.quiet || state.reply.origin === 'chat')) say(state.reply.text, 15000);
+      if (disposed) return;
+      $('#bubble-name').textContent = state.config.pet.name; chat.update(state);
+      if (!initial && state.reply?.id > lastReply && (!prefs.quiet || state.reply.origin === 'chat')) say(state.reply.text, 0);
       if (state.reply) lastReply = state.reply.id;
       const latest = state.care.journal[0];
       if (!initial && !prefs.quiet && latest?.at > lastJournal) say(latest.text);
       if (latest) lastJournal = latest.at;
       if (initial) { initial = false; say(`${state.config.pet.name}来陪你啦。拖动我换个位置，右键可以投喂、抱抱。`, 9000); }
       render();
-    } catch (error) { say(error.message); }
+    } catch (error) { if (error.name !== 'AbortError') say(error.message); }
     finally { polling = false; if (!disposed) pollTimer = setTimeout(poll, document.hidden ? 15000 : 5000); }
   }
   // Alpha hit testing leaves the empty area around the fox usable on Windows.
@@ -72,7 +79,7 @@
     } catch { pixels = null; }
   });
   function hit(event) {
-    if (event.target.closest('#toolbar, #bubble')) return true;
+    if (event.target.closest('#toolbar, #bubble, #conversation')) return true;
     if (!event.target.closest('#pet-character')) return false;
     if (character.dataset.appearance === 'blue-cat' || !pixels) return true;
     const box = $('#pet-sprite').getBoundingClientRect();
@@ -105,18 +112,27 @@
   });
   const cancelDrag = () => { point = null; bridge?.drag('end'); };
   character.addEventListener('pointercancel', cancelDrag); window.addEventListener('blur', cancelDrag);
-  character.addEventListener('dblclick', () => { clearTimeout(clickTimer); bridge?.openHome('home'); });
+  character.addEventListener('dblclick', () => { clearTimeout(clickTimer); void chat.open(); });
   character.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void interact('pat'); } });
-  document.addEventListener('contextmenu', event => { event.preventDefault(); cancelDrag(); bridge?.menu(); });
+  document.addEventListener('contextmenu', event => { if (event.target.closest('#conversation, #bubble-text')) return; event.preventDefault(); cancelDrag(); bridge?.menu(); });
   $('#menu').addEventListener('click', () => bridge?.menu());
-  $('#chat').addEventListener('click', () => bridge?.openHome('home'));
-  $('#bubble').addEventListener('click', () => bridge?.openHome('home'));
-  const offAction = bridge?.onAction(action => { if (['pat', 'feed', 'hug', 'play', 'dance', 'sleep', 'wake'].includes(action)) void interact(action); });
+  chat = new window.DesktopChat({ api, bridge, onReply: text => say(text, 0), onChange: render, isInteracting: () => busy });
+  $('#bubble-close').addEventListener('click', () => { clearTimeout(bubbleTimer); $('#bubble').hidden = true; });
+  $('#bubble').addEventListener('pointerenter', () => clearTimeout(bubbleTimer));
+  $('#bubble').addEventListener('focusin', () => clearTimeout(bubbleTimer));
+  $('#bubble').addEventListener('pointerleave', scheduleBubble);
+  $('#bubble').addEventListener('focusout', scheduleBubble);
+  const offAction = bridge?.onAction(action => {
+    if (action === 'chat') void chat.open();
+    else if (action === 'pause') chat.suspend();
+    else if (action === 'voice') void chat.startVoice();
+    else if (['pat', 'feed', 'hug', 'play', 'dance', 'sleep', 'wake'].includes(action)) void interact(action);
+  });
   const offPrefs = bridge?.onPreferences(settings);
   reduced.addEventListener('change', render);
-  document.addEventListener('visibilitychange', () => { render(); if (!document.hidden) { clearTimeout(pollTimer); void poll(); } });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) chat.suspend(); render(); if (!document.hidden) { clearTimeout(pollTimer); void poll(); } });
   window.addEventListener('pagehide', () => {
-    disposed = true; cancelDrag(); avatar.stop(); offAction?.(); offPrefs?.();
+    disposed = true; lifetime.abort(); chat.dispose(); cancelDrag(); avatar.stop(); offAction?.(); offPrefs?.();
     [bubbleTimer, effectTimer, patTimer, clickTimer, pollTimer].forEach(clearTimeout);
   });
   if (!bridge) $('#browser-note').hidden = false;

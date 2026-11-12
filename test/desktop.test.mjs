@@ -13,7 +13,7 @@ import { Config } from '../pet/config.mjs';
 import { Store } from '../pet/store.mjs';
 import { PetCore } from '../pet/core.mjs';
 import { createPetServer } from '../pet/server.mjs';
-import { initialBounds, cleanPreferences, clampBounds } from '../desktop/geometry.mjs';
+import { initialBounds, cleanPreferences, clampBounds, windowSize, anchoredBounds, compactPosition } from '../desktop/geometry.mjs';
 import { validRuntime, connectBackend } from '../desktop/backend.mjs';
 
 const appRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -23,11 +23,24 @@ test('desktop position survives DPI-independent layouts and disconnected monitor
   const displays = [{ id: 1, workArea: { x: -1920, y: 0, width: 1920, height: 1040 } }, { id: 2, workArea: { x: 0, y: 0, width: 1280, height: 680 } }];
   const saved = { x: 1800, y: 1100, displayId: 2, size: 'large' };
   const b = initialBounds(saved, displays);
-  assert.deepEqual(b, { x: 920, y: 210, width: 360, height: 470 });
+  assert.deepEqual(b, { x: 920, y: 140, width: 360, height: 540 });
   const fallback = initialBounds(saved, [displays[0]]);
   assert.ok(fallback.x + fallback.width <= 0); assert.ok(fallback.y + fallback.height <= 1040);
   assert.deepEqual(cleanPreferences({ size: '../bad', x: Infinity, alwaysOnTop: false, quiet: true }), { size: 'medium', alwaysOnTop: false, quiet: true });
   assert.deepEqual(clampBounds({ x: -500, y: -500, width: 500, height: 600 }, { x: 0, y: 0, width: 300, height: 400 }), { x: 0, y: 0, width: 300, height: 400 });
+});
+
+test('desktop chat expands above its original bottom edge, clamps to a small display and restores compact position', () => {
+  const area = { x: 0, y: 0, width: 1280, height: 720 };
+  const compact = { x: 950, y: 230, ...windowSize('medium') };
+  const expanded = anchoredBounds(compact, windowSize('medium', true), area);
+  assert.equal(expanded.x + expanded.width, compact.x + compact.width);
+  assert.equal(expanded.y + expanded.height, compact.y + compact.height);
+  assert.deepEqual(compactPosition(expanded, 'medium'), { x: compact.x, y: compact.y });
+  assert.deepEqual(anchoredBounds(expanded, windowSize('medium'), area), compact);
+  const tiny = { x: -480, y: 0, width: 400, height: 500 };
+  const clamped = anchoredBounds(compact, windowSize('large', true), tiny);
+  assert.deepEqual(clamped, { ...tiny });
 });
 
 test('desktop runtime metadata rejects credentials, redirects and non-loopback URLs', () => {
@@ -85,18 +98,19 @@ test('desktop bootstrap and API preserve source/token boundary and never expose 
   const html = await (await fetch(`${url}/desktop`)).text();
   const dom = new JSDOM(html, { url: `${url}/desktop`, runScripts: 'outside-only', pretendToBeVisual: true });
   const w = dom.window, $ = s => w.document.querySelector(s); t.after(() => { w.dispatchEvent(new w.Event('pagehide')); w.close(); });
-  w.fetch = (path, options) => fetch(new URL(path, url), options); w.AbortSignal = AbortSignal; w.crypto.randomUUID = randomUUID;
+  w.fetch = (path, options) => fetch(new URL(path, url), options); w.AbortSignal = AbortSignal; w.AbortController = AbortController; w.crypto.randomUUID = randomUUID;
   w.matchMedia = () => ({ matches: false, addEventListener() {} });
   let actionListener, opened;
   w.petDesktop = { preferences: async () => ({ size: 'small' }), onAction: cb => { actionListener = cb; return () => {}; }, onPreferences: () => () => {},
-    openHome: page => { opened = page; }, drag() {}, hit() {}, menu() {} };
-  w.eval(readFileSync(join(root, 'web/avatar.js'), 'utf8')); w.eval(readFileSync(join(root, 'web/desktop.js'), 'utf8'));
+    openHome: page => { opened = page; }, chat: async open => open, drag() {}, hit() {}, menu() {} };
+  for (const name of ['avatar.js', 'voice.js', 'desktop-chat.js', 'desktop.js']) w.eval(readFileSync(join(root, 'web', name), 'utf8'));
   await until(() => $('#bubble').textContent.includes('来陪你'));
   assert.equal($('#bubble').textContent.includes('OWNER-REPLY'), false, 'old replies are not replayed on startup');
   actionListener('feed'); await until(() => core.interactions.status().fullness > 80);
   await until(() => $('#bubble').textContent.includes('饼干'));
   assert.equal(core.interactions.status().bond, 2, 'desktop uses the existing owner care state');
-  $('#chat').click(); assert.equal(opened, 'home');
+  $('#chat').click(); assert.equal($('#conversation').hidden, false); assert.equal(opened, undefined);
+  $('#open-home').click(); assert.equal(opened, 'home');
   store.append('web:owner', 'again', null, '<img src=x onerror=alert(1)>', 'again');
   w.document.dispatchEvent(new w.Event('visibilitychange'));
   await until(() => $('#bubble').textContent.includes('<img'));
