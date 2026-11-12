@@ -7,6 +7,7 @@ import { STICKERS } from './stickers.mjs';
 
 // Public code and bundled artwork contain no configuration or credentials.
 const assets = { '/app.js': 'text/javascript; charset=utf-8', '/avatar.js': 'text/javascript; charset=utf-8', '/voice.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/desktop.js': 'text/javascript; charset=utf-8', '/desktop.css': 'text/css; charset=utf-8', '/assets/taolinghu.png': 'image/png', '/assets/taolinghu-hd.png': 'image/png' };
+assets['/desktop-chat.js'] = 'text/javascript; charset=utf-8';
 for (const sticker of STICKERS) assets[sticker.url] = 'image/png';
 function equal(a, b) { const x = Buffer.from(a || ''), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); }
 async function body(req) {
@@ -57,7 +58,7 @@ export function createPetServer({ root, dataRoot = root, config, store, core, mo
           const html = readFileSync(join(root, 'web', url.pathname === '/desktop' ? 'desktop.html' : 'index.html'), 'utf8').replace('__PET_TOKEN__', token);
           return send(200, html, 'text/html; charset=utf-8');
         }
-        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.10.1' });
+        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.11.0' });
       }
       // APIs use an explicit, unguessable per-start bearer token, never cookies.
       // A valid token is authoritative even when Origin/Fetch Metadata is absent
@@ -68,7 +69,9 @@ export function createPetServer({ root, dataRoot = root, config, store, core, mo
       if (req.method === 'GET') {
         if (url.pathname === '/api/desktop/state') {
           const last = store.history('web:owner', 1).at(-1);
-          return send(200, { config: { pet: config.public().pet }, care: core.interactions.status(),
+          const publicConfig = config.public();
+          return send(200, { config: { pet: publicConfig.pet, voice: publicConfig.voice,
+            stt: { enabled: publicConfig.stt.enabled }, tts: { enabled: publicConfig.tts.enabled } }, care: core.interactions.status(),
             reply: last?.role === 'assistant' ? { id: last.id, text: last.text, origin: last.origin } : null });
         }
         if (url.pathname === '/api/model/balance') return send(200, await models.balance(controller.signal));

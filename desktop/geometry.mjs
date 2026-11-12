@@ -1,8 +1,15 @@
 // Persist logical display pixels, never physical pixels: works with Windows DPI.
 export const sizes = { small: 220, medium: 280, large: 340 };
-export function windowSize(size = 'medium') {
+export function windowSize(size = 'medium', chatOpen = false) {
   const side = sizes[size] || sizes.medium;
-  return { width: Math.max(300, side + 20), height: side + 130 };
+  return chatOpen ? { width: Math.max(420, side + 20), height: side + 380 } : { width: Math.max(300, side + 20), height: side + 200 };
+}
+export function anchoredBounds(bounds, dimensions, workArea) {
+  return clampBounds({ ...dimensions, x: bounds.x + bounds.width - dimensions.width, y: bounds.y + bounds.height - dimensions.height }, workArea);
+}
+export function compactPosition(bounds, size) {
+  const dimensions = windowSize(size);
+  return { x: bounds.x + bounds.width - dimensions.width, y: bounds.y + bounds.height - dimensions.height };
 }
 export function clampBounds(bounds, workArea) {
   const width = Math.min(bounds.width, workArea.width), height = Math.min(bounds.height, workArea.height);

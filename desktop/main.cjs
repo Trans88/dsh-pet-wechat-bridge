@@ -5,7 +5,7 @@ const { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync } = requi
 app.setName('Little Pet');
 const appRoot = resolve(__dirname, '..');
 let pet, room, tray, backend, prefs, prefsPath, geometry, origin, dragging, dragTimer;
-let quitting = false, exited = false, lockedThrough = false, ignoring = false, saveTimer;
+let quitting = false, exited = false, lockedThrough = false, ignoring = false, saveTimer, chatOpen = false;
 function chooseExistingData() {
   const selected = dialog.showOpenDialogSync({ title: '选择原来运行宠物的文件夹（包含 pet.config.json 和 data）', properties: ['openDirectory'] });
   if (!selected?.length) return null;
@@ -30,7 +30,7 @@ function save() {
 function rememberPosition() {
   if (!pet || pet.isDestroyed()) return;
   const b = pet.getBounds(), display = screen.getDisplayMatching(b);
-  Object.assign(prefs, { x: b.x, y: b.y, displayId: display.id });
+  Object.assign(prefs, geometry.compactPosition(b, prefs.size), { displayId: display.id });
   clearTimeout(saveTimer); saveTimer = setTimeout(save, 300);
 }
 function ignoreMouse(ignore) {
@@ -41,14 +41,24 @@ function ignoreMouse(ignore) {
 function showPet() {
   lockedThrough = false; ignoreMouse(false);
   pet.showInactive();
-  pet.setBounds(geometry.initialBounds(prefs, screen.getAllDisplays()));
+  fitPet();
   updateMenu();
+}
+function fitPet() {
+  const bounds = pet.getBounds(), area = screen.getDisplayMatching(bounds).workArea;
+  pet.setBounds(geometry.anchoredBounds(bounds, geometry.windowSize(prefs.size, chatOpen), area));
+}
+function setChatOpen(open) {
+  if (!pet || pet.isDestroyed()) return false;
+  chatOpen = open; endDrag(); fitPet(); rememberPosition();
+  if (open) { lockedThrough = false; ignoreMouse(false); pet.show(); pet.focus(); }
+  return chatOpen;
 }
 function endDrag() { clearInterval(dragTimer); dragTimer = undefined; dragging = undefined; rememberPosition(); }
 function changeSettings(patch) {
   Object.assign(prefs, patch);
   pet.setAlwaysOnTop(prefs.alwaysOnTop, 'floating');
-  pet.setBounds(geometry.initialBounds(prefs, screen.getAllDisplays()));
+  fitPet();
   save(); send('pet:preferences-changed', prefs); updateMenu();
 }
 function secureWindow(win) {
@@ -57,15 +67,18 @@ function secureWindow(win) {
   win.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
   win.webContents.on('will-redirect', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
   win.webContents.session.setPermissionRequestHandler((contents, permission, callback, details) => {
-    const localRoom = room && !room.isDestroyed() && contents === room.webContents &&
-      details.isMainFrame && details.requestingUrl?.startsWith(`${origin}/`);
-    callback(Boolean(localRoom && permission === 'media' && details.mediaTypes?.every(type => type === 'audio')));
+    const localWindow = (room && !room.isDestroyed() && contents === room.webContents) ||
+      (pet && !pet.isDestroyed() && contents === pet.webContents && contents.getURL() === `${origin}/desktop`);
+    callback(Boolean(localWindow && details.isMainFrame && details.requestingUrl?.startsWith(`${origin}/`) &&
+      permission === 'media' && details.mediaTypes?.length && details.mediaTypes.every(type => type === 'audio')));
   });
   win.webContents.session.setPermissionCheckHandler((contents, permission, requestingOrigin, details) =>
-    Boolean(room && !room.isDestroyed() && contents === room.webContents && requestingOrigin === origin &&
-      permission === 'media' && details.mediaType === 'audio'));
+    Boolean(((room && !room.isDestroyed() && contents === room.webContents) ||
+      (pet && !pet.isDestroyed() && contents === pet.webContents && contents.getURL() === `${origin}/desktop`)) &&
+      requestingOrigin === origin && details.isMainFrame !== false && permission === 'media' && details.mediaType === 'audio'));
 }
 async function openHome(page = 'home') {
+  send('pet:action', 'pause');
   if (!['home', 'settings', 'exploration', 'memory', 'channels'].includes(page)) page = 'home';
   if (!room || room.isDestroyed()) {
     room = new BrowserWindow({ title: 'Little Pet · 小窝', width: 1180, height: 820, minWidth: 420, minHeight: 580,
@@ -84,7 +97,9 @@ function menuTemplate() {
   return [
     { label: '显示 / 找回桌宠', click: showPet },
     { label: '刷新桌宠', click: () => { pet.reload(); showPet(); } },
-    { label: '打开小窝聊天', click: () => void openHome() },
+    { label: '桌面聊天', click: () => { showPet(); send('pet:action', 'chat'); } },
+    { label: '桌面语音对话', click: () => { showPet(); send('pet:action', 'voice'); } },
+    { label: '打开小窝', click: () => void openHome() },
     { type: 'separator' },
     ...[['pat', '摸摸头'], ['feed', '投喂'], ['hug', '抱抱'], ['play', '逗逗它'], ['dance', '跳个舞'], ['sleep', '睡觉'], ['wake', '叫醒']].map(([action, label]) =>
       ({ label, click: () => { showPet(); send('pet:action', action); } })),
@@ -148,17 +163,18 @@ else {
     secureWindow(pet); pet.setAlwaysOnTop(prefs.alwaysOnTop, 'floating');
     pet.on('close', event => { if (!quitting) { event.preventDefault(); pet.hide(); } });
     pet.on('move', rememberPosition); pet.on('blur', endDrag);
-    const fixDisplay = () => { endDrag(); pet.setBounds(geometry.initialBounds(prefs, screen.getAllDisplays())); };
+    const fixDisplay = () => { endDrag(); fitPet(); };
     screen.on('display-removed', fixDisplay); screen.on('display-metrics-changed', fixDisplay);
     const icon = nativeImage.createFromPath(join(appRoot, 'web', 'assets', 'taolinghu-hd.png'));
     const half = Math.floor(icon.getSize().width / 2);
     tray = new Tray(icon.crop({ x: 0, y: 0, width: half, height: half }).resize({ width: 32, height: 32 }));
-    tray.setToolTip('Little Pet · 双击打开小窝，右键管理桌宠');
-    tray.on('click', showPet); tray.on('double-click', () => void openHome()); updateMenu();
+    tray.setToolTip('Little Pet · 双击桌面聊天，右键管理桌宠');
+    tray.on('click', showPet); tray.on('double-click', () => { showPet(); send('pet:action', 'chat'); }); updateMenu();
 
     ipcMain.handle('pet:preferences', event => trusted(event) ? prefs : null);
     ipcMain.handle('pet:menu', event => { if (trusted(event)) Menu.buildFromTemplate(menuTemplate()).popup({ window: pet }); });
     ipcMain.handle('pet:home', (event, page) => { if (trusted(event)) return openHome(page); });
+    ipcMain.handle('pet:chat', (event, open) => trusted(event) && typeof open === 'boolean' ? setChatOpen(open) : false);
     ipcMain.on('pet:hit', (event, interactive) => {
       // Forwarded mousemove makes the transparent pixels click-through on Windows.
       if (trusted(event) && !dragging && ['win32', 'darwin'].includes(process.platform)) ignoreMouse(lockedThrough || interactive !== true);

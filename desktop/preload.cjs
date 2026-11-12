@@ -3,6 +3,7 @@ contextBridge.exposeInMainWorld('petDesktop', Object.freeze({
   preferences: () => ipcRenderer.invoke('pet:preferences'),
   menu: () => ipcRenderer.invoke('pet:menu'),
   openHome: page => ipcRenderer.invoke('pet:home', page),
+  chat: open => ipcRenderer.invoke('pet:chat', open === true),
   drag: phase => ipcRenderer.send('pet:drag', phase),
   hit: interactive => ipcRenderer.send('pet:hit', interactive === true),
   onAction: callback => {
