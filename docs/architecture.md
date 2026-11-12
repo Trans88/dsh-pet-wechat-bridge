@@ -141,6 +141,8 @@ QQ 多图/语音/视频/扫码绑定、桌面悬浮壳、确认后的跨渠道�
 
 ## 桌面宿主（v0.10.0）
 
+v0.10.1 的源码启动器只读取版本、路径标记和可执行文件检查安装状态，避免 `require('electron')` 隐式下载后重复执行安装器。`--mirror` / `--proxy` 直接构造安装子进程的环境，不依赖用户 Shell，也不改变宿主或后端环境。安装仍交给 Electron 自带脚本完成下载、校验和解压；预加载诊断只输出错误码、HTTP 状态和固定说明，子进程下载最长 10 分钟。
+
 `desktop/main.cjs` 只管理窗口、托盘、显示器、用户选择的数据目录及严格白名单 IPC。渲染进程启用 contextIsolation / sandbox，禁用 nodeIntegration；外部导航、弹窗和 webview 被禁止。只有精确匹配本地 `/desktop` 的主帧可以调用窗口 IPC，网页小窝没有 preload。
 
 `desktop/backend.mjs` 先验证现存运行时的 loopback URL 和 per-start token，再复用服务；否则以 Electron 的 Node 运行模式启动 `app.mjs --no-open`，通过 IPC 等待 ready（20 秒上限）。退出仅停止自己创建的进程，7 秒后清理挂起进程。`PET_DATA_ROOT` 将配置/数据库/微信/XHS 登录资料与只读程序资源分开；默认命令行行为仍使用源码目录。

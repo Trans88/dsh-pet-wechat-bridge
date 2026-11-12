@@ -13,7 +13,30 @@ npm ci --include=dev --ignore-scripts --no-audit --no-fund
 npm run desktop
 ```
 
-`npm run desktop` 会在首次使用时下载桌面运行环境。下载失败时，检查终端错误与网络后重试 `npm run desktop:setup`。默认仍可用 `npm start` 打开网页版。
+`npm run desktop` 会在首次使用时下载桌面运行环境。默认仍可用 `npm start` 打开网页版。
+
+### 下载失败或出现 fetch failed
+
+v0.10.1 起可以直接指定镜像，无需区分 CMD、PowerShell 或 Git Bash 的环境变量语法：
+
+```text
+npm run desktop:setup -- --mirror=cn
+npm run desktop
+```
+
+`cn` 使用 Electron 文档列出的 `https://npmmirror.com/mirrors/electron/`；`official` 使用 GitHub 官方下载地址。也支持 `--mirror=https://你的镜像/`。参数只对当前下载生效，不修改系统设置。下载仍使用 Electron 包自带的校验值。
+
+如果代理软件已启动，且 HTTP 或混合代理端口确实为 7890，可以执行（实际端口不同时替换）：
+
+```text
+npm run desktop:setup -- --mirror=official --proxy=http://127.0.0.1:7890
+```
+
+只接受 HTTP(S) 代理地址；浏览器能联网不代表 Node 下载自动使用了系统代理。已配置的 `HTTP_PROXY` / `HTTPS_PROXY` 也会启用下载代理。代理选项只传给安装子进程，不更改宠物模型或其他通道的网络配置。
+
+安装器会显示当前下载源、代理主机和底层错误码。`ENOTFOUND` 表示 DNS 解析失败，`ECONNREFUSED` 表示连接被拒绝，超时错误表示连接未及时完成。下载失败只尝试一次，不会因检查安装状态而重复下载。下载完成后，后续启动直接使用本机运行环境。
+
+手动设置环境变量时，CMD 使用 `set "ELECTRON_MIRROR=..."`，PowerShell 使用 `$env:ELECTRON_MIRROR = '...'`，Git Bash 使用 `export ELECTRON_MIRROR='...'`；这些写法不能混用。优先使用上面的命令参数。
 
 源码模式直接使用项目原有数据。如果这个目录的网页服务已经启动，桌宠会连接它；此时退出桌宠不会停止你原来启动的服务。由桌宠启动的服务则会随桌宠正常退出。
 
