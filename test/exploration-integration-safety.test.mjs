@@ -45,13 +45,13 @@ test('pending notes filter interests before the three-note limit', t => {
   assert.deepEqual(store.pendingNotes([]), []);
 });
 
-for (const action of ['openLogin', 'verifyLogin']) {
+for (const action of ['openLogin', 'verifyLogin', 'resetLogin']) {
   test(`cancelling a pending ${action} launch closes its late context before cancellation finishes`, async t => {
     const f = fixture(t), entered = deferred(), launched = deferred();
     let closed = 0, launches = 0;
     const launcher = { launchPersistentContext: async () => { launches++; entered.resolve(); return launched.promise; } };
     const explorer = new XiaohongshuExplorer(f.root, f.config, { launcher });
-    const operation = explorer[action]();
+    const operation = explorer[action]({ reopen: true });
     const rejection = assert.rejects(operation, error => error.code === 'aborted');
     await entered.promise;
     let finished = false;

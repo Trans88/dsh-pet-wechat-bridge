@@ -185,11 +185,19 @@ function sourceLink(source) {
   let url;
   try { url = new URL(source.url); } catch { return null; }
   if (url.origin !== 'https://www.xiaohongshu.com' || url.username || url.password || !/^\/explore\/[a-f0-9]{24}\/?$/i.test(url.pathname)) return null;
-  const a = el('a', 'source-link', `${source.title || '查看小红书原文'} ↗`);
+  const a = el('a', 'source-link', `${source.title || '查看小红书原文'}${evidenceLabel(source.evidence) ? ' · ' + evidenceLabel(source.evidence) : ''} ↗`);
   a.href = url.href; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a;
 }
+function evidenceLabel(value) {
+  if (!value) return '';
+  const parts = [];
+  if (value.imageCount > 0) parts.push(`看图 ${value.imageCount} 张`);
+  if (value.frameTimes?.length) parts.push(`视频抽帧 ${value.frameTimes.length} 张（${value.frameTimes.join(' / ')} 秒）`);
+  if (value.audioRange) parts.push(`音频转写 ${value.audioRange.start}–${value.audioRange.end} 秒`);
+  return parts.join(' · ');
+}
 
-const browserLabels = { 'not-connected': '尚未登录', unverified: '登录待检查', 'awaiting-login': '等待扫码 / 验证', ready: '已登录', 'login-required': '需要登录', 'verification-required': '需要安全验证', 'browser-unavailable': '浏览器未就绪', 'layout-changed': '页面需要检查', 'browse-error': '页面加载失败' };
+const browserLabels = { 'not-connected': '尚未登录', unverified: '登录待检查', 'awaiting-login': '等待扫码 / 验证', ready: '已登录', 'login-required': '需要登录', 'verification-required': '需要安全验证', 'browser-unavailable': '浏览器未就绪', 'layout-changed': '页面需要检查', 'browse-error': '页面加载失败', 'dialog-required': '网页等待确认' };
 function renderExplorationStatus(s) {
   if (!s) return;
   const e = state.config.exploration;
@@ -201,6 +209,11 @@ function renderExplorationStatus(s) {
   $('#xhs-message').textContent = s.browser?.message || '登录状态保存在独立浏览器中；扫码后会自动识别，也可直接开始探索。';
   $('#exploration-run').disabled = s.busy || Boolean(s.browser?.busy);
   $('#xhs-verify').disabled = s.busy || Boolean(s.browser?.busy);
+  $('#xhs-dialog').hidden = !s.browser?.dialog;
+  $('#xhs-dialog-message').textContent = s.browser?.dialog?.message || '';
+  const canSee = state.config.vision.enabled || state.config.model.supportsImages;
+  $('#exploration-media-status').textContent = !canSee ? '图片和视频画面需要在设置中启用支持图片的模型。' :
+    state.config.stt.enabled ? '视觉分析与音频转写服务已配置；勾选下面的能力后保存。' : '图片和视频画面可使用当前视觉模型；视频音频转写还需配置 STT。';
 }
 function fillExploration() {
   const e = state.config.exploration; if (!e) return;
@@ -236,8 +249,15 @@ async function refreshExploration() {
     if (!data.notes.length) list.append(el('div', 'discovery-empty', '第一份小小发现，还在路上。'));
     for (const note of data.notes) {
       const card = el('article', 'discovery-card'), link = sourceLink(note); if (link) card.append(link);
-      card.append(el('small', '', `${note.topic} · ${note.author || '小红书图文'}${note.shared ? ' · 已分享' : ''}`));
-      const details = el('details'), summary = el('summary', '', '读到的文字'); details.append(summary, el('p', '', note.excerpt)); card.append(details); list.append(card);
+      card.append(el('small', '', `${note.topic} · ${note.author || '小红书笔记'}${note.shared ? ' · 已分享' : ''}`));
+      const evidence = evidenceLabel(note.observation);
+      if (evidence) card.append(el('p', 'muted', evidence));
+      const details = el('details'), summary = el('summary', '', '阅读与观察记录'); details.append(summary);
+      if (note.excerpt) details.append(el('p', '', `正文：${note.excerpt}`));
+      if (note.observation?.summary) details.append(el('p', '', `画面观察：${note.observation.summary}`));
+      if (note.observation?.transcript) details.append(el('p', '', `音频片段转写：${note.observation.transcript}`));
+      if (note.observation?.warnings?.length) details.append(el('p', 'muted', note.observation.warnings.join('；')));
+      card.append(details); list.append(card);
     }
   }
 }
@@ -251,15 +271,22 @@ $('#exploration-form').addEventListener('submit', async event => {
   try { await api('/api/config', { exploration }); await loadState(); fillExploration(); $('#exploration-result').textContent = '已保存'; }
   catch (e) { toast(e.message); } finally { button.disabled = false; }
 });
-for (const [id, action] of [['xhs-login', 'login'], ['xhs-verify', 'verify'], ['exploration-run', 'run'], ['exploration-stop', 'stop']]) {
+for (const [id, action] of [['xhs-login', 'login'], ['xhs-verify', 'verify'], ['xhs-logout', 'logout'], ['xhs-switch', 'switch-account'], ['exploration-run', 'run'], ['exploration-stop', 'stop']]) {
   $(`#${id}`).addEventListener('click', async event => {
     const button = event.currentTarget; button.disabled = true;
     try {
       const result = await api(`/api/exploration/${action}`, {});
       if (result.message) toast(result.message);
       if (action === 'stop') toast('本轮已停止，自动探索已关闭。');
-      await loadState(); if (action === 'stop') fillExploration();
+      await loadState(); if (['stop', 'logout', 'switch-account'].includes(action)) fillExploration();
     } catch (e) { toast(e.message); } finally { button.disabled = false; }
+  });
+}
+for (const [id, accept] of [['xhs-dialog-accept', true], ['xhs-dialog-dismiss', false]]) {
+  $(`#${id}`).addEventListener('click', async event => {
+    const button = event.currentTarget; button.disabled = true;
+    try { await api('/api/exploration/dialog', { accept }); await loadState(); }
+    catch (e) { toast(e.message); } finally { button.disabled = false; }
   });
 }
 $('#exploration-clear').addEventListener('click', () => $('#exploration-clear-dialog').showModal());

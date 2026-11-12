@@ -45,7 +45,10 @@
     "quietEnd": "09:00",
     "timeZone": "Asia/Shanghai",
     "browser": "auto",
-    "headless": true
+    "headless": true,
+    "readImages": false,
+    "readVideos": false,
+    "transcribeVideo": false
   },
   "voice": {
     "input": "auto",
