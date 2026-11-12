@@ -12,12 +12,12 @@
       <div id="bubble-text" tabindex="0" role="region" aria-label="完整消息，可滚动阅读"></div>
     </section>
     <section id="conversation" aria-label="桌面聊天" hidden>
-      <header class="conversation-header"><div><span class="status-dot"></span><strong id="conversation-name">小伙伴</strong><small>就在这里，陪你聊聊</small></div><button id="open-home" title="打开完整小窝">↗</button><button id="conversation-close" aria-label="收起聊天并停止语音">×</button></header>
+      <header class="conversation-header"><div><span class="status-dot"></span><strong id="conversation-name">小伙伴</strong><small>就在这里，陪你聊聊</small></div><button id="open-memory" title="查看宠物记忆">▤</button><button id="open-diary" title="查看宠物日记">✎</button><button id="open-home" title="打开完整小窝">↗</button><button id="conversation-close" aria-label="收起聊天并停止语音">×</button></header>
       <div id="desktop-messages" role="log" aria-label="与宠物的聊天记录" aria-live="polite" tabindex="0"><p class="chat-empty">聊聊今天的小事吧。</p></div>
       <div id="desktop-voice-status" role="status" data-phase="idle"><span id="voice-label">文字或语音，都可以。</span><span id="voice-transcript" hidden></span></div>
       <p id="desktop-chat-error" role="alert" hidden></p>
       <form id="desktop-chat-form">
-        <textarea id="desktop-input" rows="2" maxlength="8000" aria-label="发给宠物的消息" placeholder="和我说点什么…" disabled></textarea>
+        <textarea id="desktop-input" rows="2" maxlength="8000" aria-label="发给宠物的消息" placeholder="聊聊，或输入 /搜索 关键词…" disabled></textarea>
         <div class="compose-actions"><button type="button" id="desktop-voice" aria-pressed="false" disabled>语音对话</button><button type="button" id="desktop-dictate" title="把说的话写入输入框" disabled>口述</button><button type="button" id="voice-finish" hidden>说完了</button><button type="button" id="voice-interrupt" hidden>打断</button><button type="button" id="voice-stop" hidden>结束</button><button type="button" id="desktop-cancel" hidden>取消</button><button id="desktop-send" type="submit" disabled>发送 ↑</button></div>
       </form>
       <footer><span>Enter 发送 · Shift + Enter 换行</span><button id="voice-settings">语音设置</button></footer>

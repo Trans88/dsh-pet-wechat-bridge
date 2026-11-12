@@ -149,7 +149,7 @@ test('web setup, text/image chat, memory management and error states work agains
   $('#memory-list').replaceChildren();
   $('[data-page="memory"]').click();
   await until(() => Boolean($('#memory-list button')), 'memory delete control');
-  $('#memory-list button').click();
+  [...w.document.querySelectorAll('#memory-list button')].find(button => button.textContent === '忘记').click();
   await until(() => store.memories('web:owner').length === 0 && $('#memory-list').textContent.includes('空的'), 'forget fact rendered');
   $('#pet-sprite-sheet').dispatchEvent(new w.Event('error'));
   assert.equal($('#pet-character').dataset.appearance, 'blue-cat');

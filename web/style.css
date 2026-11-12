@@ -1173,3 +1173,20 @@ dialog p {
 .sticker-pack figcaption { margin-top: 6px; font-size: 13px; }
 .sticker-details { min-width: 0; }
 .reply-sticker { display: block; width: 150px; max-width: 60%; height: auto; margin: 6px 0; object-fit: contain; }
+
+/* Search, visible context and the pet's own diary. */
+.knowledge-context { margin-top:18px; padding:15px; border:1px solid #dce6f2; border-radius:14px; }
+.knowledge-context summary { cursor:pointer; color:#527ca5; }
+.knowledge-context p { white-space:pre-wrap; overflow-wrap:anywhere; font-size:14px; }
+.memory-item textarea { flex:1; min-width:0; }
+.diary-settings { padding:26px; }
+.diary-write { margin-top:20px; align-items:end; flex-wrap:wrap; }
+.diary-write .field { max-width:220px; }
+.diary-list { display:grid; gap:22px; margin-top:24px; }
+.diary-entry { padding:30px; background:linear-gradient(145deg,#fffdf9,#fff7fa); }
+.diary-entry header { display:flex; flex-wrap:wrap; justify-content:space-between; gap:10px; color:#aa8095; }
+.diary-entry h3 { color:#795168; font-size:23px; margin:20px 0 16px; }
+.diary-text { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.95; color:#645263; }
+.diary-empty { text-align:center; color:#9c8191; padding:55px 20px; }
+#search-result,#diary-status,#diary-result { font-size:13px; color:#8b7488; overflow-wrap:anywhere; }
+@media(max-width:760px) { .diary-entry,.diary-settings { padding:20px; } .memory-item { flex-wrap:wrap; } }

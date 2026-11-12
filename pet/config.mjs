@@ -11,6 +11,8 @@ export const defaults = {
   stt: { enabled: false, baseUrl: '', model: '', apiKey: '' },
   tts: { enabled: false, baseUrl: '', model: '', apiKey: '', voice: 'alloy' },
   voice: { input: 'auto', output: 'auto', autoSpeak: false, language: 'zh-CN', browserVoice: '', rate: 1, pitch: 1, silenceMs: 1500 },
+  search: { enabled: false, provider: 'tavily', baseUrl: 'https://api.tavily.com', apiKey: '', channels: false, dailyLimit: 30 },
+  diary: { enabled: false, time: '21:30', timeZone: 'Asia/Shanghai' },
   replyAudio: 'voice',
   exploration: {
     enabled: false, interests: ['数码科技', '生活趣事'], intervalMinutes: 60,
@@ -78,6 +80,19 @@ export function validateConfig(value) {
   if (!Number.isInteger(c.voice.silenceMs) || c.voice.silenceMs < 500 || c.voice.silenceMs > 5000) throw new BridgeError('停顿时间应为 500–5000 毫秒的整数。');
   c.replyAudio = value.replyAudio ?? c.replyAudio;
   if (!['voice', 'always', 'off'].includes(c.replyAudio)) throw new BridgeError('语音回复模式错误。');
+  for (const kind of ['search', 'diary']) {
+    if (value[kind] !== undefined && (!value[kind] || typeof value[kind] !== 'object' || Array.isArray(value[kind]))) throw new BridgeError(`${kind} 配置格式错误。`);
+    for (const key of Object.keys(c[kind])) if (value[kind]?.[key] !== undefined) c[kind][key] = value[kind][key];
+    if (typeof c[kind].enabled !== 'boolean') throw new BridgeError(`${kind} 开关应为布尔值。`);
+  }
+  if (!['tavily', 'searxng'].includes(c.search.provider)) throw new BridgeError('请选择支持的搜索服务。');
+  c.search.baseUrl = string(c.search.baseUrl, 500, '搜索服务地址'); endpoint(c.search.baseUrl, 'search');
+  c.search.apiKey = string(c.search.apiKey, 4096, '搜索密钥', true);
+  if (typeof c.search.channels !== 'boolean') throw new BridgeError('搜索通道开关应为布尔值。');
+  if (!Number.isInteger(c.search.dailyLimit) || c.search.dailyLimit < 1 || c.search.dailyLimit > 500) throw new BridgeError('每天搜索上限应为 1–500 次。');
+  if (typeof c.diary.time !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(c.diary.time)) throw new BridgeError('日记时间应为 HH:mm。');
+  c.diary.timeZone = string(c.diary.timeZone, 80, '日记时区');
+  try { new Intl.DateTimeFormat('en', { timeZone: c.diary.timeZone }).format(); } catch { throw new BridgeError('日记时区无效。'); }
   const incoming = value.exploration ?? {};
   if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) throw new BridgeError('探索设置格式错误。');
   for (const key of Object.keys(c.exploration)) if (incoming[key] !== undefined) c.exploration[key] = incoming[key];
@@ -126,6 +141,9 @@ export class Config {
       c[kind].keyFromEnvironment = Boolean(process.env[kind === 'model' ? 'PET_API_KEY' : `PET_${kind.toUpperCase()}_API_KEY`]);
       delete c[kind].apiKey;
     }
+    c.search.hasKey = Boolean(this.searchCredentials().apiKey);
+    c.search.keyFromEnvironment = Boolean(process.env.PET_SEARCH_API_KEY);
+    delete c.search.apiKey;
     c.qq.appId = this.qqCredentials().appId;
     c.qq.hasSecret = Boolean(this.qqCredentials().appSecret);
     c.qq.secretFromEnvironment = Boolean(process.env.QQBOT_SECRET);
@@ -134,9 +152,19 @@ export class Config {
     return c;
   }
   qqCredentials() { return { appId: process.env.QQBOT_APPID || this.value.qq.appId, appSecret: process.env.QQBOT_SECRET || this.value.qq.appSecret }; }
+  searchCredentials() { return { ...this.value.search, apiKey: process.env.PET_SEARCH_API_KEY || this.value.search.apiKey }; }
   update(patch) {
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new BridgeError('配置更新格式错误。');
     const next = structuredClone(this.value);
+    for (const kind of ['search', 'diary']) if (patch[kind] !== undefined) {
+      if (!patch[kind] || typeof patch[kind] !== 'object' || Array.isArray(patch[kind])) throw new BridgeError(`${kind} 配置格式错误。`);
+      next[kind] = { ...next[kind], ...patch[kind] };
+    }
+    if (patch.search) {
+      if (!patch.search.apiKey) next.search.apiKey = this.value.search.apiKey;
+      if (!patch.search.apiKey && (next.search.provider !== this.value.search.provider || endpoint(next.search.baseUrl, '').origin !== endpoint(this.value.search.baseUrl, '').origin)) next.search.apiKey = '';
+      if (patch.search.clearKey === true) next.search.apiKey = '';
+    }
     for (const kind of ['pet', 'model', 'vision', 'stt', 'tts']) if (patch[kind]) {
       next[kind] = { ...next[kind], ...patch[kind] };
       // A blank password field means keep the current secret; explicit clearKey removes it.

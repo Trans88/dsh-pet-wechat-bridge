@@ -6,6 +6,7 @@ app.setName('Little Pet');
 const appRoot = resolve(__dirname, '..');
 let pet, room, tray, backend, prefs, prefsPath, geometry, origin, dragging, dragTimer;
 let quitting = false, exited = false, lockedThrough = false, ignoring = false, saveTimer, chatOpen = false;
+let publicSearchURL;
 function chooseExistingData() {
   const selected = dialog.showOpenDialogSync({ title: '选择原来运行宠物的文件夹（包含 pet.config.json 和 data）', properties: ['openDirectory'] });
   if (!selected?.length) return null;
@@ -62,7 +63,12 @@ function changeSettings(patch) {
   save(); send('pet:preferences-changed', prefs); updateMenu();
 }
 function secureWindow(win) {
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    // Only explicit links rendered by our local pages may open the system browser.
+    const safe = publicSearchURL?.(url);
+    if (safe) void shell.openExternal(safe).catch(() => {});
+    return { action: 'deny' };
+  });
   win.webContents.on('will-attach-webview', event => event.preventDefault());
   win.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
   win.webContents.on('will-redirect', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
@@ -79,7 +85,7 @@ function secureWindow(win) {
 }
 async function openHome(page = 'home') {
   send('pet:action', 'pause');
-  if (!['home', 'settings', 'exploration', 'memory', 'channels'].includes(page)) page = 'home';
+  if (!['home', 'settings', 'exploration', 'memory', 'diary', 'channels'].includes(page)) page = 'home';
   if (!room || room.isDestroyed()) {
     room = new BrowserWindow({ title: 'Little Pet · 小窝', width: 1180, height: 820, minWidth: 420, minHeight: 580,
       backgroundColor: '#f3f6fb', show: false, autoHideMenuBar: true,
@@ -135,6 +141,7 @@ else {
   });
   app.whenReady().then(async () => {
     geometry = await import('./geometry.mjs');
+    ({ publicSearchURL } = await import('../pet/search.mjs'));
     let savedRoot;
     if (app.isPackaged && !process.env.PET_DATA_ROOT) {
       try { savedRoot = JSON.parse(readFileSync(join(app.getPath('userData'), 'data-location.json'), 'utf8')).root; } catch {}

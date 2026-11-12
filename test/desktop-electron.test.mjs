@@ -15,12 +15,17 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   const root = fileURLToPath(new URL('..', import.meta.url));
   const dataRoot = mkdtempSync(join(tmpdir(), 'pet-electron-'));
   const portServer = createServer(); await new Promise(r => portServer.listen(0, '127.0.0.1', r)); const port = portServer.address().port; await new Promise(r => portServer.close(r));
-  let textCalls = 0, sttCalls = 0, ttsCalls = 0;
+  let textCalls = 0, sttCalls = 0, ttsCalls = 0, searchCalls = 0;
   const longReply = Array.from({ length: 38 }, (_, index) => `第 ${index + 1} 行：长回复可以从头看到最后，读完再继续聊。`).join('\n') + '\n完整回复结尾 FULL_END';
   const audio = Buffer.from(readFileSync(join(root, 'test/fixtures/desktop-tone.mp3.base64'), 'utf8').trim(), 'base64');
   const provider = createHttpServer(async (req, res) => {
     const chunks = []; for await (const chunk of req) chunks.push(chunk);
-    if (req.url === '/v1/chat/completions') { textCalls++; const body = JSON.parse(Buffer.concat(chunks)); res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ choices: [{ message: { content: body.messages.at(-1).content.includes('长回复') ? longReply : '听到了，这是桌面语音测试回复。' } }] })); }
+    if (req.url === '/v1/chat/completions') {
+      textCalls++; const body = JSON.parse(Buffer.concat(chunks));
+      const content = body.messages[0].content.includes('私密日记') ? JSON.stringify({ title: '桌面上的新朋友', text: '今天，我们一起试了桌面聊天，还说了几句话。\n\n主人让我找点有趣的，我带着一份搜索摘要回来了。这些小小的尝试，都收进这一页。' }) : body.messages.at(-1).content.includes('长回复') ? longReply : body.messages.at(-1).content.includes('搜索') ? '找到一个有趣的开源小项目，可以先看看这个介绍。[1]' : '听到了，这是桌面语音测试回复。';
+      res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ choices: [{ message: { content } }] }));
+    }
+    if (req.url === '/v1/search') { searchCalls++; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ results: [{ title: '创意小项目 · 示例来源', url: 'https://example.org/projects', content: '这里介绍了一种有趣的桌面小项目。' }] })); }
     if (req.url === '/v1/audio/transcriptions') { sttCalls++; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ text: '在桌面说一句话' })); }
     if (req.url === '/v1/audio/speech') { ttsCalls++; res.setHeader('Content-Type', 'audio/mpeg'); return res.end(audio); }
     res.writeHead(404); res.end();
@@ -29,7 +34,7 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   const baseUrl = `http://127.0.0.1:${provider.address().port}/v1`;
   new Config(dataRoot).update({ port, model: { baseUrl, model: 'fake-chat', apiKey: 'test-only' },
     stt: { enabled: true, baseUrl, model: 'fake-stt', apiKey: 'test-only' }, tts: { enabled: true, baseUrl, model: 'fake-tts', apiKey: 'test-only' },
-    voice: { input: 'server', output: 'server' } });
+    voice: { input: 'server', output: 'server' }, search: { enabled: true, baseUrl, apiKey: 'test-search' } });
   const { ELECTRON_RUN_AS_NODE: _, ...env } = process.env;
   let app;
   t.after(async () => { await app?.close(); provider.closeAllConnections(); await new Promise(resolve => provider.close(resolve)); rmSync(dataRoot, { recursive: true, force: true }); });
@@ -96,6 +101,14 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   await pet.waitForFunction(() => window.testAudioTracks.length >= 2 && window.testAudioTracks.every(track => track.readyState === 'ended'));
   assert.equal(app.windows().length, 1, 'voice chat also stays in the pet window');
   await pet.locator('#chat').click();
+  await pet.locator('#desktop-input').fill('/搜索 有趣的小项目'); await pet.locator('#desktop-send').click();
+  await pet.waitForFunction(() => document.querySelector('.desktop-source')?.textContent.includes('示例来源'));
+  assert.equal(searchCalls, 1);
+  assert.equal(await pet.locator('.desktop-source').getAttribute('href'), 'https://example.org/projects');
+  await app.evaluate(({ shell }) => { globalThis.testOpenedSource = ''; shell.openExternal = async url => { globalThis.testOpenedSource = url; }; });
+  await pet.locator('.desktop-source').click();
+  assert.equal(await app.evaluate(() => globalThis.testOpenedSource), 'https://example.org/projects');
+  await pet.screenshot({ path: join(artifacts, 'desktop-search.png'), omitBackground: true });
   const roomReady = app.waitForEvent('window');
   await pet.locator('#open-home').click();
   const room = await roomReady;
@@ -110,6 +123,25 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   await room.setViewportSize({ width: 460, height: 800 });
   assert.equal(await room.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
   await room.screenshot({ path: join(artifacts, 'settings-narrow.png') });
+  await room.locator('[data-page="memory"]').click();
+  await room.locator('#memory-input').fill('我喜欢桌面上的小伙伴'); await room.locator('#memory-form button').click();
+  await room.waitForFunction(() => document.querySelector('#memory-list').textContent.includes('我喜欢桌面上的小伙伴'));
+  await room.locator('.memory-item button').filter({ hasText: '编辑' }).click();
+  await room.getByLabel('编辑记忆内容').fill('我喜欢自然的聊天'); await room.locator('.memory-item button').filter({ hasText: '保存' }).click();
+  await room.waitForFunction(() => document.querySelector('#memory-list').textContent.includes('我喜欢自然的聊天'));
+  assert.equal(await room.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+  await room.screenshot({ path: join(artifacts, 'memory-narrow.png') });
+  await room.locator('[data-page="diary"]').click();
+  await room.locator('#diary-write').click();
+  await room.waitForFunction(() => document.querySelector('#diary-list').textContent.includes('桌面上的新朋友'));
+  assert.equal(await room.locator('#diary-list article').count(), 1);
+  assert.equal(await room.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+  await room.screenshot({ path: join(artifacts, 'diary-narrow.png') });
+  await room.setViewportSize({ width: 1180, height: 820 });
+  await room.screenshot({ path: join(artifacts, 'diary-desktop.png') });
+  await room.locator('#diary-write').click(); await room.waitForFunction(() => document.querySelector('#diary-result').textContent.includes('已经有日记'));
+  await room.locator('#diary-list button').filter({ hasText: '删除' }).click(); await room.locator('#diary-delete-confirm').click();
+  await room.waitForFunction(() => !document.querySelector('#diary-list article'));
   const exited = new Promise(resolve => app.process().once('exit', resolve));
   await app.evaluate(({ app }) => app.quit()).catch(() => {});
   await exited;
