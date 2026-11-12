@@ -82,15 +82,18 @@ export function createPetServer({ root, config, store, core, models, wechat, aut
         const result = config.update(input);
         if (input.qq && before !== JSON.stringify([config.qqCredentials(), config.value.qq.sandbox])) await qq?.stop();
 
-        if (input.exploration !== undefined || input.model !== undefined || input.pet !== undefined) await autonomy?.settingsChanged({ closeBrowser: wasExploring && !config.value.exploration.enabled });
+        if (['exploration', 'model', 'vision', 'stt', 'pet'].some(key => input[key] !== undefined)) await autonomy?.settingsChanged({ closeBrowser: wasExploring && !config.value.exploration.enabled });
         return send(200, { config: result });
       }
       if (url.pathname.startsWith('/api/exploration/')) {
         if (!autonomy) throw new BridgeError('探索服务未启动。');
         if (url.pathname === '/api/exploration/login') return send(200, await autonomy.openLogin());
         if (url.pathname === '/api/exploration/verify') return send(200, await autonomy.verifyLogin());
+        if (url.pathname === '/api/exploration/logout') return send(200, await autonomy.changeAccount(false));
+        if (url.pathname === '/api/exploration/switch-account') return send(200, await autonomy.changeAccount(true));
+        if (url.pathname === '/api/exploration/dialog') return send(200, await autonomy.explorer.resolveDialog(input.accept));
         if (url.pathname === '/api/exploration/run') {
-          if (autonomy.job || autonomy.explorer.busy) throw new BridgeError('本轮探索尚未结束。', 'busy');
+          if (autonomy.job || autonomy.accountJob || autonomy.explorer.busy) throw new BridgeError('本轮操作尚未结束。', 'busy');
           // The background job survives a tab closing. All errors are recorded in its diary.
           void autonomy.run(true).catch(e => store.event('error', e instanceof BridgeError ? e.message : '探索未能启动。'));
           return send(202, { ok: true, message: '已检查探索条件，请在动态中查看结果。' });

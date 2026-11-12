@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Config } from '../pet/config.mjs';
@@ -41,13 +41,13 @@ function browserFixture(t) {
   const launcher={launchPersistentContext:async (profile,options)=>{
     record.launches.push({profile,options}); let url='';
     const locator={first(){return this;},waitFor:async()=>{}};
-    const page={on:()=>{},isClosed:()=>false,url:()=>url,close:async()=>{},bringToFront:async()=>{record.focused++;},goto:async value=>{url=value;record.visits.push(value);},locator:()=>locator,
+    const page={on:(event,handler)=>{if(event==='dialog')record.dialogHandler=handler;},isClosed:()=>false,url:()=>url,close:async()=>{},bringToFront:async()=>{record.focused++;},goto:async value=>{url=value;record.visits.push(value);},locator:()=>locator,
       waitForFunction:async(fn,selector)=>{record.waits.push({fn,selector});},evaluate:async fn=>fn.name==='pageStateDOM'?record.state:fn.name==='collectCardsDOM'?record.cards:record.note};
     return {pages:()=>[page],setDefaultTimeout:()=>{},route:async(_pattern,fn)=>{record.route=fn;},on:()=>{},cookies:async()=>record.cookies,close:async()=>{record.closed++;}};
   }};
   const explorer=new XiaohongshuExplorer(root,config,{launcher});
   t.after(async()=>{await explorer.close();rmSync(root,{recursive:true,force:true});});
-  return {record,explorer,config};
+  return {record,explorer,config,root};
 }
 test('browser exploration is bounded, text-only and never exports session cookies', async t => {
   const {record,explorer}=browserFixture(t);
@@ -170,4 +170,47 @@ test('a challenge appearing during visible exploration remains open on the same 
   assert.equal(record.closed, 0); const page = explorer.page;
   await explorer.openLogin();
   assert.equal(explorer.page, page); assert.equal(record.visits.length, 1); assert.equal(record.launches.length, 1);
+});
+
+test('logout clears only the isolated browser profile; switching starts a fresh visible session', async t => {
+  const { record, explorer, root, config } = browserFixture(t);
+  await explorer.openLogin();
+  writeFileSync(join(explorer.profile, 'session-marker'), 'PRIVATE_SESSION');
+  writeFileSync(join(root, 'data', 'chat-marker'), 'KEEP_CHAT');
+  const before = readFileSync(config.path, 'utf8');
+  await explorer.resetLogin();
+  assert.equal(existsSync(explorer.profile), false); assert.equal(explorer.state, 'not-connected'); assert.equal(record.closed, 1);
+  assert.equal(readFileSync(join(root, 'data', 'chat-marker'), 'utf8'), 'KEEP_CHAT'); assert.equal(readFileSync(config.path, 'utf8'), before);
+  await explorer.resetLogin({ reopen: true });
+  assert.equal(record.launches.length, 2); assert.equal(record.launches.at(-1).options.headless, false);
+  assert.equal(record.launches.at(-1).options.viewport, null); assert.equal(explorer.state, 'awaiting-login');
+});
+
+test('manual native confirmation is surfaced instead of silently dismissed; automation still cannot accept it', async t => {
+  const { record, explorer } = browserFixture(t); await explorer.openLogin();
+  let accepted = 0, dismissed = 0;
+  const dialog = { type: () => 'confirm', message: () => '确认退出？', accept: async () => { accepted++; }, dismiss: async () => { dismissed++; } };
+  record.dialogHandler(dialog); assert.equal(dismissed, 0); assert.equal(explorer.status().dialog.message, '确认退出？');
+  await assert.rejects(explorer.explore('科技'), e => e.code === 'dialog-required');
+  assert.equal(record.visits.length, 1); await explorer.resolveDialog(true); assert.equal(accepted, 1); assert.equal(explorer.status().dialog, null);
+  explorer.browsing = true; record.dialogHandler(dialog); await Promise.resolve();
+  assert.equal(dismissed, 1); assert.equal(explorer.pendingDialog, null);
+});
+
+test('media-enabled exploration accepts image-only notes, caps videos per round and carries no fake media when disabled', async t => {
+  const { record, explorer, config } = browserFixture(t);
+  config.update({ exploration: { readImages: true, readVideos: true } });
+  record.note.excerpt = ''; let captures = 0;
+  explorer.captureMedia = async (_page, options) => { captures++; return { kind: options.video ? 'video' : 'image', images: options.video ? [] : [{ data: 'aA==', mediaType: 'image/png' }], frames: options.video ? [{ data: 'aA==', mediaType: 'image/jpeg', time: 0 }] : [] }; };
+  const notes = await explorer.explore('科技'); assert.equal(notes.length, 1); assert.equal(notes[0].excerpt, ''); assert.equal(captures, 1);
+  record.cards = [id, 'aaaaaaaaaaaaaaaaaaaaaaaa'].map(id => ({ url: '/explore/' + id, video: true })); record.note.video = true;
+  const videos = await explorer.explore('科技'); assert.equal(videos.length, 1); assert.equal(captures, 2);
+  config.update({ exploration: { readImages: false, readVideos: false } });
+  assert.deepEqual(await explorer.explore('科技'), []); assert.equal(captures, 2);
+});
+
+test('manual navigation during capture cannot attach another note media to the original source', async t => {
+  const { explorer, config } = browserFixture(t); config.update({ exploration: { readImages: true } });
+  explorer.captureMedia = async page => { await page.goto('https://www.xiaohongshu.com/explore/aaaaaaaaaaaaaaaaaaaaaaaa'); return { images: [{ data: 'aA==' }] }; };
+  await assert.rejects(explorer.explore('科技'), e => e.code === 'page-changed');
 });

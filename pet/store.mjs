@@ -27,7 +27,8 @@ export class Store {
     if (!columns.includes('origin')) this.db.exec("ALTER TABLE messages ADD COLUMN origin TEXT NOT NULL DEFAULT 'chat'");
     if (!columns.includes('sources')) this.db.exec('ALTER TABLE messages ADD COLUMN sources TEXT');
     if (!this.db.prepare('PRAGMA table_info(exploration_notes)').all().some(c => c.name === 'reviewed')) this.db.exec('ALTER TABLE exploration_notes ADD COLUMN reviewed INTEGER NOT NULL DEFAULT 0');
-    this.db.exec('PRAGMA user_version=2');
+    if (!this.db.prepare('PRAGMA table_info(exploration_notes)').all().some(c => c.name === 'observation')) this.db.exec('ALTER TABLE exploration_notes ADD COLUMN observation TEXT');
+    this.db.exec('PRAGMA user_version=3');
   }
   ensure(scope, label) {
     validScope(scope);
@@ -96,20 +97,22 @@ export class Store {
     return value;
   }
   noteSeen(id) { return Boolean(this.db.prepare('SELECT 1 FROM exploration_notes WHERE id=?').get(id)); }
-  notesByIds(ids) { return [...new Set(ids)].slice(-6).map(id => this.db.prepare('SELECT id,title,author,excerpt,created FROM exploration_notes WHERE id=? AND shared>0').get(id)).filter(Boolean); }
+  noteRecord(row) { return row ? { ...row, observation: row.observation ? JSON.parse(row.observation) : null } : row; }
+  notesByIds(ids) { return [...new Set(ids)].slice(-6).map(id => this.noteRecord(this.db.prepare('SELECT id,title,author,excerpt,observation,created FROM exploration_notes WHERE id=? AND shared>0').get(id))).filter(Boolean); }
   saveNotes(notes, topic, now) {
-    const stmt = this.db.prepare('INSERT OR IGNORE INTO exploration_notes(id,url,title,author,excerpt,topic,created) VALUES (?,?,?,?,?,?,?)');
-    for (const n of notes) stmt.run(n.id, n.url, n.title, n.author, n.excerpt, topic, now);
+    const stmt = this.db.prepare('INSERT OR IGNORE INTO exploration_notes(id,url,title,author,excerpt,topic,created,observation) VALUES (?,?,?,?,?,?,?,?)');
+    for (const n of notes) stmt.run(n.id, n.url, n.title, n.author, n.excerpt, topic, now, n.observation ? JSON.stringify(n.observation) : null);
     this.db.prepare('DELETE FROM exploration_notes WHERE id NOT IN (SELECT id FROM exploration_notes ORDER BY created DESC, rowid DESC LIMIT 500)').run();
   }
   recentNotes(limit = 20, sharedOnly = false) {
-    return this.db.prepare(`SELECT * FROM exploration_notes ${sharedOnly ? 'WHERE shared > 0' : ''} ORDER BY created DESC, rowid DESC LIMIT ?`).all(limit);
+    return this.db.prepare(`SELECT * FROM exploration_notes ${sharedOnly ? 'WHERE shared > 0' : ''} ORDER BY created DESC, rowid DESC LIMIT ?`).all(limit).map(n => this.noteRecord(n));
   }
   pendingNotes(topics) {
     if (topics && !topics.length) return [];
     const filter = topics ? ` AND topic IN (${topics.map(() => '?').join(',')})` : '';
-    return this.db.prepare(`SELECT * FROM exploration_notes WHERE reviewed=0 AND shared=0${filter} ORDER BY created DESC, rowid DESC LIMIT 3`).all(...(topics || []));
+    return this.db.prepare(`SELECT * FROM exploration_notes WHERE reviewed=0 AND shared=0${filter} ORDER BY created DESC, rowid DESC LIMIT 3`).all(...(topics || [])).map(n => this.noteRecord(n));
   }
+  discardPendingNotes(now) { this.db.prepare('UPDATE exploration_notes SET reviewed=? WHERE shared=0 AND reviewed=0').run(now); }
   reviewNotes(ids, now) { for (const id of ids) this.db.prepare('UPDATE exploration_notes SET reviewed=? WHERE id=?').run(now, id); }
   event(kind, detail, now = Date.now()) {
     this.db.prepare('INSERT INTO exploration_events(kind,detail,created) VALUES (?,?,?)').run(kind, detail.slice(0,300), now);

@@ -19,7 +19,9 @@ test('exploration UI saves settings, checks login, displays a sourced message an
   const store=new Store(root), id='1234567890abcdef12345678';
   const models={complete:async()=>JSON.stringify({share:true,message:'一起看看这个方法？<img src=x onerror=alert(1)>',noteIds:[id]})};
   let browserState='not-connected';
+  let switched = 0, loggedOut = 0;
   const explorer={busy:false,status:()=>({state:browserState}),close:async()=>{},
+    resetLogin:async({reopen})=>{reopen?switched++:loggedOut++;browserState=reopen?'awaiting-login':'not-connected';return {state:browserState};},
     openLogin:async()=>{browserState='awaiting-login';return {state:browserState};},
     verifyLogin:async()=>{browserState='ready';return {state:browserState};},
     explore:async()=>[{id,url:`https://www.xiaohongshu.com/explore/${id}`,title:'自然卷笔记 <script>bad()</script>',author:'测试作者',excerpt:'图文笔记里的真实文字（测试数据）。'}]};
@@ -42,8 +44,10 @@ test('exploration UI saves settings, checks login, displays a sourced message an
   $('#settings-form button[type="submit"]').click();await until(()=>$('#settings-result').textContent.includes('已保存'));
   $('[data-page="exploration"]').click();await until(()=>$('#exploration-events').textContent.includes('还没有'));
   $('[name="interests"]').value='自然卷、数码\n数码';$('[name="enabled"]').checked=true;
+  $('[name="readImages"]').checked=true;$('[name="readVideos"]').checked=true;
   $('#exploration-form button[type="submit"]').click();await until(()=>$('#exploration-result').textContent==='已保存');
   assert.deepEqual(config.value.exploration.interests,['自然卷','数码']);assert.equal(config.value.exploration.enabled,true);assert.equal(config.value.voice.rate,1.2,'exploration save preserves voice settings');
+  assert.equal(config.value.exploration.readImages,true);assert.equal(config.value.exploration.readVideos,true);
   $('#xhs-login').click();await until(()=>$('#xhs-status').textContent.includes('等待扫码'));
   $('#xhs-verify').click();await until(()=>$('#xhs-status').textContent==='已登录');
   $('#exploration-run').click();await until(()=>store.history('web:owner').length===1);
@@ -56,6 +60,11 @@ test('exploration UI saves settings, checks login, displays a sourced message an
   $('[data-page="exploration"]').click();$('#exploration-clear').click();$('#exploration-clear-confirm').click();
   await until(()=>!$('#exploration-clear-dialog').hasAttribute('open')&&store.recentNotes().length===0);
   assert.equal(store.memories('web:owner').length,1);assert.equal(autonomy.saved().sentToday,1);
-  $('#exploration-stop').click();await until(()=>!config.value.exploration.enabled&&!$('[name="enabled"]').checked);
+  $('#exploration-stop').click();await until(()=>!$('#exploration-stop').disabled&&!config.value.exploration.enabled&&!$('[name="enabled"]').checked);
+  $('#xhs-switch').click();await until(()=>!$('#xhs-switch').disabled&&switched===1&&$('#xhs-status').textContent.includes('等待扫码'));
+  // The status label updates before loadState finishes refreshing the diary.
+  // Wait for the action's finally block before closing the DOM in teardown.
+  $('#xhs-logout').click();await until(()=>!$('#xhs-logout').disabled&&loggedOut===1&&$('#xhs-status').textContent==='尚未登录');
+  assert.equal(store.memories('web:owner').length,1);
   assert.deepEqual(errors,[]);
 });

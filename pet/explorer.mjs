@@ -1,7 +1,9 @@
 import { existsSync, mkdirSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { BridgeError } from '../lib.mjs';
+import { captureNoteMedia } from './explorer-media.mjs';
 
 const ORIGIN = 'https://www.xiaohongshu.com';
 export function noteURL(value) {
@@ -76,15 +78,17 @@ export function readNoteDOM() {
 }
 
 export class XiaohongshuExplorer {
-  constructor(root, config, { launcher = chromium } = {}) {
-    this.config = config; this.launcher = launcher;
+  constructor(root, config, { launcher = chromium, captureMedia = captureNoteMedia } = {}) {
+    this.config = config; this.launcher = launcher; this.captureMedia = captureMedia;
     this.profile = join(root, 'data', 'xiaohongshu-profile');
     this.context = null; this.page = null; this.busy = false; this.headless = null; this.recoveryURL = '';
     this.operation = null; this.closeRevision = 0;
+    this.browsing = false; this.pendingDialog = null;
     this.state = existsSync(this.profile) ? 'unverified' : 'not-connected'; this.message = '';
   }
   hasPage() { return Boolean(this.context && this.page && !this.page.isClosed()); }
-  status() { return { state: this.state, message: this.message, busy: this.busy, windowOpen: this.hasPage() && !this.headless }; }
+  status() { return { state: this.state, message: this.message, busy: this.busy, windowOpen: this.hasPage() && !this.headless,
+    dialog: this.pendingDialog ? { type: this.pendingDialog.type(), message: this.pendingDialog.message().slice(0, 240) } : null }; }
   async exclusive(fn) {
     if (this.busy) throw new BridgeError('小红书浏览器正在使用，请稍后再试。', 'busy');
     this.busy = true;
@@ -100,7 +104,7 @@ export class XiaohongshuExplorer {
   }
   async close(invalidate = true) {
     if (invalidate) this.closeRevision++;
-    const context = this.context; this.context = null; this.page = null; this.headless = null;
+    const context = this.context; this.context = null; this.page = null; this.headless = null; this.pendingDialog = null;
     if (context) await context.close().catch(() => {});
   }
   async launch(headless) {
@@ -123,7 +127,8 @@ export class XiaohongshuExplorer {
         const localChromium = channel === 'chromium' && process.platform === 'linux' && existsSync('/usr/bin/chromium');
         context = await this.launcher.launchPersistentContext(this.profile, {
           ...(channel === 'chromium' ? (localChromium ? { executablePath: '/usr/bin/chromium' } : {}) : { channel }),
-          headless, viewport: { width: 1280, height: 900 }, locale: 'zh-CN',
+          headless, viewport: headless ? { width: 1280, height: 900 } : null, locale: 'zh-CN',
+          ...(process.platform === 'win32' ? { chromiumSandbox: true } : {}),
           acceptDownloads: false, serviceWorkers: 'block', permissions: [], timeout: 20000,
         });
         break;
@@ -145,13 +150,16 @@ export class XiaohongshuExplorer {
     });
     checkCancelled();
     const preparePage = p => {
-      p.on('dialog', dialog => dialog.dismiss().catch(() => {}));
+      p.on('dialog', dialog => {
+        if (this.headless || this.browsing || !['alert', 'confirm'].includes(dialog.type())) void dialog.dismiss().catch(() => {});
+        else this.pendingDialog = dialog;
+      });
       p.on('download', download => download.cancel().catch(() => {}));
     };
     this.page = context.pages()[0] || await context.newPage(); preparePage(this.page);
     for (const p of context.pages()) if (p !== this.page) await p.close();
     context.on('page', p => { preparePage(p); if (p !== this.page) p.close().catch(() => {}); });
-    context.on('close', () => { if (this.context === context) { this.context = null; this.page = null; this.headless = null; } });
+    context.on('close', () => { if (this.context === context) { this.context = null; this.page = null; this.headless = null; this.pendingDialog = null; } });
     return this.page;
   }
   async visit(url) {
@@ -159,6 +167,7 @@ export class XiaohongshuExplorer {
     await this.page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
   }
   async assertAccess() {
+    if (this.pendingDialog) throw new BridgeError('小红书网页正在请求确认，请在探索页确认或取消后继续。', 'dialog-required');
     const state = await this.page.evaluate(pageStateDOM);
     if (state.challenge) throw new BridgeError('小红书需要安全验证。已暂停探索，请打开登录窗口手动完成验证。', 'verification-required');
     // Cookies are examined locally only and are never returned to the API/model.
@@ -172,7 +181,7 @@ export class XiaohongshuExplorer {
   }
   async refreshLogin() {
     // Passive check only: never launch, reload or navigate a verification page.
-    if (this.busy || !this.hasPage() || this.headless) return false;
+    if (this.busy || !this.hasPage() || this.headless || this.pendingDialog) return false;
     return this.exclusive(async () => {
       try {
         const state = await this.assertAccess();
@@ -194,7 +203,9 @@ export class XiaohongshuExplorer {
     return e;
   }
   async openLogin() {
-    return this.exclusive(async () => {
+    return this.exclusive(() => this.showLogin());
+  }
+  async showLogin() {
       try {
         const reuse = this.hasPage() && !this.headless;
         await this.launch(false);
@@ -203,6 +214,25 @@ export class XiaohongshuExplorer {
         this.state = 'awaiting-login'; this.message = '请在浏览器中完成扫码或验证。会自动识别登录，也可直接点「现在去逛逛」；检查登录不会关闭窗口。';
         return this.status();
       } catch (e) { throw this.failure(e); }
+  }
+  async resolveDialog(accept) {
+    if (typeof accept !== 'boolean') throw new BridgeError('请选择确认或取消。');
+    const dialog = this.pendingDialog;
+    if (!dialog) throw new BridgeError('网页确认框已关闭，请重新检查页面。');
+    this.pendingDialog = null;
+    try { await (accept ? dialog.accept() : dialog.dismiss()); }
+    catch { throw new BridgeError('网页确认框已关闭，请重新检查页面。'); }
+    return this.status();
+  }
+  async resetLogin({ reopen = false } = {}) {
+    return this.exclusive(async () => {
+      const revision = this.closeRevision;
+      await this.close(false);
+      try { await rm(this.profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
+      catch { throw this.failure(new BridgeError('登录信息仍被浏览器占用，请关闭宠物打开的小红书窗口后重试。', 'browser-unavailable')); }
+      if (revision !== this.closeRevision) throw new BridgeError('账号切换已停止。', 'aborted');
+      this.recoveryURL = ''; this.state = 'not-connected'; this.message = '已清除宠物浏览器的小红书登录状态。需要时可重新扫码。';
+      return reopen ? this.showLogin() : this.status();
     });
   }
   async verifyLogin() {
@@ -217,34 +247,50 @@ export class XiaohongshuExplorer {
   }
   async explore(topic, { signal, seen = () => false, limit = 3 } = {}) {
     return this.exclusive(async () => {
+      const settings = structuredClone(this.config.value.exploration);
+      const canSee = this.config.value.vision.enabled || this.config.value.model.supportsImages;
+      const canHear = settings.transcribeVideo && this.config.value.stt.enabled;
       const abort = () => { void this.close(); };
       signal?.throwIfAborted(); signal?.addEventListener('abort', abort, { once: true });
       try {
         // Check the existing page before navigation so an unfinished CAPTCHA stays
         // intact; a stale awaiting-login flag alone must not block a signed-in user.
         if (this.hasPage()) await this.assertAccess();
+        this.browsing = true;
         await this.launch(this.config.value.exploration.headless); signal?.throwIfAborted();
         const search = new URL('/search_result', ORIGIN); search.searchParams.set('keyword', topic); search.searchParams.set('source', 'web_explore_feed');
         await this.visit(search.href);
         await this.waitForContent('a[href*="/explore/"], a[href*="/search_result/"], a[href*="/discovery/item/"], .login-container, .login-modal, [id*="captcha"], [class*="captcha"], .empty-container, .no-result, .no-results, .search-empty', 15000);
         const state = await this.assertAccess();
         const raw = await this.page.evaluate(collectCardsDOM);
-        const allCards = normalizeCards(raw), cards = allCards.filter(c => !c.video);
+        const allCards = normalizeCards(raw), cards = allCards.filter(c => !c.video || settings.readVideos);
         if (!cards.length) {
           if (state.empty || allCards.length) { this.ready(state.empty ? '这个话题暂无搜索结果，可更换兴趣后再试。' : '本轮只有视频笔记，暂不读取视频内容。'); return []; }
           throw new BridgeError('搜索页没有显示可读取的笔记，可能尚未加载完成或页面结构已变化。请打开小红书窗口检查后重试；本轮不会生成浏览分享。', 'layout-changed');
         }
-        const notes = []; let unreadable = false;
+        const notes = []; let unreadable = false, videosRead = 0;
         for (const card of cards.filter(c => !seen(c.id)).slice(0, limit)) {
+          if (card.video && videosRead >= 1) continue;
           signal?.throwIfAborted(); await this.visit(card.url);
-          await this.waitForContent('#detail-desc, .note-content .desc, .note-text .desc, .login-container, .login-modal, [id*="captcha"], [class*="captcha"]', 12000);
+          await this.waitForContent('#detail-desc, .note-content .desc, .note-text .desc, .note-detail-mask img, #noteContainer img, video, .login-container, .login-modal, [id*="captcha"], [class*="captcha"]', 12000);
           await this.assertAccess();
           const note = await this.page.evaluate(readNoteDOM);
-          if (note.video) continue;
-          if (!note.excerpt) { unreadable = true; continue; }
+          const video = note.video || card.video;
+          if (video && (!settings.readVideos || videosRead >= 1)) continue;
           const current = noteURL(this.page.url());
           if (!current || current.id !== card.id) { unreadable = true; continue; }
-          notes.push({ id: card.id, url: card.url, title: note.title || card.title || '小红书笔记', author: note.author, excerpt: note.excerpt });
+          let media = null;
+          if (video) videosRead++;
+          const checkNoteAccess = async () => {
+            await this.assertAccess();
+            if (noteURL(this.page.url())?.id !== card.id) throw new BridgeError('笔记页面已切换，本轮停止读取该页面，请稍后重试。', 'page-changed');
+          };
+          if ((video && settings.readVideos && (canSee || canHear)) || (!video && settings.readImages && canSee)) {
+            media = await this.captureMedia(this.page, { images: !video && settings.readImages, video, frames: canSee, audio: video && canHear, signal, checkAccess: checkNoteAccess });
+          }
+          await checkNoteAccess();
+          if (!note.excerpt && !media?.images?.length && !media?.frames?.length && !media?.audio) { unreadable = true; continue; }
+          notes.push({ id: card.id, url: card.url, title: note.title || card.title || '小红书笔记', author: note.author, excerpt: note.excerpt, media });
         }
         if (!notes.length && unreadable) throw new BridgeError('笔记正文未能读取，本轮不会把标题当成已读内容。可打开登录窗口检查页面。', 'layout-changed');
         this.ready('');
@@ -254,7 +300,7 @@ export class XiaohongshuExplorer {
         const currentURL = this.page?.url();
         if (allowedRequest(currentURL, true)) this.recoveryURL = currentURL;
         throw this.failure(e);
-      } finally { signal?.removeEventListener('abort', abort); if (this.headless) await this.close(); }
+      } finally { this.browsing = false; signal?.removeEventListener('abort', abort); if (this.headless) await this.close(); }
     });
   }
 }

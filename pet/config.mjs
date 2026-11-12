@@ -15,7 +15,7 @@ export const defaults = {
   exploration: {
     enabled: false, interests: ['数码科技', '生活趣事'], intervalMinutes: 60,
     dailyLimit: 3, quietStart: '23:00', quietEnd: '09:00', timeZone: 'Asia/Shanghai',
-    browser: 'auto', headless: true,
+    browser: 'auto', headless: true, readImages: false, readVideos: false, transcribeVideo: false,
   },
   qq: { appId: '', appSecret: '', autoConnect: false, sandbox: false, directMode: 'allowlist', allowedUsers: [], groupMode: 'disabled', allowedGroups: [] },
 };
@@ -80,7 +80,7 @@ export function validateConfig(value) {
   if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) throw new BridgeError('探索设置格式错误。');
   for (const key of Object.keys(c.exploration)) if (incoming[key] !== undefined) c.exploration[key] = incoming[key];
   const e = c.exploration;
-  for (const key of ['enabled', 'headless']) if (typeof e[key] !== 'boolean') throw new BridgeError('探索开关应为布尔值。');
+  for (const key of ['enabled', 'headless', 'readImages', 'readVideos', 'transcribeVideo']) if (typeof e[key] !== 'boolean') throw new BridgeError('探索开关应为布尔值。');
   if (!Array.isArray(e.interests) || !e.interests.length || e.interests.length > 10) throw new BridgeError('请填写 1–10 个兴趣主题。');
   e.interests = [...new Set(e.interests.map(v => string(v, 40, '兴趣主题')))];
   if (!Number.isInteger(e.intervalMinutes) || e.intervalMinutes < 30 || e.intervalMinutes > 1440) throw new BridgeError('探索间隔应为 30–1440 分钟。');

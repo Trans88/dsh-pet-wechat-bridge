@@ -198,6 +198,29 @@ test('a stopped session cannot be resumed by a late passive login check', async 
   assert.equal(f.autonomy.saved().blocked, 'login-required'); assert.equal(f.explorer.calls, 0);
 });
 
+test('account switching disables exploration and discards unsent old-account notes without deleting history or budgets', async t => {
+  const f = fixture(t); let reopened;
+  await f.autonomy.run(); f.store.saveNotes([note(2)], f.config.value.exploration.interests[0], f.now());
+  f.store.remember('web:owner', '保留的记忆'); const history = f.store.history('web:owner');
+  f.explorer.resetLogin = async options => { reopened = options.reopen; return { state: 'awaiting-login' }; };
+  const budget = f.autonomy.saved().sentToday;
+  await f.autonomy.changeAccount(true);
+  assert.equal(reopened, true); assert.equal(f.config.value.exploration.enabled, false);
+  assert.equal(f.store.pendingNotes().length, 0); assert.deepEqual(f.store.history('web:owner'), history);
+  assert.equal(f.store.memories('web:owner').length, 1); assert.equal(f.autonomy.saved().sentToday, budget);
+  assert.equal(f.autonomy.saved().blocked, 'login-required');
+});
+
+test('stop during account reset rejects the late result and prevents competing work', async t => {
+  const f = fixture(t); let finish, enter;
+  const entered = new Promise(resolve => { enter = resolve; });
+  f.explorer.resetLogin = async () => { enter(); return new Promise(resolve => { finish = resolve; }); };
+  const change = f.autonomy.changeAccount(true); const rejection = assert.rejects(change, e => e.code === 'aborted');
+  await entered; await assert.rejects(f.autonomy.run(), e => e.code === 'busy'); await assert.rejects(f.autonomy.openLogin(), e => e.code === 'busy');
+  const stopped = f.autonomy.stop(); finish({ state: 'awaiting-login' }); await stopped; await rejection;
+  assert.equal(f.autonomy.accountJob, null); assert.equal(f.explorer.calls, 0); assert.equal(f.config.value.exploration.enabled, false);
+});
+
 test('follow-up questions receive only source excerpts actually shared in that conversation', async t => {
   const f = fixture(t); await f.autonomy.run();
   f.models.complete = async messages => { f.calls.push(messages); return '可以一起看看。'; };
@@ -232,6 +255,7 @@ test('exploration APIs retain bearer authentication; accepted work outlives the 
   const origin = `http://127.0.0.1:${app.server.address().port}`;
   const post = (path,body={},authorized=true) => fetch(origin+path,{method:'POST',headers:{'Content-Type':'application/json',...(authorized?{Authorization:`Bearer ${app.token}`}:{})},body:JSON.stringify(body)});
   assert.equal((await post('/api/exploration/run',{},false)).status,401);
+  for (const endpoint of ['logout', 'switch-account', 'dialog']) assert.equal((await post('/api/exploration/' + endpoint, {}, false)).status, 401);
   assert.equal((await fetch(origin+'/api/exploration')).status,401);
   let finish, entered; const started = new Promise(resolve => { entered = resolve; });
   f.models.complete = async () => { entered(); return new Promise(resolve => { finish = resolve; }); };

@@ -29,3 +29,11 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: node dependency-check.mjs
       - run: npm test
+      - name: Install Chromium for media and layout checks
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24'
+        run: npx playwright install --with-deps chromium
+      - name: Check decoded video, audio and responsive controls
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24'
+        run: node --test test/exploration-browser.test.mjs
+        env:
+          PET_BROWSER_TEST: '1'
