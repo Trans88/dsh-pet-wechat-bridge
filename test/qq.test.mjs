@@ -10,11 +10,16 @@ import { QQBridge, qqScope, qqError } from '../pet/qq.mjs';
 import { PNG } from 'pngjs';
 
 class FakeBot {
-  handlers = {}; sent = []; starts = 0;
+  handlers = {}; sent = []; starts = 0; uploads = []; images = [];
   on(type, fn) { this.handlers[type] = fn; return this; }
   async start(signal) { this.starts++; this.handlers.ready?.(); await new Promise(resolve => { this.done = resolve; signal.addEventListener('abort', resolve, { once: true }); }); }
   stop() { this.done?.(); }
-  async sendText(target, text) { this.sent.push({ target, text }); if (this.sendError) throw this.sendError; }
+  async sendText(target, text) { this.sent.push({ target, text }); if (this.sendError) throw this.sendError; await this.afterText?.(); }
+  async uploadMedia(options) { this.uploads.push(options); await this.beforeUpload?.(); if (this.uploadError) throw this.uploadError; return { file_info: 'TEST-FILE-INFO' }; }
+  getCredentials() { return { appId: '123456', clientSecret: 'TEST-QQ-SECRET' }; }
+  mediaApi = { sendMediaMessage: async (scope, targetId, fileInfo, _credentials, options) => {
+    this.images.push({ scope, targetId, fileInfo, options }); if (this.imageError) throw this.imageError;
+  } };
   message(msg) { return this.handlers.message({}, msg); }
 }
 const message = (overrides = {}) => ({ kind: 'c2c', senderId: 'u1', messageId: 'm1', content: '你好', ...overrides });
@@ -271,4 +276,138 @@ test('failed QQ image downloads give a useful response instead of sending placeh
   await f.bot.message(imageMessage());
   assert.match(f.bot.sent[0].text, /HTTP 403/); assert.ok(!f.bot.sent[0].text.includes('SECRET'));
   assert.equal(f.calls.length, 0);
+});
+
+const reaction = (id = 'cheer', text = '这下可以庆祝了！') => JSON.stringify({ text, sticker: id });
+test('QQ selects a bundled image in one model call and records only confirmed delivery', async t => {
+  const f = await fixture(t, async () => reaction());
+  await f.bot.message(message({ content: '今天终于把那个项目做完啦！' }));
+  assert.equal(f.calls.length, 1); assert.equal(f.bot.sent[0].text, '这下可以庆祝了！');
+  assert.equal(f.bot.uploads.length, 1); assert.equal(f.bot.uploads[0].srvSendMsg, false);
+  assert.equal(f.bot.uploads[0].fileType, 1);
+  assert.equal(f.bot.uploads[0].buffer.subarray(1, 4).toString(), 'PNG');
+  assert.deepEqual(f.bot.images, [{ scope: 'c2c', targetId: 'u1', fileInfo: 'TEST-FILE-INFO', options: { msgId: 'm1' } }]);
+  const scope = qqScope('123456', message());
+  assert.equal(f.store.history(scope).at(-1).sticker, 'cheer');
+  assert.equal(f.store.history(scope).at(-1).text, '这下可以庆祝了！');
+  await f.bot.message(message()); assert.equal(f.bot.images.length, 1, 'redelivery never repeats the image');
+  await f.bot.message(message({ messageId: 'followup', content: '你刚发的是什么' }));
+  assert.ok(f.calls[1][0].some(m => typeof m.content === 'string' && m.content.includes('实际附有表情包：好耶')));
+  assert.equal(f.calls[1][1], false, 'a sent sticker does not require a vision call');
+});
+
+test('QQ never opens model-supplied image IDs or sends when disabled, serious or malformed', async t => {
+  for (const item of [
+    { id: '../../pet.config.json' }, { id: 'https://untrusted.test/a.png' },
+    { id: 'cheer', mode: 'off' }, { id: 'laugh', content: '这个代码报错，帮我排查' },
+    { id: 'laugh', content: '胸痛需要怎么治疗' }, { id: 'cheer', content: '不要发表情包' },
+    { raw: '{"text":"控制字段不能外泄", "sticker":' },
+  ]) await t.test(JSON.stringify(item), async t => {
+    const f = await fixture(t, async () => item.raw ?? reaction(item.id));
+    if (item.mode) f.config.update({ qq: { stickers: item.mode } });
+    await f.bot.message(message({ content: item.content || '开心！' }));
+    assert.equal(f.bot.uploads.length, 0); assert.equal(f.bot.images.length, 0);
+    assert.ok(!f.bot.sent[0].text.includes('"sticker"'));
+    if (item.raw) assert.equal(f.store.history(qqScope('123456', message())).length, 0);
+  });
+});
+
+test('QQ sticker cooldown enforces time, turns, no repeats and survives restart', async t => {
+  let time = 1000, selected = 'cheer';
+  const f = await fixture(t, async () => reaction(selected)); f.qq.now = () => time;
+  const send = id => f.bots.at(-1).message(message({ messageId: id, content: '今天开心' }));
+  await send('1'); assert.equal(f.bot.images.length, 1);
+  time += 120000; selected = 'laugh';
+  await send('2'); await send('3'); assert.equal(f.bot.images.length, 1, 'time alone is insufficient');
+  await send('4'); assert.equal(f.bot.images.length, 2);
+  await f.qq.stop(); await f.qq.start(); await Promise.resolve(); selected = 'hug';
+  await send('5'); await send('6'); await send('7'); assert.equal(f.bots[1].images.length, 0, 'turns alone are insufficient after restart');
+  time += 120000; await send('8'); assert.equal(f.bots[1].images.length, 1);
+  time += 120000; await send('9'); await send('10'); await send('11');
+  assert.equal(f.bots[1].images.length, 1, 'do not send the same sticker twice in succession');
+});
+
+test('group members share the sticker rate limit without sharing chat history', async t => {
+  const f = await fixture(t, async () => reaction());
+  f.config.update({ qq: { groupMode: 'open' } });
+  const msg = message({ kind: 'group', groupOpenid: 'g1', rawEventType: 'GROUP_AT_MESSAGE_CREATE', content: '好消息！' });
+  await f.bot.message(msg); await f.bot.message({ ...msg, senderId: 'u2', messageId: 'm2' });
+  assert.equal(f.bot.images.length, 1); assert.equal(f.bot.images[0].scope, 'group');
+  assert.equal(f.store.history(qqScope('123456', msg)).length, 2);
+  assert.equal(f.store.history(qqScope('123456', { ...msg, senderId: 'u2' })).at(-1).sticker, null);
+  assert.equal(f.calls[1][0].filter(m => m.role === 'assistant').length, 0);
+});
+
+test('QQ image failures preserve sent text and never retry an ambiguous image', async t => {
+  for (const step of ['uploadError', 'imageError']) await t.test(step, async t => {
+    const f = await fixture(t, async () => reaction());
+    f.bot[step] = new Error('PRIVATE-QQ-SECRET response dump');
+    const msg = message({ content: '今天好开心' });
+    await f.bot.message(msg); await f.bot.message(msg);
+    assert.equal(f.bot.sent.length, 1); assert.equal(f.bot.uploads.length, 1);
+    assert.equal(f.store.history(qqScope('123456', msg)).at(-1).sticker, null);
+    assert.equal(f.store.db.prepare('SELECT status FROM qq_deliveries').get().status, 'sent');
+    assert.match(f.qq.lastError, /文字已发送.*未确认送达/); assert.ok(!f.qq.lastError.includes('PRIVATE'));
+  });
+});
+
+test('revoking access or turning stickers off between text and image suppresses upload', async t => {
+  for (const change of [{ allowedUsers: [] }, { stickers: 'off' }]) await t.test(JSON.stringify(change), async t => {
+    const f = await fixture(t, async () => reaction()); f.bot.afterText = () => f.config.update({ qq: change });
+    await f.bot.message(message());
+    assert.equal(f.bot.sent.length, 1); assert.equal(f.bot.uploads.length, 0);
+  });
+});
+
+test('QQ rechecks access and settings after uploading, before sending media', async t => {
+  for (const change of [{ allowedUsers: [] }, { stickers: 'off' }]) await t.test(JSON.stringify(change), async t => {
+    const f = await fixture(t, async () => reaction()); f.bot.beforeUpload = () => f.config.update({ qq: change });
+    await f.bot.message(message());
+    assert.equal(f.bot.uploads.length, 1); assert.equal(f.bot.images.length, 0);
+    assert.equal(f.store.history(qqScope('123456', message())).at(-1).sticker, null);
+  });
+});
+
+test('stopping QQ releases a hung upload and its late completion cannot send an image', async t => {
+  const f = await fixture(t, async () => reaction()); let release;
+  f.bot.beforeUpload = () => new Promise(resolve => { release = resolve; });
+  const task = f.bot.message(message());
+  for (let i = 0; !release && i < 10; i++) await new Promise(setImmediate);
+  assert.ok(release); await f.qq.stop(); await task; release(); await new Promise(setImmediate);
+  assert.equal(f.bot.images.length, 0); assert.equal(f.qq.pending, 0);
+});
+
+test('a hung QQ image upload times out without sending or duplicating text', async t => {
+  const f = await fixture(t, async () => reaction()); let started = false;
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  f.bot.beforeUpload = () => { started = true; return new Promise(() => {}); };
+  const task = f.bot.message(message());
+  for (let i = 0; !started && i < 10; i++) await new Promise(setImmediate);
+  assert.ok(started); t.mock.timers.tick(20001); await task;
+  assert.equal(f.bot.images.length, 0); assert.equal(f.bot.sent.length, 1); assert.equal(f.qq.pending, 0);
+  assert.match(f.qq.lastError, /文字已发送/);
+});
+
+test('official QQ SDK produces passive text, upload and image requests', async t => {
+  const { QQBot } = await import('@tencent-connect/qqbot-nodejs');
+  const f = await fixture(t, async () => reaction());
+  const real = new QQBot({ appId: '123456', appSecret: 'TEST-SECRET', markdownSupport: false });
+  const requests = [];
+  real.tokenManager.getAccessToken = async () => 'TEST-TOKEN';
+  real.apiClient.request = async (_token, method, path, body) => {
+    requests.push({ method, path, body });
+    return path.endsWith('/files') ? { file_info: 'TEST-UPLOADED-FILE', ttl: 0 } : { id: 'TEST-REPLY' };
+  };
+  f.bot.sendText = real.sendText.bind(real); f.bot.uploadMedia = real.uploadMedia.bind(real);
+  f.bot.mediaApi = real.mediaApi; f.bot.getCredentials = real.getCredentials.bind(real);
+  await f.bot.message(message({ messageId: 'sdk-sticker', content: '好开心' }));
+  assert.equal(requests.length, 3, f.qq.lastError);
+  assert.equal(requests[0].body.msg_type, 0);
+  assert.equal(requests[1].path, '/v2/users/u1/files');
+  assert.equal(requests[1].body.file_type, 1); assert.equal(requests[1].body.srv_send_msg, false);
+  assert.ok(requests[1].body.file_data.startsWith('iVBOR')); assert.equal(requests[1].body.url, undefined);
+  assert.equal(requests[2].path, '/v2/users/u1/messages'); assert.equal(requests[2].body.msg_type, 7);
+  assert.equal(requests[2].body.msg_id, 'sdk-sticker');
+  for (const request of [requests[0], requests[2]]) assert.ok(Number.isInteger(request.body.msg_seq) && request.body.msg_seq >= 0 && request.body.msg_seq <= 65535);
+  assert.deepEqual(requests[2].body.media, { file_info: 'TEST-UPLOADED-FILE' });
 });

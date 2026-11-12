@@ -4,6 +4,8 @@ import { normalizeImage } from '../media.mjs';
 import { validScope } from './store.mjs';
 import { PetInteractions, petCommand } from './interactions.mjs';
 import { balanceCommand, describeBalance } from './balance.mjs';
+import { conversationStyle } from './conversation.mjs';
+import { findSticker, stickerPrompt, parseStickerReply } from './stickers.mjs';
 
 export class PetCore {
   constructor(config, store, models) { this.config = config; this.store = store; this.models = models; this.pending = new Map(); this.interactions = new PetInteractions(store); }
@@ -13,7 +15,7 @@ export class PetCore {
     this.pending.set(scope, true);
     try { return await fn(); } finally { this.pending.delete(scope); }
   }
-  async chat({ scope = 'web:owner', text = '', attachment, requestId, label }, signal) {
+  async chat({ scope = 'web:owner', text = '', attachment, requestId, label }, signal, replyOptions) {
     return this.exclusive(scope, async () => {
       signal?.throwIfAborted();
       if (requestId !== undefined && (typeof requestId !== 'string' || !/^[\w-]{1,128}$/.test(requestId))) throw new BridgeError('消息标识无效。');
@@ -32,7 +34,7 @@ export class PetCore {
       if (!text) throw new BridgeError('请输入消息或添加图片。');
       this.store.ensure(scope, label || (scope === 'web:owner' ? '网页 · 主人' : scope.startsWith('wechat:') ? '微信 · 私聊' : scope));
       if (scope === 'web:owner') this.store.ownerActivity();
-      let reply;
+      let reply, stickerId = null;
       const action = !image && petCommand(text);
       if (!image && balanceCommand(text)) {
         reply = scope === 'web:owner' ? describeBalance(await this.models.balance(signal)) :
@@ -47,7 +49,7 @@ export class PetCore {
         const facts = this.store.memories(scope).map(m => m.text);
         const history = this.store.history(scope, 24);
         const sources = scope === 'web:owner' ? this.store.notesByIds(history.flatMap(m => (m.sources || []).map(s => s.id))) : [];
-        const system = `你是用户的 AI 宠物，名字是「${persona.name}」。\n${persona.persona}\n` +
+        const system = `你是用户的 AI 宠物，名字是「${persona.name}」。\n${persona.persona}\n${conversationStyle(persona)}\n` +
           '你可以聊天；只有收到图片输入时才能看图。仅当下面提供了已读笔记片段时，才能基于它们讨论实际浏览的内容；没有片段就不要声称访问了网页。不要声称操作了设备、发送了消息或执行了没有提供的工具。' +
           '账户余额由本地查询命令获取；历史中的余额只代表查询当时的结果，不是实时余额。本机主人可发送「查询余额」获取最新结果，其他通道不能查询账户余额。' +
           '宠物养成数值仅是虚拟游戏状态，可自然回应，但不要说用户不来就会受苦，也不要声称已经执行互动。当前状态：' + JSON.stringify(this.interactions.status(scope), ['mood', 'fullness', 'energy', 'bond', 'sleeping']) +
@@ -57,14 +59,22 @@ export class PetCore {
         // Most recent images remain available for follow-up questions; cap payload size.
         const messages = history.slice().reverse().map(m => {
           const keep = canSee && m.image && imagesLeft-- > 0;
-          return { role: m.role, content: keep ? this.content(m.text, m.image) : m.text };
+          const sticker = m.role === 'assistant' && findSticker(m.sticker);
+          const text = m.text + (sticker ? `\n[这条回复实际附有表情包：${sticker.label}]` : '');
+          return { role: m.role, content: keep ? this.content(text, m.image) : text };
         }).reverse();
         messages.unshift({ role: 'system', content: system });
+        if (replyOptions) messages[0].content += stickerPrompt(replyOptions.stickerChoices || []);
         messages.push({ role: 'user', content: this.content(text, image) });
         reply = await this.models.complete(messages, Boolean(image) || messages.some(m => Array.isArray(m.content)), signal);
+        if (replyOptions) {
+          const plan = parseStickerReply(reply, replyOptions.stickerChoices || []);
+          reply = plan.text; stickerId = plan.stickerId;
+        }
       }
       signal?.throwIfAborted();
-      this.store.append(scope, text, image, reply, requestId);
+      const messageId = this.store.append(scope, text, image, reply, requestId);
+      replyOptions?.onReply?.({ stickerId, messageId });
       return reply;
     });
   }

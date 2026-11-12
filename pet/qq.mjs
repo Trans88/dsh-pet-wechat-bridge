@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { BridgeError } from '../lib.mjs';
 import { prepareQQMessage } from './qq-media.mjs';
+import { readFileSync } from 'node:fs';
+import { QQStickers, stickerPath } from './stickers.mjs';
 
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const idOK = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value);
@@ -47,6 +49,18 @@ async function makeBot(options) {
   const { QQBot } = await import('@tencent-connect/qqbot-nodejs');
   return new QQBot(options);
 }
+async function mediaStep(operation, signal) {
+  let timer, onAbort;
+  const interrupted = new Promise((_, reject) => {
+    onAbort = () => reject(new BridgeError('QQ 图片发送已停止。', 'aborted'));
+    signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) onAbort();
+    timer = setTimeout(() => reject(new BridgeError('QQ 图片发送超时。', 'aborted')), 20000);
+    timer.unref?.();
+  });
+  try { return await Promise.race([operation, interrupted]); }
+  finally { clearTimeout(timer); signal.removeEventListener('abort', onAbort); }
+}
 
 // The official SDK owns token refresh, heartbeat and reconnect. No public HTTP
 // listener, account password, or dsh process is needed by this channel.
@@ -56,6 +70,7 @@ export class QQBridge {
     this.state = 'stopped'; this.lastError = ''; this.generation = 0;
     this.waitStartedAt = null; this.waitTimer = null;
     this.contacts = new Map(); this.queue = Promise.resolve(); this.pending = 0;
+    this.stickers = new QQStickers(config, store, () => this.now());
     store.db.exec('CREATE TABLE IF NOT EXISTS qq_deliveries (id TEXT PRIMARY KEY, status TEXT NOT NULL, created INTEGER NOT NULL)');
   }
   status() {
@@ -100,7 +115,7 @@ export class QQBridge {
       try {
         bot = await this.factory({ ...credentials, transport: 'websocket', intents: 1 << 25, markdownSupport: false,
           baseUrl: this.config.value.qq.sandbox ? 'https://sandbox.api.sgroup.qq.com' : 'https://api.sgroup.qq.com',
-          reconnect: { maxAttempts: 10 }, userAgent: 'little-pet/0.7.3' });
+          reconnect: { maxAttempts: 10 }, userAgent: 'little-pet/0.9.0' });
         if (!live()) { bot.stop(); return; }
         this.bot = bot;
         for (const event of ['ready', 'resumed']) bot.on(event, () => {
@@ -154,15 +169,20 @@ export class QQBridge {
     this.pending++;
     const task = this.queue.then(async () => {
       if (!context.live() || !this.allowed(msg)) return;
-      let reply;
+      const scope = qqScope(context.appId, msg);
+      // Group members share a cooldown, while their conversation stays isolated.
+      const stickerKey = `qq-stickers:${digest([context.appId, msg.kind, targetId])}`;
+      this.stickers.begin(stickerKey);
+      let reply, plan, stickerContext = '';
       try {
         const input = await prepareQQMessage(msg, { config: this.config.value, signal: context.signal, fetcher: this.fetcher });
         if (!context.live() || !this.allowed(msg)) return;
         if (input.reply) reply = input.reply;
         else {
-          const scope = qqScope(context.appId, msg);
+          stickerContext = [...this.store.history(scope, 6).filter(m => m.role === 'user').slice(-2).map(m => m.text), input.text].join('\n');
           reply = await this.core.chat({ scope, text: input.text, attachment: input.attachment, requestId: id,
-            label: `QQ · ${msg.kind === 'group' ? '群聊成员' : '私聊'} · ${scope.slice(-6)}` }, context.signal);
+            label: `QQ · ${msg.kind === 'group' ? '群聊成员' : '私聊'} · ${scope.slice(-6)}` }, context.signal,
+          { stickerChoices: this.stickers.choices(stickerKey, stickerContext), onReply: value => { plan = value; } });
           if (input.note) reply += `\n${input.note}`;
         }
       } catch (error) {
@@ -176,6 +196,22 @@ export class QQBridge {
       await context.bot.sendText(target, reply);
       this.store.db.prepare("UPDATE qq_deliveries SET status='sent' WHERE id=?").run(id);
       if (context.live()) this.lastError = '';
+      if (plan?.stickerId && context.live() && this.allowed(msg) && this.stickers.claim(stickerKey, plan.stickerId, stickerContext)) {
+        try {
+          const mode = this.config.value.qq.stickers;
+          // Split the SDK's upload + send to recheck cancellation and permissions
+          // between requests. Upload must never automatically send a message.
+          const upload = await mediaStep(context.bot.uploadMedia({ target, fileType: 1,
+            buffer: readFileSync(stickerPath(plan.stickerId)), srvSendMsg: false }), context.signal);
+          if (!context.live() || !this.allowed(msg) || this.config.value.qq.stickers !== mode) return;
+          await mediaStep(context.bot.mediaApi.sendMediaMessage(target.scope, target.targetId, upload.file_info,
+            context.bot.getCredentials(), { msgId: target.msgId }), context.signal);
+          this.store.recordSticker(scope, plan.messageId, plan.stickerId);
+        } catch (error) {
+          // Text was already delivered. Never retry it or claim the image arrived.
+          if (context.live()) this.lastError = `文字已发送，表情包未确认送达，本次不重试。${qqError(error)}`;
+        }
+      }
     }).catch(error => {
       if (context.live()) this.lastError = qqError(error);
       this.store.db.prepare("UPDATE qq_deliveries SET status='failed' WHERE id=?").run(id);
