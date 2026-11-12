@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { Config } from '../pet/config.mjs';
 import { Store } from '../pet/store.mjs';
 import { PetCore } from '../pet/core.mjs';
-import { QQBridge, qqScope } from '../pet/qq.mjs';
+import { QQBridge, qqScope, qqError } from '../pet/qq.mjs';
 
 class FakeBot {
   handlers = {}; sent = []; starts = 0;
@@ -123,4 +123,92 @@ test('QQ startup failures are visible, and stop wins against a delayed SDK impor
   f.qq.factory = async () => { const bot = new FakeBot(); bot.start = async () => { throw { httpStatus: 401, message: 'PRIVATE-KEY' }; }; return bot; };
   await f.qq.start(); await f.qq.run;
   assert.equal(f.qq.state, 'error'); assert.match(f.qq.lastError, /凭据/); assert.ok(!f.qq.lastError.includes('PRIVATE'));
+});
+
+test('QQ start and stop return even if SDK import never settles; late imports cannot start', async t => {
+  const f = await fixture(t); await f.qq.stop();
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1000 });
+  let release;
+  f.qq.factory = () => new Promise(resolve => { release = resolve; });
+  await f.qq.start(); const oldRun = f.qq.run;
+  assert.equal(f.qq.state, 'starting');
+  t.mock.timers.tick(9000);
+  assert.equal(f.qq.status().elapsedSeconds, 9);
+  await f.qq.stop();
+  assert.equal(f.qq.state, 'stopped');
+  const delayed = new FakeBot(); release(delayed); await oldRun;
+  assert.equal(delayed.starts, 0);
+  t.mock.timers.tick(60000);
+  assert.equal(f.qq.state, 'stopped');
+});
+
+test('QQ overall deadline covers import, permits retry, and ignores stale ready/message callbacks', async t => {
+  const f = await fixture(t); await f.qq.stop();
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1000 });
+  const logs = []; f.qq.log = line => logs.push(line);
+  let release;
+  f.qq.factory = () => new Promise(resolve => { release = resolve; });
+  await f.qq.start(); const importRun = f.qq.run;
+  t.mock.timers.tick(60000);
+  assert.equal(f.qq.state, 'error'); assert.match(f.qq.lastError, /60 秒/);
+  assert.equal(f.qq.controller.signal.aborted, true);
+  const delayed = new FakeBot(); release(delayed); await importRun;
+  assert.equal(delayed.starts, 0);
+
+  const stuck = new FakeBot(); stuck.start = () => new Promise(() => {});
+  f.qq.factory = async () => stuck;
+  await f.qq.start(); await Promise.resolve();
+  stuck.handlers.error(new Error('Network error getting access_token: PRIVATE-QQ-SECRET', { cause: { code: 'ETIMEDOUT' } }));
+  t.mock.timers.tick(60000);
+  assert.equal(f.qq.state, 'error'); assert.match(f.qq.lastError, /ETIMEDOUT/);
+  assert.ok(!logs.join('\n').includes('PRIVATE-QQ-SECRET'));
+  stuck.handlers.ready(); await stuck.message(message());
+  assert.equal(f.qq.state, 'error'); assert.equal(f.calls.length, 0);
+
+  f.qq.factory = async () => new FakeBot();
+  await f.qq.start(); await Promise.resolve();
+  assert.equal(f.qq.state, 'connected');
+  stuck.handlers.disconnected({ willReconnect: false, code: 4914 });
+  stuck.handlers.error(new Error('late error')); stuck.handlers.ready();
+  assert.equal(f.qq.state, 'connected'); assert.equal(f.qq.lastError, '');
+  t.mock.timers.tick(120000);
+  assert.equal(f.qq.state, 'connected', 'ready clears the connection deadline');
+});
+
+test('reconnection has one fixed deadline; fatal closes stop immediately and stop never waits for stuck SDK start', async t => {
+  const f = await fixture(t);
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1000 });
+  f.bot.handlers.disconnected({ willReconnect: true });
+  t.mock.timers.tick(45000);
+  f.bot.handlers.disconnected({ willReconnect: true });
+  assert.equal(f.qq.status().elapsedSeconds, 45);
+  t.mock.timers.tick(15000);
+  assert.equal(f.qq.state, 'error'); assert.match(f.qq.lastError, /重连.*60 秒/);
+  await f.qq.start(); await Promise.resolve();
+  f.bots.at(-1).handlers.disconnected({ willReconnect: false, code: 4914 });
+  assert.equal(f.qq.state, 'error'); assert.match(f.qq.lastError, /沙箱.*4914/);
+
+  const stuck = new FakeBot(); stuck.start = () => new Promise(() => {});
+  f.qq.factory = async () => stuck;
+  await f.qq.start(); await Promise.resolve();
+  await f.qq.stop();
+  assert.equal(f.qq.state, 'stopped');
+  t.mock.timers.tick(60000); stuck.handlers.ready();
+  assert.equal(f.qq.state, 'stopped');
+});
+
+test('SDK token, network and gateway errors retain only safe codes and actionable diagnoses', () => {
+  for (const [input, expected] of [
+    [new Error('Token fetch failed: HTTP 403 — PRIVATE-SECRET'), /凭据.*HTTP 403/],
+    [new Error('Failed to get access_token: {"code":40014,"message":"PRIVATE-SECRET"}'), /凭据.*QQ 40014/],
+    [new Error('Token fetch failed: HTTP 503 — PRIVATE-SECRET'), /暂时不可用.*HTTP 503/],
+    [new Error('Token fetch failed: HTTP 429 — PRIVATE-SECRET'), /限流.*HTTP 429/],
+    [new Error('Network error getting access_token: PRIVATE-SECRET', { cause: { code: 'ENOTFOUND' } }), /域名.*ENOTFOUND/],
+    [new Error('Network error getting access_token: PRIVATE-SECRET', { cause: new AggregateError([{ code: 'UND_ERR_CONNECT_TIMEOUT' }]) }), /网络.*UND_ERR_CONNECT_TIMEOUT/],
+    [{ code: 'ERR_TLS_CERT_ALTNAME_INVALID', message: 'PRIVATE-SECRET' }, /证书.*ERR_TLS_CERT_ALTNAME_INVALID/],
+    [{ code: 'GATEWAY_FATAL_CLOSE', closeCode: 4914, message: 'PRIVATE-SECRET' }, /沙箱.*4914/],
+    [{ code: 'GATEWAY_FATAL_CLOSE', closeCode: 4915, message: 'PRIVATE-SECRET' }, /禁止.*4915/],
+    [{ message: 'ip not in whitelist PRIVATE-SECRET' }, /IP 白名单/],
+    [{ bizCode: 'PRIVATE-SECRET', httpStatus: 'PRIVATE-SECRET', message: 'PRIVATE-SECRET' }, /连接或发送失败/],
+  ]) { const safe = qqError(input); assert.match(safe, expected); assert.ok(!safe.includes('PRIVATE-SECRET')); }
 });

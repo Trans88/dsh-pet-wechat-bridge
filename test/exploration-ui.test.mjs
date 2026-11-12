@@ -28,6 +28,7 @@ test('exploration UI saves settings, checks login, displays a sourced message an
   const url=`http://127.0.0.1:${app.server.address().port}`,errors=[],console=new VirtualConsole();console.on('jsdomError',e=>errors.push(e.message));
   const dom=new JSDOM(await(await fetch(url)).text(),{url,runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:console}),w=dom.window,$=s=>w.document.querySelector(s);
   w.fetch=(path,options)=>fetch(new URL(path,url),options);w.setInterval=()=>0;
+  w.AbortController=AbortController;w.AbortSignal=AbortSignal;
   w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};
   t.after(async()=>{w.close();await autonomy.stop();app.abort();await new Promise(resolve=>app.server.close(resolve));store.close();rmSync(root,{recursive:true,force:true});});
   w.eval(readFileSync(join(root,'web','voice.js'),'utf8'));

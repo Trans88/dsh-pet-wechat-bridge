@@ -59,14 +59,14 @@ if (command === 'check') {
 } else if (command === 'start') {
   const store = new Store(root), models = new Models(config), core = new PetCore(config, store, models), wechat = new WechatProcess();
   const explorer = new XiaohongshuExplorer(root, config), autonomy = new Autonomy({ config, store, core, models, explorer });
-  const qq = new QQBridge({ config, store, core });
+  const qq = new QQBridge({ config, store, core, log: text => console.log(text) });
   const app = createPetServer({ root, config, store, core, models, wechat, autonomy, qq });
   const runtimePath = join(root, 'data', 'pet-runtime.json');
   try {
     await new Promise((resolve, reject) => { app.server.once('error', reject); app.server.listen(config.value.port, '127.0.0.1', resolve); });
     const url = `http://127.0.0.1:${config.value.port}`;
     saveJSONFile(runtimePath, { url, token: app.token, pid: process.pid });
-    console.log(`\nLittle Pet · 独立 AI 宠物 v0.7.0\n打开 ${url}\n首次使用：进入设置，填写模型 API Key。自主浏览请进入「探索」扫码登录并开启。\n按 Ctrl+C 停止。`);
+    console.log(`\nLittle Pet · 独立 AI 宠物 v0.7.2\n打开 ${url}\n首次使用：进入设置，填写模型 API Key。自主浏览请进入「探索」扫码登录并开启。\n按 Ctrl+C 停止。`);
     autonomy.start();
     if (config.value.qq.autoConnect) qq.start().catch(e => console.error(e.message));
     if (!process.argv.includes('--no-open')) openBrowser(url);

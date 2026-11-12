@@ -36,6 +36,8 @@ test('web setup, text/image chat, memory management and error states work agains
   const dom = new JSDOM(html, { url, runScripts: 'outside-only', pretendToBeVisual: true, virtualConsole: console });
   const w = dom.window, $ = selector => w.document.querySelector(selector);
   w.fetch = (path, options) => fetch(new URL(path, url), options);
+  // Match the controller realm to Node fetch, just as browser fetch does.
+  w.AbortController = AbortController; w.AbortSignal = AbortSignal;
   // This test drives refreshes through UI actions; don't leave background polls at teardown.
   w.setInterval = () => 0;
   w.crypto.randomUUID = randomUUID;
@@ -196,6 +198,7 @@ test(`HTTP-loaded homepage can initialize, save settings and chat: ${label}`, as
     runScripts: 'dangerously', resources: new Assets(), pretendToBeVisual: true, virtualConsole: console,
     beforeParse(w) {
       w.fetch = (path, options = {}) => fetch(new URL(path, url), { ...options, headers: { ...options.headers, ...sourceHeaders } });
+      w.AbortController = AbortController; w.AbortSignal = AbortSignal;
       w.setInterval = () => 0;
       w.crypto.randomUUID = randomUUID;
     },

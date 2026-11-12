@@ -4,6 +4,7 @@ const titles = { home: '欢迎回到小窝', exploration: '今天，会发现什
 let state, scope = 'web:owner', page = 'home', attachment, pendingRequestId, sending = false, sleeping = false, toastTimer, lastUpdate = 0;
 let historyRevision = 0, memoryRevision = 0;
 let explorationRevision = 0, lastReadPosted = 0, stateLoading = false;
+let qqAction = '', qqActionError = '', qqStateError = '';
 let voiceUI = { phase: 'idle', active: false, mode: null };
 let previewVoice;
 let avatarTimer, patTimer, petting = false, avatarKey, spriteFailed = false;
@@ -65,6 +66,17 @@ async function api(path, data, binary = false, signal) {
   }
   return binary ? response.blob() : response.json();
 }
+async function localApi(path, data) {
+  // These local control/status requests should finish quickly. Keep model and
+  // voice requests on their existing cancellation/timeout paths.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try { return await api(path, data, false, controller.signal); }
+  catch (error) {
+    if (controller.signal.aborted) throw new Error('本地宠物服务超过 12 秒未响应。请检查启动终端是否仍在运行，再点击「刷新状态」。');
+    throw error;
+  } finally { clearTimeout(timer); }
+}
 function toast(text) { $('#toast').textContent = text; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 4500); }
 function chatError(text) { $('#chat-error').textContent = text || ''; $('#chat-error').hidden = !text; }
 function showPage(next) {
@@ -83,7 +95,8 @@ document.querySelectorAll('[data-go]').forEach(button => button.addEventListener
 $('#date-label').textContent = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }) + ' · LITTLE PET';
 
 async function loadState(initial = false) {
-  state = await api('/api/state');
+  try { state = await localApi('/api/state'); qqStateError = ''; }
+  catch (error) { qqStateError = `暂时无法读取 QQ 状态：${error.message}`; renderQQ(); throw error; }
   renderCare(state.care);
   renderAvatar();
   $('#pet-name').textContent = state.config.pet.name;
@@ -512,19 +525,39 @@ function fillQQ() {
   $('#qq-secret-hint').textContent = q.secretFromEnvironment ? '环境变量 QQBOT_SECRET 优先；更换时请修改环境变量并重启' : '留空保留已保存的密钥；更换 AppID 时请重新填写对应的 AppSecret';
 }
 function renderQQ() {
-  const q = state.qq || { state: 'stopped', contacts: [] }, config = state.config.qq;
-  const labels = { stopped: '未连接', starting: '正在连接', connected: '已连接', reconnecting: '正在重连', error: '连接失败' };
-  $('#qq-status').textContent = labels[q.state] || '未连接';
-  $('#qq-error').hidden = !q.error; $('#qq-error').textContent = q.error || '';
-  const running = ['starting', 'connected', 'reconnecting'].includes(q.state);
-  $('#qq-start').disabled = running; $('#qq-stop').disabled = !running && q.state !== 'error';
+  const q = state?.qq || { state: 'stopped', contacts: [] }, config = state?.config.qq;
+  const phase = qqStateError ? 'unknown' : qqAction === 'start' ? 'starting' : qqAction === 'stop' ? 'stopping' : q.state;
+  const labels = { stopped: '未连接', starting: '正在连接', connected: '已连接', reconnecting: '正在重连', stopping: '正在断开', error: '连接失败', unknown: '状态暂不可用' };
+  const waiting = ['starting', 'reconnecting'].includes(phase), stopping = phase === 'stopping';
+  const running = waiting || phase === 'connected' || stopping;
+  $('#qq-status').textContent = labels[phase] || '未连接';
+  const error = [qqStateError, qqActionError, q.error].filter(Boolean).join(' ');
+  $('#qq-error').hidden = !error; $('#qq-error').textContent = error;
+  const start = $('#qq-start'), stop = $('#qq-stop'), refresh = $('#qq-refresh');
+  start.textContent = { starting: '正在连接…', connected: '已连接 QQ', reconnecting: '正在重连…', error: '重试连接', stopping: '正在断开…', unknown: '连接 QQ' }[phase] || '连接 QQ';
+  start.disabled = !!qqAction || running || !!qqStateError || !state;
+  start.setAttribute('aria-busy', String(waiting));
+  stop.textContent = stopping ? '正在断开…' : waiting ? '取消连接' : '断开';
+  stop.disabled = !!qqAction || stopping || (!running && !['error', 'unknown'].includes(phase));
+  stop.setAttribute('aria-busy', String(stopping));
+  refresh.disabled = !!qqAction; refresh.textContent = qqAction === 'refresh' ? '正在刷新…' : '刷新状态';
+  refresh.setAttribute('aria-busy', String(qqAction === 'refresh'));
+  let detail = '保存 AppID 和 AppSecret 后，点击「连接 QQ」。';
+  if (waiting) detail = `${labels[phase]}，已等待 ${qqAction === 'start' ? 0 : q.elapsedSeconds || 0} 秒，最长 ${q.timeoutSeconds || 60} 秒。超时后可重试，也可以取消。`;
+  else if (phase === 'connected') detail = config?.directMode === 'allowlist' && !config.allowedUsers.length
+    ? '已连接 QQ。私聊名单还是空的：先在 QQ 给机器人发一句话，再把下方出现的联系人 OpenID 填入名单并保存。'
+    : '已连接 QQ，可以接收消息。请用已允许的联系人私聊，或在已允许的群里 @ 机器人。';
+  else if (phase === 'error') detail = '本次连接已停止。按下面的提示检查后，点击「重试连接」。';
+  else if (stopping) detail = '正在取消连接并收尾，请稍候。';
+  else if (phase === 'unknown') detail = '当前状态尚未确认，请检查本地启动终端并刷新状态。';
+  $('#qq-connection-detail').textContent = detail;
   const contacts = $('#qq-contacts'); contacts.replaceChildren();
   for (const contact of q.contacts || []) {
     const row = el('div', 'qq-contact'), kind = contact.kind === 'group' ? '群' : '联系人';
     row.append(el('span', '', `${kind} OpenID`), el('code', '', contact.id));
     const listKey = contact.kind === 'group' ? 'allowedGroups' : 'allowedUsers';
-    const add = el('button', '', config[listKey].includes(contact.id) ? '已在名单' : '填入名单');
-    add.disabled = config[listKey].includes(contact.id);
+    const add = el('button', '', config?.[listKey].includes(contact.id) ? '已在名单' : '填入名单');
+    add.disabled = !!config?.[listKey].includes(contact.id);
     add.addEventListener('click', () => {
       const input = $(`#qq-form [name="${listKey}"]`);
       input.value = [...new Set([...input.value.split(/[\s,，]+/).filter(Boolean), contact.id])].join('\n');
@@ -543,10 +576,12 @@ $('#qq-form').addEventListener('submit', async event => {
   try { await api('/api/config', { qq }); await loadState(); fillQQ(); $('#qq-result').textContent = '已保存。修改凭据或环境后，请重新点击「连接 QQ」。'; }
   catch (e) { toast(e.message); } finally { button.disabled = false; }
 });
-for (const action of ['start', 'stop']) $(`#qq-${action}`).addEventListener('click', async () => {
-  const button = $(`#qq-${action}`); button.disabled = true;
-  try { await api(`/api/qq/${action}`, {}); await loadState(); }
-  catch (e) { toast(e.message); } finally { renderQQ(); }
+for (const action of ['start', 'stop', 'refresh']) $(`#qq-${action}`).addEventListener('click', async () => {
+  if (qqAction) return;
+  qqAction = action; qqActionError = ''; renderQQ();
+  try { if (action !== 'refresh') await localApi(`/api/qq/${action}`, {}); await loadState(); }
+  catch (e) { qqActionError = e.message; if (action !== 'refresh') qqStateError = '连接操作未完成，请刷新以确认当前状态。'; toast(e.message); }
+  finally { qqAction = ''; renderQQ(); }
 });
 loadState(true).catch(e => { chatError(e.message); $('#model-status').textContent = '连接失败'; });
 setInterval(() => {
