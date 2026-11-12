@@ -9,6 +9,7 @@ import { PetCore } from './pet/core.mjs';
 import { createPetServer } from './pet/server.mjs';
 import { XiaohongshuExplorer } from './pet/explorer.mjs';
 import { Autonomy } from './pet/autonomy.mjs';
+import { Diary } from './pet/diary.mjs';
 import { QQBridge } from './pet/qq.mjs';
 import { BridgeError, saveJSONFile } from './lib.mjs';
 
@@ -61,15 +62,17 @@ if (command === 'check') {
 } else if (command === 'start') {
   const store = new Store(dataRoot), models = new Models(config), core = new PetCore(config, store, models), wechat = new WechatProcess();
   const explorer = new XiaohongshuExplorer(dataRoot, config), autonomy = new Autonomy({ config, store, core, models, explorer });
+  const diary = new Diary({ config, store, core, models });
   const qq = new QQBridge({ config, store, core, log: text => console.log(text) });
-  const app = createPetServer({ root, dataRoot, config, store, core, models, wechat, autonomy, qq });
+  const app = createPetServer({ root, dataRoot, config, store, core, models, wechat, autonomy, qq, diary });
   const runtimePath = join(dataRoot, 'data', 'pet-runtime.json');
   try {
     await new Promise((resolve, reject) => { app.server.once('error', reject); app.server.listen(config.value.port, '127.0.0.1', resolve); });
     const url = `http://127.0.0.1:${config.value.port}`;
     saveJSONFile(runtimePath, { url, token: app.token, pid: process.pid });
-    console.log(`\nLittle Pet · 独立 AI 宠物 v0.12.0\n打开 ${url}\n首次使用：进入设置，填写模型 API Key。自主浏览请进入「探索」扫码登录并开启。\n按 Ctrl+C 停止。`);
+    console.log(`\nLittle Pet · 独立 AI 宠物 v0.13.0\n打开 ${url}\n首次使用：进入设置，填写模型 API Key。自主浏览请进入「探索」扫码登录并开启。\n按 Ctrl+C 停止。`);
     autonomy.start();
+    diary.start();
     if (config.value.qq.autoConnect) qq.start().catch(e => console.error(e.message));
     if (!process.argv.includes('--no-open')) openBrowser(url);
     let stopping = false;
@@ -77,6 +80,7 @@ if (command === 'check') {
       if (stopping) return; stopping = true;
       app.abort();
       await autonomy.stop();
+      await diary.stop();
       await qq.stop();
       await wechat.stop();
       await new Promise(resolve => {

@@ -24,6 +24,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS exploration_notes (id TEXT PRIMARY KEY, url TEXT NOT NULL, title TEXT NOT NULL, author TEXT NOT NULL, excerpt TEXT NOT NULL, topic TEXT NOT NULL, created INTEGER NOT NULL, shared INTEGER NOT NULL DEFAULT 0);
       CREATE TABLE IF NOT EXISTS exploration_events (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, detail TEXT NOT NULL, created INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS runtime_state (name TEXT PRIMARY KEY, value TEXT NOT NULL);`);
+    this.db.exec('CREATE TABLE IF NOT EXISTS diary_entries (day TEXT PRIMARY KEY, zone TEXT NOT NULL, title TEXT NOT NULL, text TEXT NOT NULL, created INTEGER NOT NULL, source_count INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0)');
     const columns = this.db.prepare('PRAGMA table_info(messages)').all().map(c => c.name);
     if (!columns.includes('origin')) this.db.exec("ALTER TABLE messages ADD COLUMN origin TEXT NOT NULL DEFAULT 'chat'");
     if (!columns.includes('sources')) this.db.exec('ALTER TABLE messages ADD COLUMN sources TEXT');
@@ -43,12 +44,13 @@ export class Store {
       .map(row => ({ ...row, image: row.image ? JSON.parse(row.image) : undefined, sources: row.sources ? JSON.parse(row.sources) : undefined }));
   }
   cached(scope, requestId) { return requestId ? this.db.prepare('SELECT reply FROM requests WHERE scope=? AND request_id=?').get(scope, requestId)?.reply : undefined; }
-  append(scope, text, attachment, reply, requestId) {
+  append(scope, text, attachment, reply, requestId, sources = []) {
     this.db.exec('BEGIN IMMEDIATE');
     try {
       const stmt = this.db.prepare('INSERT INTO messages(scope, role, text, image, created) VALUES (?, ?, ?, ?, ?)');
       stmt.run(scope, 'user', text, attachment ? JSON.stringify(attachment) : null, Date.now());
       const messageId = Number(stmt.run(scope, 'assistant', reply, null, Date.now()).lastInsertRowid);
+      if (sources.length) this.db.prepare('UPDATE messages SET sources=? WHERE id=?').run(JSON.stringify(sources), messageId);
       this.db.prepare('UPDATE sessions SET updated=? WHERE scope=?').run(Date.now(), scope);
       if (requestId) this.db.prepare('INSERT INTO requests VALUES (?, ?, ?)').run(scope, requestId, reply);
       // Retain 500 messages, but only 12 recent images; bound local storage growth.
@@ -74,7 +76,7 @@ export class Store {
       this.db.prepare('DELETE FROM messages WHERE scope=?').run(scope);
       // Retain only dedup IDs; remove reply text along with chat history.
       this.db.prepare('UPDATE requests SET reply=? WHERE scope=?').run('这条消息已处理，原回复已随聊天记录清除。', scope);
-      if (scope === 'web:owner') this.ownerActivity();
+      if (scope === 'web:owner') { this.ownerActivity(); this.ownerContextChanged(); }
       this.db.exec('COMMIT');
     } catch (e) { this.db.exec('ROLLBACK'); throw e; }
   }
@@ -92,6 +94,26 @@ export class Store {
     validScope(scope);
     const result = this.db.prepare('DELETE FROM memories WHERE scope=? AND id=?').run(scope, id);
     if (scope === 'web:owner' && result.changes) this.ownerContextChanged();
+  }
+  editMemory(scope, id, text) {
+    validScope(scope);
+    if (typeof id !== 'string' || typeof text !== 'string' || !text.trim() || text.length > 1000) throw new BridgeError('记忆内容应为 1–1000 字符。');
+    const result = this.db.prepare('UPDATE memories SET text=? WHERE scope=? AND id=?').run(text.trim(), scope, id);
+    if (!result.changes) throw new BridgeError('这条记忆不存在或已经删除。');
+    if (scope === 'web:owner') this.ownerContextChanged();
+  }
+  diaryEntries() { return this.db.prepare('SELECT * FROM diary_entries WHERE deleted=0 ORDER BY day DESC LIMIT 366').all(); }
+  diaryEntry(day) { return this.db.prepare('SELECT * FROM diary_entries WHERE day=?').get(day); }
+  saveDiary({ day, zone, title, text, sourceCount, created }) {
+    this.db.prepare('INSERT OR IGNORE INTO diary_entries(day,zone,title,text,created,source_count) VALUES(?,?,?,?,?,?)').run(day, zone, title, text, created, sourceCount);
+    return this.diaryEntry(day);
+  }
+  deleteDiary(day) { this.db.prepare("UPDATE diary_entries SET deleted=1,title='',text='',source_count=0 WHERE day=?").run(day); }
+  dayMessages(day, zone) {
+    const noon = Date.parse(day + 'T12:00:00Z');
+    const format = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' });
+    return this.db.prepare("SELECT id,role,text,created,origin FROM messages WHERE scope='web:owner' AND created>=? AND created<? ORDER BY id").all(noon - 36 * 3600000, noon + 36 * 3600000)
+      .filter(m => format.format(m.created) === day).slice(-100).map(m => ({ ...m, text: m.text.slice(0, 1200) }));
   }
   ownerContextChanged() {
     this.setRuntime('ownerContextRevision', this.runtime('ownerContextRevision', 0) + 1);
@@ -159,6 +181,7 @@ export class Store {
       this.db.prepare("DELETE FROM messages WHERE scope='web:owner' AND origin='exploration'").run();
       // Preserve scheduling/budget state so deleting the diary cannot reset limits.
       this.ownerActivity();
+      this.ownerContextChanged();
       this.db.exec('COMMIT');
     } catch (e) { this.db.exec('ROLLBACK'); throw e; }
   }

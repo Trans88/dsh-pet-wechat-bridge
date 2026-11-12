@@ -18,10 +18,11 @@
       <button class="nav active" data-page="home"><span>◉</span>小窝 <span id="home-unread" class="unread-badge" hidden></span></button>
       <button class="nav" data-page="exploration"><span>✧</span>探索</button>
       <button class="nav" data-page="memory"><span>▤</span>记忆</button>
+      <button class="nav" data-page="diary"><span>✎</span>日记</button>
       <button class="nav" data-page="channels"><span>◎</span>连接</button>
       <button class="nav" data-page="settings"><span>⚙</span>设置</button>
     </nav>
-    <div class="sidebar-foot"><span class="online-dot"></span> 本地的小小世界<small>独立运行 · v0.12.0</small></div>
+    <div class="sidebar-foot"><span class="online-dot"></span> 本地的小小世界<small>独立运行 · v0.13.0</small></div>
   </aside>
   <main>
     <header class="topbar"><div><span class="eyebrow" id="date-label">A LITTLE COMPANY</span><h1 id="page-title">欢迎回到小窝</h1></div><span class="pill" id="model-status">正在连接…</span></header>
@@ -101,6 +102,21 @@
       <div class="surface memory-layout"><label class="field">选择会话<select id="memory-scope"><option value="web:owner">网页 · 主人</option></select></label><form id="memory-form" class="memory-form"><input id="memory-input" placeholder="例如：我喜欢简短、自然的回答" maxlength="1000" required><button class="primary" type="submit">记住这件事</button></form><div id="memory-list"></div><p class="muted">聊天中也可以发送 /remember 内容。删除记忆后，原聊天记录仍保留；希望后续聊天不再引用时，请一并清空该会话聊天记录。</p><button class="text-button" id="view-session">查看这个会话的聊天记录 →</button></div>
     </section>
 
+    <section id="page-diary" class="page" hidden>
+      <div class="section-intro"><h2>把一起度过的小事，写成日记</h2><p>从宠物的视角，收藏当天的聊天、互动和真实读到的内容。</p></div>
+      <div class="surface diary-settings">
+        <form id="diary-form" class="form-grid">
+          <label class="check full"><input name="enabled" type="checkbox">每天自动写一篇日记</label>
+          <label class="field">写日记的时间<input name="time" type="time" required></label>
+          <label class="field">所在时区<input name="timeZone" placeholder="Asia/Shanghai" required></label>
+          <div class="full button-row"><button class="primary" type="submit">保存日记安排</button><span id="diary-status" role="status"></span></div>
+        </form>
+        <p class="muted">程序运行时按时写；错过时间后，下次启动会补写有记录的昨天。每天最多一篇，使用当前聊天模型。仅包含主人小窝和桌宠的资料，不混入 QQ、微信会话。</p>
+        <div class="button-row diary-write"><label class="field">选择一天<input id="diary-day" type="date" aria-label="日记日期"></label><button id="diary-write">写下这一天</button><span id="diary-result" role="status"></span></div>
+      </div>
+      <div id="diary-list" class="diary-list"></div>
+    </section>
+
     <section id="page-channels" class="page" hidden>
       <div class="section-intro"><h2>换个地方，继续陪伴</h2><p>宠物的性格相同，聊天和记忆各自保存。</p></div>
       <div class="channel-grid"><article class="surface channel-card"><div class="channel-symbol green">微</div><h3>微信</h3><p>复用已绑定的微信 Bot 私聊，支持文字、图片和语音处理。</p><span class="pill" id="wechat-status">未连接</span><div class="button-row"><button class="primary" id="wechat-start">连接微信</button><button id="wechat-stop">断开</button><button id="wechat-login">重新扫码</button></div><p class="muted">换号请先断开，再重新扫码。若手机要求验证码，在启动程序的终端输入。</p><button class="text-button" id="qr-refresh">显示 / 刷新二维码</button><img id="wechat-qr" alt="微信登录二维码" hidden></article>
@@ -147,12 +163,27 @@
           <label class="field">停顿多久发送（STT 录音模式）<select name="voice.silenceMs" data-number><option value="1000">1 秒</option><option value="1500">1.5 秒</option><option value="2000">2 秒</option><option value="3000">3 秒</option></select><small>浏览器识别模式由浏览器判断句子结束；也可以点击「说完了」。</small></label>
           <label class="check"><input name="voice.autoSpeak" type="checkbox">文字聊天也自动朗读回复</label>
         </div><p class="muted">浏览器识别可能使用浏览器厂商的联网服务，能否使用取决于浏览器、地区和网络；不可用时可配置独立 STT。系统声音无需另填 TTS 密钥。语音对话是轮流说话，宠物开口时暂停收音。</p><button type="button" id="voice-preview-button">试听当前声音</button></div>
+        <div class="surface settings-section"><div class="section-label"><span>05</span><h3>联网搜索</h3></div>
+          <p class="muted">开启后，在聊天里说「搜索……」「帮我找点有趣的」，或输入 /搜索 关键词。回复附上搜索结果的真实来源。</p>
+          <div class="form-grid">
+            <label class="check full"><input name="search.enabled" type="checkbox">启用联网搜索</label>
+            <label class="field">搜索服务<select name="search.provider"><option value="tavily">Tavily · 需要搜索 API Key</option><option value="searxng">SearXNG · 自有搜索服务</option></select></label>
+            <label class="field">服务地址<input name="search.baseUrl" type="url" required><small>填服务根地址，不含末尾 /search；Tavily 默认 https://api.tavily.com。</small></label>
+            <label class="field full">搜索 API Key<input name="search.apiKey" type="password" autocomplete="new-password"><small>独立于聊天模型密钥。SearXNG 需要开放 JSON 搜索格式，不使用这项密钥。</small></label>
+            <label class="field">每天最多搜索次数<input name="search.dailyLimit" type="number" min="1" max="500" required><small>按 UTC 日期重置；失败请求也计数，5 分钟内同会话相同关键词复用结果。</small></label>
+            <label class="check"><input name="search.channels" type="checkbox">也允许 QQ / 微信触发搜索</label>
+            <label class="check"><input name="search.clearKey" type="checkbox">清除已保存的搜索密钥</label>
+          </div>
+          <p class="muted">只把本轮搜索关键词发给搜索服务，不发送整段聊天和记忆；搜「有趣的」时可参考探索页设置的兴趣关键词。</p>
+          <div class="button-row"><button id="search-save" type="button">保存搜索设置</button><button id="search-test" type="button">测试一次搜索</button><span id="search-result" role="status"></span></div>
+        </div>
         <div class="settings-save"><span id="settings-result" role="status"></span><button class="primary" type="submit">保存设置</button></div>
       </form>
     </section>
   </main>
 </div>
 <div id="toast" role="status" hidden></div>
+<dialog id="diary-delete-dialog"><h3>删除这篇日记？</h3><p id="diary-delete-label"></p><p>正文会被删除，不会自动重建；原聊天和记忆保留。</p><div class="button-row"><button id="diary-delete-cancel">取消</button><button class="primary" id="diary-delete-confirm">删除日记</button></div></dialog>
 <dialog id="confirm-dialog"><h3>清空这个会话的聊天记录？</h3><p>此操作不能撤销。单独保存的长期记忆会保留。</p><div class="button-row"><button id="cancel-clear">取消</button><button class="primary" id="confirm-clear">清空记录</button></div></dialog>
 <dialog id="exploration-clear-dialog"><h3>清除探索手记？</h3><p>将停止本轮探索，删除笔记摘录、探索动态和小窝中的主动分享。普通聊天、长期记忆与小红书登录保留；自动探索开关和每日限额不重置。</p><div class="button-row"><button id="exploration-clear-cancel">取消</button><button class="primary" id="exploration-clear-confirm">清除手记</button></div></dialog>
 </body>

@@ -71,5 +71,18 @@
     "groupMode": "disabled",
     "allowedGroups": [],
     "stickers": "occasional"
+  },
+  "search": {
+    "enabled": false,
+    "provider": "tavily",
+    "baseUrl": "https://api.tavily.com",
+    "apiKey": "",
+    "channels": false,
+    "dailyLimit": 30
+  },
+  "diary": {
+    "enabled": false,
+    "time": "21:30",
+    "timeZone": "Asia/Shanghai"
   }
 }

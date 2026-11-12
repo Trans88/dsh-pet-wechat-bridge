@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { timingSafeEqual, randomBytes } from 'node:crypto';
 import { BridgeError } from '../lib.mjs';
 import { STICKERS } from './stickers.mjs';
+import { memorySnapshot } from './memory.mjs';
 
 // Public code and bundled artwork contain no configuration or credentials.
 const assets = { '/app.js': 'text/javascript; charset=utf-8', '/avatar.js': 'text/javascript; charset=utf-8', '/voice.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/desktop.js': 'text/javascript; charset=utf-8', '/desktop.css': 'text/css; charset=utf-8', '/assets/taolinghu.png': 'image/png', '/assets/taolinghu-hd.png': 'image/png' };
@@ -23,7 +24,7 @@ async function body(req) {
   try { return JSON.parse(Buffer.concat(chunks)); } catch { throw new BridgeError('JSON 格式错误。'); }
 }
 
-export function createPetServer({ root, dataRoot = root, config, store, core, models, wechat, autonomy, qq, token = randomBytes(32).toString('hex') }) {
+export function createPetServer({ root, dataRoot = root, config, store, core, models, wechat, autonomy, qq, diary, token = randomBytes(32).toString('hex') }) {
   const active = new Set();
   const server = createServer(async (req, res) => {
     const controller = new AbortController();
@@ -60,7 +61,7 @@ export function createPetServer({ root, dataRoot = root, config, store, core, mo
           const html = readFileSync(join(root, 'web', url.pathname === '/desktop' ? 'desktop.html' : 'index.html'), 'utf8').replace('__PET_TOKEN__', token);
           return send(200, html, 'text/html; charset=utf-8');
         }
-        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.12.0' });
+        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.13.0' });
       }
       // APIs use an explicit, unguessable per-start bearer token, never cookies.
       // A valid token is authoritative even when Origin/Fetch Metadata is absent
@@ -77,7 +78,9 @@ export function createPetServer({ root, dataRoot = root, config, store, core, mo
             reply: last?.role === 'assistant' ? { id: last.id, text: last.text, origin: last.origin } : null });
         }
         if (url.pathname === '/api/model/balance') return send(200, await models.balance(controller.signal));
-        if (url.pathname === '/api/state') return send(200, { config: config.public(), stickers: STICKERS, sessions: store.sessions(), exploration: autonomy?.status() || null, care: core.interactions.status(), qq: qq?.status() || { state: 'stopped', contacts: [] }, wechat: wechat?.status() || { state: 'stopped' } });
+        if (url.pathname === '/api/state') return send(200, { config: config.public(), stickers: STICKERS, sessions: store.sessions(), exploration: autonomy?.status() || null, diary: diary?.status() || null, search: core.search.status(), care: core.interactions.status(), qq: qq?.status() || { state: 'stopped', contacts: [] }, wechat: wechat?.status() || { state: 'stopped' } });
+        if (url.pathname === '/api/memory') return send(200, memorySnapshot(store, scope));
+        if (url.pathname === '/api/diary' && diary) return send(200, { status: diary.status(), entries: store.diaryEntries() });
         if (url.pathname === '/api/exploration' && autonomy) return send(200, autonomy.details());
         if (url.pathname === '/api/history') return send(200, { messages: store.history(scope), memories: store.memories(scope) });
         if (url.pathname === '/api/wechat/qr') {
@@ -92,6 +95,7 @@ export function createPetServer({ root, dataRoot = root, config, store, core, mo
         const before = JSON.stringify([config.qqCredentials(), config.value.qq.sandbox]);
         const wasExploring = config.value.exploration.enabled;
         const result = config.update(input);
+        if (['diary', 'model', 'pet'].some(key => input[key] !== undefined)) await diary?.settingsChanged();
         if (input.qq && before !== JSON.stringify([config.qqCredentials(), config.value.qq.sandbox])) await qq?.stop();
 
         if (['exploration', 'model', 'vision', 'stt', 'pet'].some(key => input[key] !== undefined)) await autonomy?.settingsChanged({ closeBrowser: wasExploring && !config.value.exploration.enabled });
@@ -128,11 +132,21 @@ export function createPetServer({ root, dataRoot = root, config, store, core, mo
         const text = await core.chat(input, controller.signal);
         return send(200, { text });
       }
+      if (url.pathname === '/api/search/test') return send(200, { sources: await core.search.search('人工智能 科技', 'web:owner', controller.signal), status: core.search.status() });
+      if (url.pathname === '/api/diary/write') {
+        if (!diary) throw new BridgeError('请重启宠物程序以启用日记服务。');
+        return send(200, await diary.write(input.day || diary.today(), controller.signal));
+      }
+      if (url.pathname === '/api/diary/delete') {
+        if (!diary) throw new BridgeError('日记服务未启动。');
+        await diary.remove(input.day); return send(200, { ok: true });
+      }
       if (url.pathname === '/api/history/clear') {
         await core.exclusive(input.scope || 'web:owner', () => store.clear(input.scope || 'web:owner'));
         return send(200, { ok: true });
       }
       if (url.pathname === '/api/memory/add') return send(200, { id: store.remember(input.scope || 'web:owner', input.text) });
+      if (url.pathname === '/api/memory/edit') { store.editMemory(input.scope || 'web:owner', input.id, input.text); return send(200, { ok: true }); }
       if (url.pathname === '/api/memory/delete') {
         if (typeof input.id !== 'string') throw new BridgeError('记忆标识无效。');
         store.forget(input.scope || 'web:owner', input.id); return send(200, { ok: true });

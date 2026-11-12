@@ -24,7 +24,7 @@
       $('#voice-interrupt').addEventListener('click', () => this.voice.interrupt());
       $('#voice-stop').addEventListener('click', () => this.voice.stop());
       $('#desktop-cancel').addEventListener('click', () => { this.suspend(); this.error('已取消本次回复，输入内容已保留。'); });
-      for (const [id, page] of [['open-home', 'home'], ['voice-settings', 'settings']]) $(`#${id}`).addEventListener('click', () => { this.suspend(); void this.bridge?.openHome(page); });
+      for (const [id, page] of [['open-home', 'home'], ['voice-settings', 'settings'], ['open-memory', 'memory'], ['open-diary', 'diary']]) $(`#${id}`).addEventListener('click', () => { this.suspend(); void this.bridge?.openHome(page); });
       $('#desktop-chat-form').addEventListener('submit', event => {
         event.preventDefault();
         if (this.busy || this.voiceState.active || this.voiceState.phase !== 'idle') return;
@@ -98,6 +98,12 @@
           const item = node('article', `desktop-message ${message.role === 'user' ? 'user' : 'assistant'}`, '');
           item.append(node('div', 'message-label', message.role === 'user' ? '你' : this.state.config.pet.name),
             node('div', 'message-text', (message.image ? '[图片]\n' : '') + message.text));
+          for (const source of message.sources || []) {
+            let url; try { url = new URL(source.url); } catch { continue; }
+            if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) continue;
+            const link = node('a', 'desktop-source', `${source.title || url.hostname} ↗`);
+            link.href = url.href; link.target = '_blank'; link.rel = 'noopener noreferrer'; item.append(link);
+          }
           if (message.role === 'assistant') {
             const read = node('button', 'message-read', '♩ 朗读');
             read.addEventListener('click', () => { this.error(''); void this.voice.speak(message.text).catch(error => this.error(error.message)); });
