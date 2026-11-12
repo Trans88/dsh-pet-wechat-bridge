@@ -42,7 +42,10 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   const roomReady = app.waitForEvent('window');
   await pet.locator('#chat').click();
   const room = await roomReady;
-  assert.ok(room); await room.waitForLoadState(); await room.locator('[data-page="settings"]').click();
+  assert.ok(room); await room.waitForLoadState();
+  await room.waitForFunction(() => document.querySelector('[name="pet.name"]').value === '小蓝');
+  assert.equal(await room.locator('#chat-error').isVisible(), false, 'desktop #home initializes without a config race');
+  await room.locator('[data-page="settings"]').click();
   await room.waitForFunction(() => document.querySelector('[name="pet.name"]').value === '小蓝');
   await room.locator('[name="pet.appearance"]').selectOption('taolinghu-classic'); await room.locator('#settings-form button[type="submit"]').click();
   await pet.waitForFunction(() => document.querySelector('#pet-character').dataset.appearance === 'taolinghu-classic');

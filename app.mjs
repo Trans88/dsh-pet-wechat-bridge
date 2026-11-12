@@ -68,7 +68,7 @@ if (command === 'check') {
     await new Promise((resolve, reject) => { app.server.once('error', reject); app.server.listen(config.value.port, '127.0.0.1', resolve); });
     const url = `http://127.0.0.1:${config.value.port}`;
     saveJSONFile(runtimePath, { url, token: app.token, pid: process.pid });
-    console.log(`\nLittle Pet · 独立 AI 宠物 v0.10.0\n打开 ${url}\n首次使用：进入设置，填写模型 API Key。自主浏览请进入「探索」扫码登录并开启。\n按 Ctrl+C 停止。`);
+    console.log(`\nLittle Pet · 独立 AI 宠物 v0.10.1\n打开 ${url}\n首次使用：进入设置，填写模型 API Key。自主浏览请进入「探索」扫码登录并开启。\n按 Ctrl+C 停止。`);
     autonomy.start();
     if (config.value.qq.autoConnect) qq.start().catch(e => console.error(e.message));
     if (!process.argv.includes('--no-open')) openBrowser(url);
@@ -79,7 +79,14 @@ if (command === 'check') {
       await autonomy.stop();
       await qq.stop();
       await wechat.stop();
-      await new Promise(resolve => { app.server.close(resolve); app.server.closeIdleConnections(); });
+      await new Promise(resolve => {
+        // Chromium may leave a preconnected socket with incomplete headers.
+        // closeIdleConnections alone does not release every such connection.
+        const deadline = setTimeout(() => app.server.closeAllConnections(), 1000);
+        deadline.unref();
+        app.server.close(() => { clearTimeout(deadline); resolve(); });
+        app.server.closeIdleConnections();
+      });
       store.close();
       try { unlinkSync(runtimePath); } catch {}
       if (process.connected) process.disconnect();

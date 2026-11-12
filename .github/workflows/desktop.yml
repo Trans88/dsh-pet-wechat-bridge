@@ -25,6 +25,8 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: node dependency-check.mjs
       - run: npm test
+      - name: Verify source runtime setup
+        run: npm run desktop:setup -- --mirror=official
       - run: npm run desktop:build -- win32 x64
       - name: Test the packaged Windows executable
         run: node --test test/desktop-electron.test.mjs

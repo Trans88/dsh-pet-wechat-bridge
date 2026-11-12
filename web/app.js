@@ -54,6 +54,9 @@ function showPage(next) {
   document.querySelectorAll('.page').forEach(node => { node.hidden = node.id !== `page-${next}`; });
   document.querySelectorAll('.nav').forEach(node => node.classList.toggle('active', node.dataset.page === next));
   $('#page-title').textContent = titles[next];
+  // Desktop deep links can arrive before /api/state. Select the page now,
+  // but defer reads that need pet/config/session data until initialization.
+  if (!state) return;
   if (next === 'memory') renderMemories().catch(e => toast(e.message));
   if (next === 'home') refreshHistory().catch(e => chatError(e.message));
   if (next === 'exploration') refreshExploration().catch(e => toast(e.message));
@@ -97,6 +100,7 @@ async function loadState(initial = false) {
 }
 
 async function refreshHistory() {
+  if (!state) return;
   const revision = ++historyRevision, requestedScope = scope;
   const result = await api(`/api/history?scope=${encodeURIComponent(requestedScope)}`);
   if (revision !== historyRevision || requestedScope !== scope) return;
@@ -655,7 +659,8 @@ for (const action of ['start', 'stop', 'refresh']) $(`#qq-${action}`).addEventLi
 });
 window.addEventListener('hashchange', () => { const next = location.hash.slice(1); if (Object.hasOwn(titles, next)) showPage(next); });
 if (Object.hasOwn(titles, location.hash.slice(1))) showPage(location.hash.slice(1));
-loadState(true).catch(e => { chatError(e.message); $('#model-status').textContent = '连接失败'; });
+loadState(true).then(() => { if (page !== 'home') showPage(page); })
+  .catch(e => { chatError(e.message); $('#model-status').textContent = '连接失败'; });
 setInterval(() => {
   if (!document.hidden && !stateLoading) {
     stateLoading = true;
