@@ -138,3 +138,15 @@ QQ 多图/语音/视频/扫码绑定、桌面悬浮壳、确认后的跨渠道�
 每次采集及分析前后检查取消信号；视觉调用单次上限 45 秒，STT 30 秒，整轮仍为 4 分钟。验证码/登录错误暂停浏览；媒体读取或分析错误只降级相应素材，不拼造观察。不同渠道不会读取网页手记。
 
 账号操作使用独立互斥任务，先禁用调度、取消正在读取/生成的任务，再关闭浏览器并清除固定的独立 profile 路径。停止期间迟到的启动会被 closeRevision 拒绝；账号切换期间拒绝新探索/登录请求。取消旧账号尚未分享笔记的待发送状态，同时保留聊天、记忆和预算。手动窗口 viewport=null 随窗口调整，Windows 启用 Chromium sandbox。
+
+## 桌面宿主（v0.9.0）
+
+`desktop/main.cjs` 只管理窗口、托盘、显示器、用户选择的数据目录及严格白名单 IPC。渲染进程启用 contextIsolation / sandbox，禁用 nodeIntegration；外部导航、弹窗和 webview 被禁止。只有精确匹配本地 `/desktop` 的主帧可以调用窗口 IPC，网页小窝没有 preload。
+
+`desktop/backend.mjs` 先验证现存运行时的 loopback URL 和 per-start token，再复用服务；否则以 Electron 的 Node 运行模式启动 `app.mjs --no-open`，通过 IPC 等待 ready（20 秒上限）。退出仅停止自己创建的进程，7 秒后清理挂起进程。`PET_DATA_ROOT` 将配置/数据库/微信/XHS 登录资料与只读程序资源分开；默认命令行行为仍使用源码目录。
+
+`/desktop` 与首页采用相同的 Host / 页面来源保护；新增静态资源仍走精确白名单。`/api/desktop/state` 需本次启动 token，只返回宠物公开信息、主人养成状态和主人最后一条回复，不返回其他通道历史或模型凭据。桌宠主动轮询时不调用模型。
+
+`web/avatar.js` 将高清 2×2 图集与原版 8×11 图集统一为姿态和帧时长；网页与桌面共享此代码。桌面基于已解码图集的 alpha 判断鼠标交互区域，Windows 主进程通过 setIgnoreMouseEvents/forward 放行透明像素。窗口使用逻辑像素，位置按当前显示器 workArea 夹取。
+
+桌面设置只包含位置、大小、置顶和免打扰，保存到数据根目录的 `desktop.settings.json`。开机启动默认关闭，仅打包后的 Windows 程序提供菜单。打包从源文件白名单创建临时目录，仅安装生产依赖，不复制开发目录的数据或凭据。

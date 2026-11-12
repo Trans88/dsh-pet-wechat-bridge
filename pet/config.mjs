@@ -43,7 +43,7 @@ export function validateConfig(value) {
   if (!Number.isInteger(c.port) || c.port < 1024 || c.port > 65535) throw new BridgeError('端口应为 1024–65535 的整数。');
   for (const key of ['name', 'persona', 'greeting']) c.pet[key] = string(value.pet?.[key] ?? c.pet[key], key === 'persona' ? 8000 : 200, `宠物${key}`);
   c.pet.appearance = value.pet?.appearance ?? c.pet.appearance;
-  if (!['taolinghu', 'blue-cat'].includes(c.pet.appearance)) throw new BridgeError('请选择内置的宠物形象。');
+  if (!['taolinghu', 'taolinghu-classic', 'blue-cat'].includes(c.pet.appearance)) throw new BridgeError('请选择内置的宠物形象。');
   for (const kind of ['model', 'vision', 'stt', 'tts']) {
     const incoming = value[kind] || {};
     if (typeof incoming !== 'object' || Array.isArray(incoming)) throw new BridgeError(`${kind}配置格式错误。`);

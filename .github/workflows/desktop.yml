@@ -1,0 +1,47 @@
+name: Windows desktop build
+
+on:
+  pull_request:
+    paths: ['desktop/**', 'web/**', 'pet/**', 'app.mjs', 'bridge.mjs', 'package*.json', 'test/desktop*', '.github/workflows/desktop.yml']
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node dependency-check.mjs
+      - run: npm test
+      - run: npm run desktop:build -- win32 x64
+      - name: Test the packaged Windows executable
+        run: node --test test/desktop-electron.test.mjs
+        env:
+          PET_DESKTOP_TEST: '1'
+          PET_DESKTOP_EXECUTABLE: ${{ github.workspace }}\dist\LittlePet-win32-x64\LittlePet.exe
+      - name: Preserve desktop screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-qa
+          path: dist/desktop-qa
+          if-no-files-found: ignore
+      - name: Portable Windows app
+        uses: actions/upload-artifact@v4
+        with:
+          name: LittlePet-Windows-x64
+          path: dist/LittlePet-win32-x64
+          if-no-files-found: error
+          retention-days: 14

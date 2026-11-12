@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, mkdirSync, unlinkSync, chmodSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
@@ -12,7 +12,7 @@ import {
   newState, enqueue, recoverUncertain, processQueue,
 } from './lib.mjs';
 
-const root = dirname(fileURLToPath(import.meta.url));
+const root = process.env.PET_DATA_ROOT ? resolve(process.env.PET_DATA_ROOT) : dirname(fileURLToPath(import.meta.url));
 const dataDir = join(root, 'data');
 const accountPath = join(dataDir, 'account.json');
 const statePath = join(dataDir, 'state.json');

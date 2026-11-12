@@ -48,6 +48,7 @@ test('web setup, text/image chat, memory management and error states work agains
   w.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
   t.after(async () => { w.close(); app.abort(); await new Promise(resolve => app.server.close(resolve)); store.close(); rmSync(root, { recursive: true, force: true }); });
   w.eval(readFileSync(join(root, 'web', 'voice.js'), 'utf8'));
+  w.eval(readFileSync(join(root, 'web', 'avatar.js'), 'utf8'));
   w.eval(readFileSync(join(root, 'web', 'app.js'), 'utf8'));
   await until(() => $('#model-status').textContent === '等待配置模型', 'initial setup');
   await until(() => $('[name="pet.name"]').value === '小蓝', 'settings populated');
@@ -90,7 +91,7 @@ test('web setup, text/image chat, memory management and error states work agains
   $('[data-page="home"]').click();
   $('#message-input').value = '你好'; $('#send-button').click();
   assert.equal($('#pet-character').dataset.animation, 'thinking');
-  assert.equal($('#pet-sprite-sheet').style.top, '-800%');
+  assert.equal($('#pet-sprite-sheet').style.top, '0%');
   await until(() => store.history('web:owner').length === 2 && !$('#send-button').disabled, 'first reply');
   assert.match($('#messages').textContent, /测试回复/);
   assert.equal($('#messages img'), null, 'model HTML must remain plain text');
@@ -111,12 +112,12 @@ test('web setup, text/image chat, memory management and error states work agains
   assert.match($('#toast').textContent, /语音识别/);
   $('#sleep-button').click(); await until(() => $('#pet-character').classList.contains('sleeping'), 'sleep state persisted');
   assert.equal($('#pet-character').dataset.animation, 'sleeping');
-  assert.equal($('#pet-sprite-sheet').style.top, '-500%');
-  assert.equal($('#pet-sprite-sheet').style.left, '-700%');
+  assert.equal($('#pet-sprite-sheet').style.top, '-100%');
+  assert.equal($('#pet-sprite-sheet').style.left, '-100%');
   await until(() => !$('#pat-button').disabled, 'interaction cooldown finished');
   $('#pat-button').click(); await until(() => !$('#pet-character').classList.contains('sleeping'), 'pat wakes pet');
   assert.equal($('#pet-character').dataset.animation, 'petting');
-  assert.equal($('#pet-sprite-sheet').style.top, '-300%');
+  assert.equal($('#pet-sprite-sheet').style.top, '-100%');
   assert.equal($('#bond-value').textContent, '1');
   assert.match($('#care-journal').textContent, /摸摸头/);
   await until(() => !$('#pat-button').disabled, 'pat finished');
@@ -178,7 +179,7 @@ test(`HTTP-loaded homepage can initialize, save settings and chat: ${label}`, as
   class Assets extends ResourceLoader {
     fetch(resource, options) {
       const path = new URL(resource).pathname;
-      if (!['/app.js', '/voice.js', '/style.css'].includes(path)) return super.fetch(resource, options);
+      if (!['/app.js', '/avatar.js', '/voice.js', '/style.css'].includes(path)) return super.fetch(resource, options);
       const controller = new AbortController();
       const result = (async () => {
         // Exercise headers that previously made a public asset return 403 JSON.
@@ -205,7 +206,7 @@ test(`HTTP-loaded homepage can initialize, save settings and chat: ${label}`, as
   });
   const $ = selector => dom.window.document.querySelector(selector);
   await until(() => $('[name="pet.name"]').value === '小蓝', 'HTTP-loaded application initialized');
-  assert.deepEqual(loaded.sort(), ['/app.js', '/style.css', '/voice.js']);
+  assert.deepEqual(loaded.sort(), ['/app.js', '/avatar.js', '/style.css', '/voice.js']);
   assert.ok(dom.window.document.styleSheets.length > 0);
   $('[data-page="settings"]').click();
   assert.equal($('#page-settings').hidden, false); assert.equal($('#page-home').hidden, true);
@@ -281,6 +282,7 @@ async function speechFixture(t) {
     await delay(0); w.close(); store.close(); rmSync(root, { recursive: true, force: true });
   });
   w.eval(readFileSync(join(root, 'web', 'voice.js'), 'utf8'));
+  w.eval(readFileSync(join(root, 'web', 'avatar.js'), 'utf8'));
   w.eval(readFileSync(join(root, 'web', 'app.js'), 'utf8'));
   await until(() => $('[name="pet.name"]').value === '小蓝', 'voice UI initialized');
   return { root, config, store, models, core, calls, w, $, devices, errors, otherScope };

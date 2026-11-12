@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="pet-token" content="__PET_TOKEN__">
+  <title>Little Pet · 桌宠</title><link rel="stylesheet" href="/desktop.css">
+</head>
+<body>
+  <main id="companion" aria-label="桌面小伙伴">
+    <button id="bubble" class="bubble" aria-label="打开小窝查看完整消息" hidden></button>
+    <div id="effect" aria-hidden="true"></div>
+    <button id="pet-character" class="pet-character" aria-label="点击摸头，拖动移动，双击聊天，右键更多互动">
+      <span id="pet-sprite" class="pet-sprite" role="img" aria-label="桃铃狐"><img id="pet-sprite-sheet" src="/assets/taolinghu-hd.png" alt="" draggable="false"></span>
+      <svg id="pet-cat" hidden viewBox="0 0 320 320" role="img" aria-label="一只蓝色的圆滚滚小猫"><defs><linearGradient id="fur" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#a8d4ff"/><stop offset="1" stop-color="#609fe6"/></linearGradient><linearGradient id="belly" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f4fbff"/><stop offset="1" stop-color="#d3eaff"/></linearGradient></defs><ellipse cx="161" cy="281" rx="94" ry="15" fill="#b0c7e1" opacity=".3"/><g class="cat-body"><path d="M230 221 Q298 227 274 184 Q266 173 258 183" fill="none" stroke="#79afea" stroke-width="25" stroke-linecap="round"/><ellipse cx="164" cy="220" rx="77" ry="60" fill="url(#fur)"/><ellipse cx="164" cy="230" rx="49" ry="39" fill="url(#belly)"/><ellipse cx="117" cy="269" rx="26" ry="13" fill="#76ade9"/><ellipse cx="210" cy="269" rx="26" ry="13" fill="#76ade9"/><path d="M82 125 Q69 56 91 55 L129 82 Q164 73 197 84 L237 55 Q254 57 243 128" fill="url(#fur)"/><path d="M91 72 L101 110 L119 90Z" fill="#d8eaff"/><path d="M230 72 L207 91 L231 108Z" fill="#d8eaff"/><ellipse cx="162" cy="150" rx="94" ry="77" fill="url(#fur)"/><path d="M129 80 Q139 99 151 109 M161 78 L167 103 M191 83 L184 106" stroke="#73a8e2" stroke-width="8" fill="none" stroke-linecap="round"/><g class="eyes"><ellipse cx="127" cy="148" rx="8" ry="12" fill="#244c73"/><ellipse cx="198" cy="148" rx="8" ry="12" fill="#244c73"/><circle cx="129" cy="144" r="2.5" fill="white"/><circle cx="200" cy="144" r="2.5" fill="white"/></g><ellipse cx="107" cy="171" rx="15" ry="7" fill="#efb6c9" opacity=".65"/><ellipse cx="217" cy="171" rx="15" ry="7" fill="#efb6c9" opacity=".65"/><path d="M155 166 Q162 162 169 166 L162 172Z" fill="#3c6590"/><path d="M162 172 Q160 184 151 179 M162 172 Q164 184 173 179" stroke="#3c6590" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M84 160 L105 165 M82 178 L103 176 M223 166 L243 161 M224 177 L246 180" stroke="#5790cd" stroke-width="3" stroke-linecap="round"/><path d="M101 217 Q108 234 123 230 M222 216 Q216 235 204 230" fill="none" stroke="#5998da" stroke-width="7" stroke-linecap="round"/></g></svg>
+    </button>
+    <nav id="toolbar" aria-label="桌宠操作"><button id="chat" title="打开小窝聊天">聊聊</button><span id="mood">在这里陪你</span><button id="menu" title="互动与设置">•••</button></nav>
+    <p id="browser-note" hidden>请通过「启动桌宠.cmd」打开桌面模式。</p>
+  </main>
+  <script src="/avatar.js" defer></script><script src="/desktop.js" defer></script>
+</body></html>

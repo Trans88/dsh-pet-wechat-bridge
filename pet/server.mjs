@@ -5,7 +5,7 @@ import { timingSafeEqual, randomBytes } from 'node:crypto';
 import { BridgeError } from '../lib.mjs';
 
 // Public code and bundled artwork contain no configuration or credentials.
-const assets = { '/app.js': 'text/javascript; charset=utf-8', '/voice.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/assets/taolinghu.png': 'image/png' };
+const assets = { '/app.js': 'text/javascript; charset=utf-8', '/avatar.js': 'text/javascript; charset=utf-8', '/voice.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/desktop.js': 'text/javascript; charset=utf-8', '/desktop.css': 'text/css; charset=utf-8', '/assets/taolinghu.png': 'image/png', '/assets/taolinghu-hd.png': 'image/png' };
 function equal(a, b) { const x = Buffer.from(a || ''), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); }
 async function body(req) {
   if (!(req.headers['content-type'] || '').startsWith('application/json')) throw new BridgeError('请求需要 JSON 格式。');
@@ -18,7 +18,7 @@ async function body(req) {
   try { return JSON.parse(Buffer.concat(chunks)); } catch { throw new BridgeError('JSON 格式错误。'); }
 }
 
-export function createPetServer({ root, config, store, core, models, wechat, autonomy, qq, token = randomBytes(32).toString('hex') }) {
+export function createPetServer({ root, dataRoot = root, config, store, core, models, wechat, autonomy, qq, token = randomBytes(32).toString('hex') }) {
   const active = new Set();
   const server = createServer(async (req, res) => {
     const controller = new AbortController();
@@ -46,16 +46,16 @@ export function createPetServer({ root, config, store, core, models, wechat, aut
         return send(200, readFileSync(join(root, 'web', url.pathname.slice(1))), assets[url.pathname]);
       }
       if (req.method === 'GET' && url.pathname === '/favicon.ico') return send(204, '', 'image/x-icon');
-      if (url.pathname === '/' || url.pathname === '/api/health') {
+      if (url.pathname === '/' || url.pathname === '/desktop' || url.pathname === '/api/health') {
         const site = req.headers['sec-fetch-site'];
         const sameOriginNull = req.headers.origin === 'null' && site === 'same-origin';
         if ((req.headers.origin && req.headers.origin !== origin && !sameOriginNull) ||
             (site && !['same-origin', 'none'].includes(site))) return send(403, { code: 'page_source_rejected', error: `页面来源校验失败，请新建标签页并直接输入 http://127.0.0.1:${port}/。` });
-        if (req.method === 'GET' && url.pathname === '/') {
-          const html = readFileSync(join(root, 'web', 'index.html'), 'utf8').replace('__PET_TOKEN__', token);
+        if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/desktop')) {
+          const html = readFileSync(join(root, 'web', url.pathname === '/desktop' ? 'desktop.html' : 'index.html'), 'utf8').replace('__PET_TOKEN__', token);
           return send(200, html, 'text/html; charset=utf-8');
         }
-        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.7.3' });
+        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.9.0' });
       }
       // APIs use an explicit, unguessable per-start bearer token, never cookies.
       // A valid token is authoritative even when Origin/Fetch Metadata is absent
@@ -64,12 +64,17 @@ export function createPetServer({ root, config, store, core, models, wechat, aut
       if (!equal(req.headers.authorization, `Bearer ${token}`)) return send(401, { code: 'invalid_token', error: '页面授权已过期，请刷新页面。' });
       const scope = url.searchParams.get('scope') || 'web:owner';
       if (req.method === 'GET') {
+        if (url.pathname === '/api/desktop/state') {
+          const last = store.history('web:owner', 1).at(-1);
+          return send(200, { config: { pet: config.public().pet }, care: core.interactions.status(),
+            reply: last?.role === 'assistant' ? { id: last.id, text: last.text, origin: last.origin } : null });
+        }
         if (url.pathname === '/api/model/balance') return send(200, await models.balance(controller.signal));
         if (url.pathname === '/api/state') return send(200, { config: config.public(), sessions: store.sessions(), exploration: autonomy?.status() || null, care: core.interactions.status(), qq: qq?.status() || { state: 'stopped', contacts: [] }, wechat: wechat?.status() || { state: 'stopped' } });
         if (url.pathname === '/api/exploration' && autonomy) return send(200, autonomy.details());
         if (url.pathname === '/api/history') return send(200, { messages: store.history(scope), memories: store.memories(scope) });
         if (url.pathname === '/api/wechat/qr') {
-          try { return send(200, readFileSync(join(root, 'data', 'login-qr.png')), 'image/png'); }
+          try { return send(200, readFileSync(join(dataRoot, 'data', 'login-qr.png')), 'image/png'); }
           catch { return send(404, { error: '暂无二维码；如需登录，请点击连接微信。' }); }
         }
       }

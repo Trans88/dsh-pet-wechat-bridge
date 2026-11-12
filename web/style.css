@@ -280,21 +280,21 @@ main {
   width:100%;
   overflow:visible
 }
-.pet-character[data-appearance="taolinghu"] {
+.pet-character[data-appearance^="taolinghu"] {
   animation:none
 }
 .pet-sprite {
   position:relative;
   display:block;
   width:100%;
-  aspect-ratio:192/208;
+  aspect-ratio:1/1;
   overflow:hidden;
   pointer-events:none
 }
 .pet-sprite img {
   position:absolute;
-  width:800%;
-  height:1100%;
+  width:200%;
+  height:200%;
   max-width:none;
   left:0;
   top:0;
@@ -1158,3 +1158,10 @@ dialog p {
   .voice-actions button { font-size:10px; }
   .composer-tools #input-hint { max-width:130px; line-height:1.6; }
 }
+
+.pet-character[data-appearance="taolinghu"][data-animation="idle"] .pet-sprite { transform-origin:50% 92%; animation:hd-breathe 4s ease-in-out infinite; }
+.pet-character[data-appearance="taolinghu"][data-animation="thinking"] .pet-sprite { transform-origin:50% 92%; animation:hd-think 2s ease-in-out infinite; }
+.pet-character.motion-paused, .pet-character.motion-paused * { animation:none!important; }
+@keyframes hd-breathe { 50% { transform:scale(1.006,.99); } }
+@keyframes hd-think { 50% { transform:rotate(2deg); } }
+@media (prefers-reduced-motion:reduce) { .pet-sprite { animation:none!important; } }

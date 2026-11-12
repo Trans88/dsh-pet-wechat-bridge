@@ -34,6 +34,7 @@ test('exploration UI saves settings, checks login, displays a sourced message an
   w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};
   t.after(async()=>{w.close();await autonomy.stop();app.abort();await new Promise(resolve=>app.server.close(resolve));store.close();rmSync(root,{recursive:true,force:true});});
   w.eval(readFileSync(join(root,'web','voice.js'),'utf8'));
+  w.eval(readFileSync(join(root, 'web', 'avatar.js'), 'utf8'));
   w.eval(readFileSync(join(root,'web','app.js'),'utf8'));
   await until(()=>$('[name="interests"]').value.length>0);
   assert.equal($('#voice-chat-button').hidden, false, 'continuous voice remains available with exploration');

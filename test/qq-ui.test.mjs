@@ -39,6 +39,7 @@ async function fixture(t, connectionTimeoutMs = 60000) {
   const style = w.document.createElement('style'); style.textContent = readFileSync(join(root, 'web', 'style.css'), 'utf8'); w.document.head.append(style);
   t.after(async () => { w.close(); await qq.stop(); app.abort(); await new Promise(resolve => app.server.close(resolve)); store.close(); rmSync(root, { recursive: true, force: true }); });
   w.eval(readFileSync(join(root, 'web', 'voice.js'), 'utf8'));
+  w.eval(readFileSync(join(root, 'web', 'avatar.js'), 'utf8'));
   w.eval(readFileSync(join(root, 'web', 'app.js'), 'utf8'));
   await until(() => $('#qq-form [name="appId"]').value === '123456', 'initial state')
     .catch(error => { throw new Error(`${error.message}; ${$('#chat-error').textContent}; ${errors.join('; ')}`, { cause: error }); });
