@@ -83,6 +83,25 @@ test('real source records generate an assistant-only message, local unread count
   assert.equal((await f.autonomy.run()).outcome,'waiting'); assert.equal(f.explorer.calls,1);
 });
 
+test('natural proactive shares use owner rhythm and a single concrete detail; custom style remains opt-out', async t => {
+  const f = fixture(t);
+  f.store.ensure('web:owner');
+  f.store.append('web:owner', '今天聊到这', null, '明天还要聊吗？');
+  f.store.append('web:owner', '不用问我', null, '要不要再讲一件？');
+  f.store.ensure('qq:direct:other');
+  f.store.append('qq:direct:other', 'OTHER_PRIVATE', null, 'OTHER_PRIVATE_REPLY');
+  assert.equal((await f.autonomy.run()).outcome, 'shared');
+  const messages = f.calls.at(-1).messages;
+  assert.match(messages[0].content, /【主动分享】/);
+  assert.match(messages[0].content, /选一个最值得聊的具体细节/);
+  assert.match(messages[0].content, /最近几次回复已经以问题结尾/);
+  assert.doesNotMatch(JSON.stringify(messages), /OTHER_PRIVATE/);
+  assert.equal(f.calls.length, 1, 'sharing does not add a second style-editing request');
+  f.config.update({ pet: { chatStyle: 'custom' } }); f.advance(HOUR);
+  assert.equal((await f.autonomy.run()).outcome, 'shared');
+  assert.doesNotMatch(f.calls.at(-1).messages[0].content, /【自然聊天】|【主动分享】|【本会话节奏】/);
+});
+
 test('a failed model call keeps observed notes for a later retry without inventing a conversation', async t => {
   const f = fixture(t), original = f.models.complete;
   f.models.complete = async () => { throw new BridgeError('模型暂不可用','network'); };

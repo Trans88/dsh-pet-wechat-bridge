@@ -1,6 +1,6 @@
 {
   "name": "little-pet",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "private": true,
   "type": "module",
   "description": "Independent AI companion with pet interactions, persistent memory, Weixin and official QQ channels",
