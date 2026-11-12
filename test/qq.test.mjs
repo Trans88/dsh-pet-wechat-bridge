@@ -7,6 +7,7 @@ import { Config } from '../pet/config.mjs';
 import { Store } from '../pet/store.mjs';
 import { PetCore } from '../pet/core.mjs';
 import { QQBridge, qqScope, qqError } from '../pet/qq.mjs';
+import { PNG } from 'pngjs';
 
 class FakeBot {
   handlers = {}; sent = []; starts = 0;
@@ -17,6 +18,8 @@ class FakeBot {
   message(msg) { return this.handlers.message({}, msg); }
 }
 const message = (overrides = {}) => ({ kind: 'c2c', senderId: 'u1', messageId: 'm1', content: '你好', ...overrides });
+const png = PNG.sync.write({ width: 2, height: 2, data: Buffer.alloc(16, 255) });
+const imageMessage = extra => message({ content: '', attachments: [{ content_type: 'image/png', url: 'https://gchat.qpic.cn/test.png?secret=SIGNED-TEST-URL' }], ...extra });
 async function fixture(t, complete = async () => '收到啦') {
   const root = mkdtempSync(join(tmpdir(), 'pet-qq-')), config = new Config(root), store = new Store(root);
   config.update({ qq: { appId: '123456', appSecret: 'TEST-QQ-SECRET', allowedUsers: ['u1'] } });
@@ -97,7 +100,7 @@ test('QQ pet commands work without a model and are isolated per person', async t
 test('QQ serializes incoming turns and revoking access stops an in-flight reply', async t => {
   let release;
   const f = await fixture(t, () => new Promise(resolve => { release = resolve; }));
-  const first = f.bot.message(message()); await Promise.resolve();
+  const first = f.bot.message(message()); await new Promise(setImmediate);
   const second = f.bot.message(message({ messageId: 'm2' }));
   assert.equal(f.calls.length, 1);
   f.config.update({ qq: { allowedUsers: [] } }); release('生成完成'); await Promise.all([first, second]);
@@ -106,7 +109,7 @@ test('QQ serializes incoming turns and revoking access stops an in-flight reply'
 
 test('QQ stop cancels generation and stale callbacks cannot deliver after disconnect', async t => {
   const f = await fixture(t, (_messages, _images, signal) => new Promise((_resolve, reject) => { signal.addEventListener('abort', () => reject(signal.reason), { once: true }); }));
-  const task = f.bot.message(message()); await Promise.resolve();
+  const task = f.bot.message(message()); await new Promise(setImmediate);
   await f.qq.stop(); await task;
   f.bot.handlers.ready(); assert.equal(f.qq.state, 'stopped');
   await f.bot.message(message({ messageId: 'late' }));
@@ -211,4 +214,61 @@ test('SDK token, network and gateway errors retain only safe codes and actionabl
     [{ message: 'ip not in whitelist PRIVATE-SECRET' }, /IP 白名单/],
     [{ bizCode: 'PRIVATE-SECRET', httpStatus: 'PRIVATE-SECRET', message: 'PRIVATE-SECRET' }, /连接或发送失败/],
   ]) { const safe = qqError(input); assert.match(safe, expected); assert.ok(!safe.includes('PRIVATE-SECRET')); }
+});
+
+test('QQ image-only and captioned group pictures reach the model, history and follow-ups with isolated scopes', async t => {
+  const f = await fixture(t); let downloads = 0;
+  f.qq.fetcher = async (_url, options) => { downloads++; assert.equal(options.headers, undefined); return new Response(png); };
+  await f.bot.message(imageMessage());
+  const [messages, withImages] = f.calls[0], content = messages.at(-1).content;
+  assert.equal(withImages, true); assert.equal(content[1].image_url.url, `data:image/png;base64,${png.toString('base64')}`);
+  assert.match(content[0].text, /表情包/);
+  assert.equal(f.store.history(qqScope('123456', message()))[0].image.data, png.toString('base64'));
+  assert.equal(f.store.history('web:owner').length, 0);
+  assert.ok(!JSON.stringify([f.calls, f.qq.status()]).includes('SIGNED-TEST-URL'));
+  await f.bot.message(imageMessage()); assert.equal(downloads, 1, 'redelivery cannot download or reply twice');
+  await f.bot.message(message({ messageId: 'follow-up', content: '这张图什么意思' }));
+  assert.ok(f.calls[1][0].some(m => Array.isArray(m.content)), 'same sender can ask about their picture');
+  f.config.update({ qq: { groupMode: 'allowlist', allowedGroups: ['g1'] } });
+  const group = imageMessage({ kind: 'group', groupOpenid: 'g1', rawEventType: 'GROUP_AT_MESSAGE_CREATE', messageId: 'group-picture', content: '<@123456> 这个表情是什么意思？' });
+  await f.bot.message(group);
+  assert.equal(f.calls[2][0].at(-1).content[0].text, '这个表情是什么意思？');
+  assert.equal(f.bot.sent.at(-1).target.targetId, 'g1');
+  assert.equal(f.store.history(qqScope('123456', { ...group, senderId: 'u2' })).length, 0);
+});
+
+test('QQ denied senders, unsupported attachments and opaque face tags never call the model or download', async t => {
+  const f = await fixture(t, () => assert.fail('not an image or ordinary text'));
+  f.qq.fetcher = () => assert.fail('no permitted media');
+  await f.bot.message(imageMessage({ senderId: 'stranger' }));
+  assert.equal(f.bot.sent.length, 0);
+  await f.bot.message(message({ content: '<faceType=1,faceId="123",ext="bad">' }));
+  assert.match(f.bot.sent[0].text, /没有提供可读取的图片/);
+  await f.bot.message(message({ messageId: 'audio', content: '听听', attachments: [{ content_type: 'audio/wav', url: 'https://gchat.qpic.cn/a' }] }));
+  assert.match(f.bot.sent[1].text, /附件暂不支持/); assert.equal(f.calls.length, 0);
+});
+
+test('QQ cancellation and allowlist changes during image download prevent model calls and replies', async t => {
+  const f = await fixture(t, () => assert.fail('no model after permission changes'));
+  let release, requested;
+  f.qq.fetcher = (_url, options) => new Promise((resolve, reject) => {
+    requested = true; release = () => resolve(new Response(png));
+    options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true });
+  });
+  const first = f.bot.message(imageMessage()); await new Promise(setImmediate);
+  assert.equal(requested, true);
+  f.config.update({ qq: { allowedUsers: [] } }); release(); await first;
+  assert.equal(f.calls.length, 0); assert.equal(f.bot.sent.length, 0);
+  f.config.update({ qq: { allowedUsers: ['u1'] } });
+  const second = f.bot.message(imageMessage({ messageId: 'cancel-download' })); await new Promise(setImmediate);
+  await f.qq.stop(); await second;
+  assert.equal(f.calls.length, 0); assert.equal(f.bot.sent.length, 0); assert.equal(f.qq.pending, 0);
+});
+
+test('failed QQ image downloads give a useful response instead of sending placeholders to the model', async t => {
+  const f = await fixture(t, () => assert.fail('image unavailable'));
+  f.qq.fetcher = async () => new Response('SECRET RAW BODY', { status: 403 });
+  await f.bot.message(imageMessage());
+  assert.match(f.bot.sent[0].text, /HTTP 403/); assert.ok(!f.bot.sent[0].text.includes('SECRET'));
+  assert.equal(f.calls.length, 0);
 });
