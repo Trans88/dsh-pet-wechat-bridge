@@ -411,6 +411,9 @@ main {
 .qq-contact code { overflow-wrap:anywhere; flex-basis:100%; color:#6b80a0; }
 .qq-contact button { font-size:11px; padding:6px 10px; }
 .qq-card { min-width:0; }
+.qq-card button:disabled { cursor:default; }
+.qq-card button[aria-busy="true"]:disabled { cursor:progress; }
+#qq-connection-detail,#qq-error { overflow-wrap:anywhere; }
 .home-grid { min-height:780px; }
 .pet-stage { min-height:260px; }
 .pet-profile h2 { margin:4px 0; }
