@@ -33,13 +33,13 @@ jobs:
           PET_DESKTOP_EXECUTABLE: ${{ github.workspace }}\dist\LittlePet-win32-x64\LittlePet.exe
       - name: Preserve desktop screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-qa
           path: dist/desktop-qa
           if-no-files-found: ignore
       - name: Portable Windows app
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: LittlePet-Windows-x64
           path: dist/LittlePet-win32-x64

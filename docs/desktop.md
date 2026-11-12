@@ -25,7 +25,7 @@ GitHub Actions 的 **Windows desktop build** 工作流成功后，下载 `Little
 
 新建小窝时，数据保存在 Windows 用户应用数据目录下的 `Little Pet` 文件夹；右键菜单「打开数据文件夹」可以找到。升级时只替换程序目录，保留数据目录。开发/自动化环境可用 `PET_DATA_ROOT` 指定数据根目录。
 
-本版构建未配置代码签名；不要把系统是否显示发行者信息当成实机功能已经验收。自行打包命令：
+本版构建未配置代码签名。自行打包需要 Git 检出目录，只复制 Git 跟踪的程序文件：
 
 ```powershell
 npm ci --include=dev --ignore-scripts --no-audit --no-fund
