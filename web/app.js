@@ -5,6 +5,7 @@ let state, scope = 'web:owner', page = 'home', attachment, pendingRequestId, sen
 let historyRevision = 0, memoryRevision = 0;
 let explorationRevision = 0, lastReadPosted = 0, stateLoading = false;
 let qqAction = '', qqActionError = '', qqStateError = '';
+let balanceRevision = 0, balanceController;
 let voiceUI = { phase: 'idle', active: false, mode: null };
 let previewVoice;
 let avatarTimer, patTimer, petting = false, avatarKey, spriteFailed = false;
@@ -89,14 +90,17 @@ function showPage(next) {
   if (next === 'memory') renderMemories().catch(e => toast(e.message));
   if (next === 'home') refreshHistory().catch(e => chatError(e.message));
   if (next === 'exploration') refreshExploration().catch(e => toast(e.message));
+  if (next === 'settings') refreshBalance();
 }
 document.querySelectorAll('[data-page]').forEach(button => button.addEventListener('click', () => showPage(button.dataset.page)));
 document.querySelectorAll('[data-go]').forEach(button => button.addEventListener('click', () => showPage(button.dataset.go)));
 $('#date-label').textContent = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }) + ' · LITTLE PET';
 
 async function loadState(initial = false) {
+  const previousModel = JSON.stringify(state?.config.model);
   try { state = await localApi('/api/state'); qqStateError = ''; }
   catch (error) { qqStateError = `暂时无法读取 QQ 状态：${error.message}`; renderQQ(); throw error; }
+  if (previousModel !== JSON.stringify(state.config.model)) resetBalance();
   renderCare(state.care);
   renderAvatar();
   $('#pet-name').textContent = state.config.pet.name;
@@ -506,6 +510,66 @@ $('#voice-preview-button').addEventListener('click', async () => {
   try { await previewVoice.speak(`你好，我是${state.config.pet.name}。很高兴用声音陪你聊天。`); }
   catch (e) { toast(e.message); }
 });
+function balanceUnavailable() {
+  if (!state) return '正在读取模型配置…';
+  const model = state.config.model;
+  if ($('[name="model.baseUrl"]').value.trim() !== model.baseUrl || $('[name="model.apiKey"]').value.trim()) return '模型配置尚未保存，请先保存设置，再查询余额。';
+  const url = new URL(model.baseUrl);
+  if (url.origin !== 'https://api.deepseek.com' || !/^\/(?:v1\/?|)?$/.test(url.pathname)) return '当前服务暂不支持余额查询，仅支持 DeepSeek 官方 API。';
+  return model.hasKey ? '' : '请先填写并保存 DeepSeek API Key。';
+}
+function resetBalance() {
+  balanceRevision++;
+  balanceController?.abort(); balanceController = undefined;
+  $('#balance-card').setAttribute('aria-busy', 'false');
+  $('#balance-details').replaceChildren();
+  $('#balance-notice').hidden = true;
+  const reason = balanceUnavailable();
+  $('#balance-result').textContent = reason || '尚未查询，点击「查询余额」查看当前账户余额。';
+  $('#balance-refresh').disabled = Boolean(reason);
+  $('#balance-refresh').textContent = '查询余额';
+}
+async function refreshBalance() {
+  if (balanceController) return;
+  const reason = balanceUnavailable();
+  if (reason) { resetBalance(); return; }
+  const revision = ++balanceRevision, controller = new AbortController();
+  balanceController = controller;
+  const timer = setTimeout(() => controller.abort(), 15000);
+  $('#balance-refresh').disabled = true;
+  $('#balance-refresh').textContent = '查询中…';
+  $('#balance-card').setAttribute('aria-busy', 'true');
+  $('#balance-details').replaceChildren(); $('#balance-notice').hidden = true;
+  $('#balance-result').textContent = '正在查询 DeepSeek 账户余额…';
+  try {
+    const result = await api('/api/model/balance', undefined, false, controller.signal);
+    if (revision !== balanceRevision) return;
+    for (const info of result.balances) {
+      const row = el('div', 'balance-currency');
+      row.append(el('span', 'balance-label', info.currency === 'CNY' ? '人民币可用余额 · CNY' : '美元可用余额 · USD'));
+      row.append(el('strong', 'balance-total', `${info.currency === 'CNY' ? '¥' : '$'} ${info.total}`));
+      row.append(el('p', 'balance-breakdown', `充值余额 ${info.toppedUp} · 赠送余额 ${info.granted}`));
+      $('#balance-details').append(row);
+    }
+    $('#balance-result').textContent = `查询于 ${new Date(result.checkedAt).toLocaleString('zh-CN', { hour12: false })} · ${result.isAvailable ? '账户可用' : '账户余额不足'}`;
+    $('#balance-notice').textContent = result.notice;
+    $('#balance-notice').hidden = !result.notice;
+  } catch (error) {
+    if (revision === balanceRevision) $('#balance-result').textContent = controller.signal.aborted ? '余额查询超时，请重试。' : error.message;
+  } finally {
+    clearTimeout(timer);
+    if (revision === balanceRevision) {
+      balanceController = undefined;
+      $('#balance-card').setAttribute('aria-busy', 'false');
+      $('#balance-refresh').disabled = false;
+      $('#balance-refresh').textContent = '刷新余额';
+    }
+  }
+}
+$('#balance-refresh').addEventListener('click', refreshBalance);
+for (const name of ['model.baseUrl', 'model.apiKey']) $('[name="' + name + '"]').addEventListener('input', resetBalance);
+window.addEventListener('pagehide', resetBalance);
+
 function fillSettings() {
   fillBrowserVoices(state.config.voice?.browserVoice || '');
   for (const input of $('#settings-form').elements) {
@@ -521,6 +585,8 @@ function fillSettings() {
     }
   }
   $('#model-key-hint').textContent = state.config.model.keyFromEnvironment ? '环境变量 PET_API_KEY 优先于配置文件' : '密钥保存在本机 pet.config.json，不会返回到页面或提交到 Git';
+  resetBalance();
+  if (page === 'settings') refreshBalance();
 }
 $('#settings-form').addEventListener('submit', async event => {
   event.preventDefault(); const patch = {}, button = event.submitter; button.disabled = true; $('#settings-result').textContent = '';

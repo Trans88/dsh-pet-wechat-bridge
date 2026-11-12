@@ -64,6 +64,7 @@ export function createPetServer({ root, config, store, core, models, wechat, aut
       if (!equal(req.headers.authorization, `Bearer ${token}`)) return send(401, { code: 'invalid_token', error: '页面授权已过期，请刷新页面。' });
       const scope = url.searchParams.get('scope') || 'web:owner';
       if (req.method === 'GET') {
+        if (url.pathname === '/api/model/balance') return send(200, await models.balance(controller.signal));
         if (url.pathname === '/api/state') return send(200, { config: config.public(), sessions: store.sessions(), exploration: autonomy?.status() || null, care: core.interactions.status(), qq: qq?.status() || { state: 'stopped', contacts: [] }, wechat: wechat?.status() || { state: 'stopped' } });
         if (url.pathname === '/api/exploration' && autonomy) return send(200, autonomy.details());
         if (url.pathname === '/api/history') return send(200, { messages: store.history(scope), memories: store.memories(scope) });

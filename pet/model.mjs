@@ -1,6 +1,7 @@
 import { BridgeError, requestJSON } from '../lib.mjs';
 import { fetchBytes } from '../media.mjs';
 import { endpoint } from './config.mjs';
+import { queryBalance } from './balance.mjs';
 
 function headers(provider, json = true) {
   return { ...(json ? { 'Content-Type': 'application/json' } : {}), ...(provider.apiKey ? { Authorization: `Bearer ${provider.apiKey}` } : {}) };
@@ -15,6 +16,13 @@ function explain(error, kind) {
 
 export class Models {
   constructor(config, fetcher = fetch) { this.config = config; this.fetcher = fetcher; }
+  async balance(signal) {
+    const provider = this.config.provider('model');
+    const result = await queryBalance(provider, this.fetcher, signal);
+    const current = this.config.provider('model');
+    if (provider.apiKey !== current.apiKey || provider.baseUrl !== current.baseUrl) throw new BridgeError('模型配置已变更，请重新查询余额。', 'balance-config-changed');
+    return result;
+  }
   async complete(messages, withImages, signal) {
     const c = this.config.value;
     const kind = withImages && c.vision.enabled ? 'vision' : 'model';
