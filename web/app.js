@@ -123,6 +123,11 @@ async function refreshHistory() {
     item.append(el('div', 'message-label', msg.role === 'user' ? '你' : state.config.pet.name + (msg.origin === 'exploration' ? ' · 主动分享' : '')));
     if (msg.image) { const img = el('img'); img.src = `data:${msg.image.mediaType};base64,${msg.image.data}`; img.alt = '发送的图片'; bubble.append(img); }
     bubble.append(document.createTextNode(msg.text)); item.append(bubble);
+    if (msg.role === 'assistant' && msg.search?.label) {
+      const status = el('div', 'message-search', msg.search.label);
+      if (msg.search.query) status.title = `搜索词：${msg.search.query}\n取得于：${new Date(msg.search.fetchedAt).toLocaleString()}`;
+      item.append(status);
+    }
     const sticker = msg.role === 'assistant' && state.stickers?.find(s => s.id === msg.sticker);
     if (sticker) {
       const img = el('img', 'reply-sticker'); img.src = sticker.url; img.alt = `表情包：${sticker.label}`;
@@ -627,7 +632,7 @@ $('#search-save').addEventListener('click', async event => {
 });
 $('#search-test').addEventListener('click', async event => {
   const button = event.currentTarget; button.disabled = true; $('#search-result').textContent = '正在测试已保存的搜索设置…';
-  try { const result = await api('/api/search/test', {}); $('#search-result').textContent = `搜索连接成功，取得 ${result.sources.length} 条摘要；今天已用 ${result.status.used}/${result.status.limit} 次。`; } catch (error) { $('#search-result').textContent = error.message; } finally { button.disabled = false; }
+  try { const result = await api('/api/search/test', {}); $('#search-result').textContent = `${result.search.label}；服务返回 ${result.search.receivedCount} 条记录，今天已用 ${result.status.used}/${result.status.limit} 次。`; } catch (error) { $('#search-result').textContent = error.message; } finally { button.disabled = false; }
 });
 
 function fillSettings() {

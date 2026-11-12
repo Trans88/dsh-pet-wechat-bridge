@@ -61,7 +61,7 @@ export function createPetServer({ root, dataRoot = root, config, store, core, mo
           const html = readFileSync(join(root, 'web', url.pathname === '/desktop' ? 'desktop.html' : 'index.html'), 'utf8').replace('__PET_TOKEN__', token);
           return send(200, html, 'text/html; charset=utf-8');
         }
-        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.13.0' });
+        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.13.1' });
       }
       // APIs use an explicit, unguessable per-start bearer token, never cookies.
       // A valid token is authoritative even when Origin/Fetch Metadata is absent
@@ -132,7 +132,7 @@ export function createPetServer({ root, dataRoot = root, config, store, core, mo
         const text = await core.chat(input, controller.signal);
         return send(200, { text });
       }
-      if (url.pathname === '/api/search/test') return send(200, { sources: await core.search.search('人工智能 科技', 'web:owner', controller.signal), status: core.search.status() });
+      if (url.pathname === '/api/search/test') return send(200, { ...await core.search.run('人工智能 科技', 'web:owner', controller.signal), status: core.search.status() });
       if (url.pathname === '/api/diary/write') {
         if (!diary) throw new BridgeError('请重启宠物程序以启用日记服务。');
         return send(200, await diary.write(input.day || diary.today(), controller.signal));

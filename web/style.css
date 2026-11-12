@@ -1190,3 +1190,5 @@ dialog p {
 .diary-empty { text-align:center; color:#9c8191; padding:55px 20px; }
 #search-result,#diary-status,#diary-result { font-size:13px; color:#8b7488; overflow-wrap:anywhere; }
 @media(max-width:760px) { .diary-entry,.diary-settings { padding:20px; } .memory-item { flex-wrap:wrap; } }
+
+.message-search { margin:8px 0 4px; font-size:12px; color:#7188a4; overflow-wrap:anywhere; }

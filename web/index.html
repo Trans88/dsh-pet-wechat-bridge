@@ -22,7 +22,7 @@
       <button class="nav" data-page="channels"><span>◎</span>连接</button>
       <button class="nav" data-page="settings"><span>⚙</span>设置</button>
     </nav>
-    <div class="sidebar-foot"><span class="online-dot"></span> 本地的小小世界<small>独立运行 · v0.13.0</small></div>
+    <div class="sidebar-foot"><span class="online-dot"></span> 本地的小小世界<small>独立运行 · v0.13.1</small></div>
   </aside>
   <main>
     <header class="topbar"><div><span class="eyebrow" id="date-label">A LITTLE COMPANY</span><h1 id="page-title">欢迎回到小窝</h1></div><span class="pill" id="model-status">正在连接…</span></header>
@@ -170,6 +170,7 @@
             <label class="field">搜索服务<select name="search.provider"><option value="tavily">Tavily · 需要搜索 API Key</option><option value="searxng">SearXNG · 自有搜索服务</option></select></label>
             <label class="field">服务地址<input name="search.baseUrl" type="url" required><small>填服务根地址，不含末尾 /search；Tavily 默认 https://api.tavily.com。</small></label>
             <label class="field full">搜索 API Key<input name="search.apiKey" type="password" autocomplete="new-password"><small>独立于聊天模型密钥。SearXNG 需要开放 JSON 搜索格式，不使用这项密钥。</small></label>
+            <label class="field full">搜索代理（可选）<input name="search.proxyUrl" type="url" placeholder="例如 http://127.0.0.1:7890"><small>需要代理时填写本机 HTTP / Mixed 代理端口；留空使用后台默认网络。代理需已启动，不支持 SOCKS 地址。此项仅用于联网搜索。</small></label>
             <label class="field">每天最多搜索次数<input name="search.dailyLimit" type="number" min="1" max="500" required><small>按 UTC 日期重置；失败请求也计数，5 分钟内同会话相同关键词复用结果。</small></label>
             <label class="check"><input name="search.channels" type="checkbox">也允许 QQ / 微信触发搜索</label>
             <label class="check"><input name="search.clearKey" type="checkbox">清除已保存的搜索密钥</label>

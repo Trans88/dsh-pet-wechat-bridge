@@ -98,6 +98,11 @@
           const item = node('article', `desktop-message ${message.role === 'user' ? 'user' : 'assistant'}`, '');
           item.append(node('div', 'message-label', message.role === 'user' ? '你' : this.state.config.pet.name),
             node('div', 'message-text', (message.image ? '[图片]\n' : '') + message.text));
+          if (message.role === 'assistant' && message.search?.label) {
+            const status = node('div', 'message-search', message.search.label);
+            if (message.search.query) status.title = `搜索词：${message.search.query}\n取得于：${new Date(message.search.fetchedAt).toLocaleString()}`;
+            item.append(status);
+          }
           for (const source of message.sources || []) {
             let url; try { url = new URL(source.url); } catch { continue; }
             if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) continue;
