@@ -114,7 +114,7 @@ test('chat style and QQ sticker settings save without losing credentials; bundle
   const { $, w, config, store, refresh, errors } = await fixture(t);
   assert.equal($('[name="pet.chatStyle"]').value, 'natural');
   assert.equal($('#qq-form [name="stickers"]').value, 'occasional');
-  assert.equal($('#sticker-pack').querySelectorAll('img').length, 4);
+  assert.equal($('#sticker-pack').querySelectorAll('img').length, 13);
   const url = $('#sticker-pack img').src;
   const asset = await fetch(url); assert.equal(asset.status, 200); assert.equal(asset.headers.get('content-type'), 'image/png');
   assert.equal(Buffer.from(await asset.arrayBuffer()).subarray(1, 4).toString(), 'PNG');

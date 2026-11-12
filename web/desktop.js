@@ -4,7 +4,7 @@
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   let state, prefs = {}, petting = false, busy = false, polling = false, disposed = false;
   let bubbleTimer, effectTimer, patTimer, clickTimer, pollTimer, point, lastHit, lastJournal = 0, lastReply = 0, initial = true;
-  let pixels, sourceWidth, sourceHeight, bubbleDuration = 0, chat;
+  let pixels, pixelSource, sourceWidth, sourceHeight, bubbleDuration = 0, chat;
   const lifetime = new AbortController();
   // Reuse the existing vector blue-cat artwork when that appearance is selected.
   const avatar = new window.PetAvatar({ character, sprite: $('#pet-sprite'), sheet, cat: $('#pet-cat'), onError: () => say('形象加载失败，请从右键菜单打开设置并重新选择形象。') });
@@ -50,6 +50,7 @@
         clearTimeout(effectTimer); effectTimer = setTimeout(() => $('#effect').classList.remove('active'), 1600);
       }
       render();
+      if (result.applied) avatar.play(action); else avatar.cancel();
     } catch (error) { say(error.message); }
     finally { busy = false; }
   }
@@ -63,7 +64,7 @@
       if (!initial && state.reply?.id > lastReply && (!prefs.quiet || state.reply.origin === 'chat')) say(state.reply.text, 0);
       if (state.reply) lastReply = state.reply.id;
       const latest = state.care.journal[0];
-      if (!initial && !prefs.quiet && latest?.at > lastJournal) say(latest.text);
+      if (!initial && !prefs.quiet && latest?.at > lastJournal) { say(latest.text); if (!chat.busy && !chat.voiceState.active) avatar.play(latest.action); }
       if (latest) lastJournal = latest.at;
       if (initial) { initial = false; say(`${state.config.pet.name}来陪你啦。拖动我换个位置，右键可以投喂、抱抱。`, 9000); }
       render();
@@ -75,16 +76,16 @@
     try {
       const canvas = document.createElement('canvas'); canvas.width = sourceWidth = sheet.naturalWidth; canvas.height = sourceHeight = sheet.naturalHeight;
       const context = canvas.getContext('2d', { willReadFrequently: true }); context.drawImage(sheet, 0, 0);
-      pixels = context.getImageData(0, 0, sourceWidth, sourceHeight).data;
+      pixels = context.getImageData(0, 0, sourceWidth, sourceHeight).data; pixelSource = sheet.src;
     } catch { pixels = null; }
   });
   function hit(event) {
     if (event.target.closest('#toolbar, #bubble, #conversation')) return true;
     if (!event.target.closest('#pet-character')) return false;
-    if (character.dataset.appearance === 'blue-cat' || !pixels) return true;
+    if (character.dataset.appearance === 'blue-cat' || !pixels || pixelSource !== sheet.src) return true;
     const box = $('#pet-sprite').getBoundingClientRect();
-    const columns = character.dataset.appearance === 'taolinghu-classic' ? 8 : 2;
-    const rows = character.dataset.appearance === 'taolinghu-classic' ? 11 : 2;
+    const columns = Number(sheet.dataset.columns) || 2;
+    const rows = Number(sheet.dataset.rows) || 2;
     const frameX = -parseFloat(sheet.style.left || 0) / 100, frameY = -parseFloat(sheet.style.top || 0) / 100;
     const x = Math.floor((frameX + (event.clientX - box.left) / box.width) * sourceWidth / columns);
     const y = Math.floor((frameY + (event.clientY - box.top) / box.height) * sourceHeight / rows);

@@ -7,6 +7,15 @@ export const STICKERS = Object.freeze([
   { id: 'hug', label: '抱抱', description: '日常疲惫、轻微失落时温柔安慰，或回应求抱抱' },
   { id: 'awkward', label: '啊这', description: '轻松的尴尬趣事、无伤大雅的吐槽；不能嘲弄对方' },
   { id: 'laugh', label: '笑不活了', description: '明确的笑话、有趣的梗；不能用于别人的痛苦' },
+  { id: 'snack', label: '开饭啦', description: '分享零食、美食和轻松的吃饭闲聊' },
+  { id: 'welcome', label: '来啦', description: '迎接回来、打招呼或开心地表示在这里' },
+  { id: 'cozy', label: '暖暖的', description: '回应日常关心、温暖陪伴，不用于严肃困境' },
+  { id: 'playful', label: '一起玩', description: '邀请轻松玩耍、游戏或分享玩乐趣事' },
+  { id: 'dance', label: '开心起舞', description: '庆祝值得开心的小事、兴奋期待' },
+  { id: 'sleepy', label: '困困', description: '普通困倦、准备休息的闲聊，不用于健康问题' },
+  { id: 'goodnight', label: '晚安', description: '明确道晚安或结束晚间闲聊' },
+  { id: 'morning', label: '早呀', description: '早晨问候、睡醒后充满活力地打招呼' },
+  { id: 'thanks', label: '谢谢你', description: '表达感谢、收到善意或赞美后的开心回应' },
 ].map(s => Object.freeze({ ...s, url: `/assets/stickers/${s.id}.png` })));
 export const findSticker = id => STICKERS.find(s => s.id === id);
 export const stickerPath = id => {

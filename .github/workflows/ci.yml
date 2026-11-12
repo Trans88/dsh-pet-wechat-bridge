@@ -34,6 +34,15 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Check decoded video, audio and responsive controls
         if: matrix.os == 'ubuntu-latest' && matrix.node == '24'
-        run: node --test test/exploration-browser.test.mjs
+        run: node --test test/exploration-browser.test.mjs test/care-browser.test.mjs
         env:
           PET_BROWSER_TEST: '1'
+
+      - name: Preserve care animation screenshots
+        if: always() && matrix.os == 'ubuntu-latest' && matrix.node == '24'
+        uses: actions/upload-artifact@v7
+        with:
+          name: care-animation-qa
+          path: dist/care-qa
+          if-no-files-found: ignore
+          retention-days: 14
