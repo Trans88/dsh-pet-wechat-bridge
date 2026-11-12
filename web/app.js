@@ -415,7 +415,8 @@ async function interact(action) {
   try {
     const result = await api('/api/pet/interact', { action, requestId: crypto.randomUUID() });
     renderCare(result.care); $('#pet-bubble').textContent = result.text;
-    if (result.applied) showPetEffect(action);
+    if (result.applied) { showPetEffect(action); avatar.play(action); }
+    else avatar.cancel();
   } catch (e) { toast(e.message); }
   finally { interactionTimer = setTimeout(() => { interactionBusy = false; interactionControls(); }, 1250); }
 }

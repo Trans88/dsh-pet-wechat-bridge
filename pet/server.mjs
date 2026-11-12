@@ -7,6 +7,8 @@ import { STICKERS } from './stickers.mjs';
 
 // Public code and bundled artwork contain no configuration or credentials.
 const assets = { '/app.js': 'text/javascript; charset=utf-8', '/avatar.js': 'text/javascript; charset=utf-8', '/voice.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/desktop.js': 'text/javascript; charset=utf-8', '/desktop.css': 'text/css; charset=utf-8', '/assets/taolinghu.png': 'image/png', '/assets/taolinghu-hd.png': 'image/png' };
+assets['/care.css'] = 'text/css; charset=utf-8';
+assets['/assets/taolinghu-care.png'] = 'image/png';
 assets['/desktop-chat.js'] = 'text/javascript; charset=utf-8';
 for (const sticker of STICKERS) assets[sticker.url] = 'image/png';
 function equal(a, b) { const x = Buffer.from(a || ''), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); }
@@ -58,7 +60,7 @@ export function createPetServer({ root, dataRoot = root, config, store, core, mo
           const html = readFileSync(join(root, 'web', url.pathname === '/desktop' ? 'desktop.html' : 'index.html'), 'utf8').replace('__PET_TOKEN__', token);
           return send(200, html, 'text/html; charset=utf-8');
         }
-        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.11.1' });
+        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.12.0' });
       }
       // APIs use an explicit, unguessable per-start bearer token, never cookies.
       // A valid token is authoritative even when Origin/Fetch Metadata is absent

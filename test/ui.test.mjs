@@ -112,12 +112,12 @@ test('web setup, text/image chat, memory management and error states work agains
   assert.match($('#toast').textContent, /语音识别/);
   $('#sleep-button').click(); await until(() => $('#pet-character').classList.contains('sleeping'), 'sleep state persisted');
   assert.equal($('#pet-character').dataset.animation, 'sleeping');
-  assert.equal($('#pet-sprite-sheet').style.top, '-100%');
-  assert.equal($('#pet-sprite-sheet').style.left, '-100%');
+  assert.equal($('#pet-character').dataset.careAction, 'sleep');
+  assert.equal($('#pet-sprite-sheet').getAttribute('src'), '/assets/taolinghu-care.png');
   await until(() => !$('#pat-button').disabled, 'interaction cooldown finished');
   $('#pat-button').click(); await until(() => !$('#pet-character').classList.contains('sleeping'), 'pat wakes pet');
   assert.equal($('#pet-character').dataset.animation, 'petting');
-  assert.equal($('#pet-sprite-sheet').style.top, '-100%');
+  assert.equal($('#pet-character').dataset.careAction, 'pat');
   assert.equal($('#bond-value').textContent, '1');
   assert.match($('#care-journal').textContent, /摸摸头/);
   await until(() => !$('#pat-button').disabled, 'pat finished');

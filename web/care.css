@@ -1,0 +1,20 @@
+/* Shared finite care sequences; motion stays inside the desktop character box. */
+.care-caption { position:absolute; z-index:4; bottom:1%; left:50%; transform:translateX(-50%); padding:4px 10px; border:1px solid #e8b8ce; border-radius:16px; background:#fff7fbef; color:#92516b; font:600 11px/1.5 "Microsoft YaHei UI",sans-serif; white-space:nowrap; pointer-events:none; }
+.pet-character.care-active { animation:none!important; }
+.pet-character.care-active .pet-sprite, .pet-character.care-active #pet-cat { transform-origin:50% 90%; animation:care-arrive .45s ease-out both!important; }
+.pet-character[data-care-action="feed"][data-care-step="1"] .pet-sprite,
+.pet-character[data-care-action="feed"][data-care-step="2"] .pet-sprite { animation:care-nibble .35s ease-in-out 2!important; }
+.pet-character[data-care-action="hug"][data-care-step="1"] .pet-sprite { animation:care-cuddle 1.4s ease-in-out!important; }
+.pet-character[data-care-action="play"] .pet-sprite { animation:care-bounce .65s ease-in-out!important; }
+.pet-character[data-care-action="dance"] .pet-sprite { animation:care-sway .55s ease-in-out!important; }
+.pet-character[data-care-action="sleep"][data-care-step="1"] .pet-sprite { animation:care-rest 1.8s ease-in-out!important; }
+.pet-character[data-care-action="wake"][data-care-step="1"] .pet-sprite { animation:care-stretch 1.1s ease-in-out!important; }
+@keyframes care-arrive { from { opacity:.6; transform:scale(.97); } to { opacity:1; transform:scale(1); } }
+@keyframes care-nibble { 50% { transform:scale(1.015,.98) translateY(2px); } }
+@keyframes care-cuddle { 50% { transform:rotate(-3deg) scale(1.025); } }
+@keyframes care-bounce { 45% { transform:translateY(-6px) rotate(3deg); } }
+@keyframes care-sway { 50% { transform:translateX(4px) rotate(-4deg); } }
+@keyframes care-rest { 50% { transform:scale(1.01,.98); } }
+@keyframes care-stretch { 50% { transform:scale(.98,1.025) translateY(-4px); } }
+.pet-character.motion-paused *, .pet-character.motion-paused { animation:none!important; }
+@media (prefers-reduced-motion:reduce) { .pet-character.care-active *, .pet-character.care-active { animation:none!important; } }
