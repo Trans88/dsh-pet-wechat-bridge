@@ -79,7 +79,14 @@ if (command === 'check') {
       await autonomy.stop();
       await qq.stop();
       await wechat.stop();
-      await new Promise(resolve => { app.server.close(resolve); app.server.closeIdleConnections(); });
+      await new Promise(resolve => {
+        // Chromium may leave a preconnected socket with incomplete headers.
+        // closeIdleConnections alone does not release every such connection.
+        const deadline = setTimeout(() => app.server.closeAllConnections(), 1000);
+        deadline.unref();
+        app.server.close(() => { clearTimeout(deadline); resolve(); });
+        app.server.closeIdleConnections();
+      });
       store.close();
       try { unlinkSync(runtimePath); } catch {}
       if (process.connected) process.disconnect();

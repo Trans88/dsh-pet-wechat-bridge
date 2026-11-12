@@ -2,6 +2,8 @@
 
 ## 0.10.1 — 2026-11-12
 
+- 修复桌面小窝的 `#home` 等入口在配置加载前读取聊天记录而出现 `Cannot read properties of undefined (reading 'config')`；初次加载期间的页面切换同样等待配置。
+- 修复退出时浏览器未发完请求头的连接阻塞后台清理的问题；同步小窝显示版本号。
 - 修复桌宠首次下载失败后重复下载的问题；检查运行环境时不再触发 Electron 入口的隐式下载。
 - 增加跨 CMD / PowerShell / Git Bash 通用的 `--mirror=cn`、`--mirror=official`、自定义镜像和 `--proxy` 参数；仅作用于当前安装子进程。
 - 下载显示实际镜像/代理主机及嵌套网络错误码，明确 DNS、拒绝连接、超时和 HTTP 失败；保留 Electron 内置校验，成功后再次验证安装文件。
