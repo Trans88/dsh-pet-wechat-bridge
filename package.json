@@ -1,6 +1,6 @@
 {
   "name": "little-pet",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "private": true,
   "type": "module",
   "description": "Independent AI companion with pet interactions, persistent memory, Weixin and official QQ channels",
@@ -25,7 +25,8 @@
     "playwright": "1.65.0",
     "pngjs": "5.0.0",
     "qrcode": "1.5.4",
-    "silk-wasm": "3.7.1"
+    "silk-wasm": "3.7.1",
+    "undici": "7.30.2"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",

@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync, mkdirSync, readFileSync, existsSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createServer } from 'node:net';
+import { createServer, connect } from 'node:net';
 import { createServer as createHttpServer } from 'node:http';
 import { Config } from '../pet/config.mjs';
 import { PNG } from 'pngjs';
@@ -15,29 +15,36 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   const root = fileURLToPath(new URL('..', import.meta.url));
   const dataRoot = mkdtempSync(join(tmpdir(), 'pet-electron-'));
   const portServer = createServer(); await new Promise(r => portServer.listen(0, '127.0.0.1', r)); const port = portServer.address().port; await new Promise(r => portServer.close(r));
-  let textCalls = 0, sttCalls = 0, ttsCalls = 0, searchCalls = 0;
+  let textCalls = 0, sttCalls = 0, ttsCalls = 0, searchCalls = 0, searchStatus = 200, proxyCalls = 0;
   const longReply = Array.from({ length: 38 }, (_, index) => `第 ${index + 1} 行：长回复可以从头看到最后，读完再继续聊。`).join('\n') + '\n完整回复结尾 FULL_END';
   const audio = Buffer.from(readFileSync(join(root, 'test/fixtures/desktop-tone.mp3.base64'), 'utf8').trim(), 'base64');
   const provider = createHttpServer(async (req, res) => {
     const chunks = []; for await (const chunk of req) chunks.push(chunk);
     if (req.url === '/v1/chat/completions') {
       textCalls++; const body = JSON.parse(Buffer.concat(chunks));
-      const content = body.messages[0].content.includes('私密日记') ? JSON.stringify({ title: '桌面上的新朋友', text: '今天，我们一起试了桌面聊天，还说了几句话。\n\n主人让我找点有趣的，我带着一份搜索摘要回来了。这些小小的尝试，都收进这一页。' }) : body.messages.at(-1).content.includes('长回复') ? longReply : body.messages.at(-1).content.includes('搜索') ? '找到一个有趣的开源小项目，可以先看看这个介绍。[1]' : '听到了，这是桌面语音测试回复。';
+      const content = body.messages[0].content.includes('私密日记') ? JSON.stringify({ title: '桌面上的新朋友', text: '今天，我们一起试了桌面聊天，还说了几句话。\n\n主人让我找点有趣的，我带着一份搜索摘要回来了。这些小小的尝试，都收进这一页。' }) : body.messages.at(-1).content.includes('长回复') ? longReply : /搜索|网上/.test(body.messages.at(-1).content) ? '找到一个有趣的开源小项目，可以先看看这个介绍。[1]' : '听到了，这是桌面语音测试回复。';
       res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ choices: [{ message: { content } }] }));
     }
-    if (req.url === '/v1/search') { searchCalls++; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ results: [{ title: '创意小项目 · 示例来源', url: 'https://example.org/projects', content: '这里介绍了一种有趣的桌面小项目。' }] })); }
+    if (req.url === '/v1/search') { searchCalls++; res.statusCode = searchStatus; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ results: [{ title: '创意小项目 · 示例来源', url: 'https://example.org/projects', content: '这里介绍了一种有趣的桌面小项目。' }] })); }
     if (req.url === '/v1/audio/transcriptions') { sttCalls++; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ text: '在桌面说一句话' })); }
     if (req.url === '/v1/audio/speech') { ttsCalls++; res.setHeader('Content-Type', 'audio/mpeg'); return res.end(audio); }
     res.writeHead(404); res.end();
   });
   await new Promise(resolve => provider.listen(0, '127.0.0.1', resolve));
+  const proxy = createHttpServer();
+  proxy.on('connect', (req, socket, head) => {
+    proxyCalls++; assert.equal(req.url, `127.0.0.1:${provider.address().port}`);
+    const upstream = connect(provider.address().port, '127.0.0.1', () => { socket.write('HTTP/1.1 200 Connection Established\r\n\r\n'); if (head.length) upstream.write(head); socket.pipe(upstream).pipe(socket); });
+    socket.on('error', () => upstream.destroy()); upstream.on('error', () => socket.destroy()); socket.on('close', () => upstream.destroy());
+  });
+  await new Promise(resolve => proxy.listen(0, '127.0.0.1', resolve));
   const baseUrl = `http://127.0.0.1:${provider.address().port}/v1`;
   new Config(dataRoot).update({ port, model: { baseUrl, model: 'fake-chat', apiKey: 'test-only' },
     stt: { enabled: true, baseUrl, model: 'fake-stt', apiKey: 'test-only' }, tts: { enabled: true, baseUrl, model: 'fake-tts', apiKey: 'test-only' },
-    voice: { input: 'server', output: 'server' }, search: { enabled: true, baseUrl, apiKey: 'test-search' } });
+    voice: { input: 'server', output: 'server' }, search: { enabled: true, baseUrl, apiKey: 'test-search', proxyUrl: `http://127.0.0.1:${proxy.address().port}` } });
   const { ELECTRON_RUN_AS_NODE: _, ...env } = process.env;
   let app;
-  t.after(async () => { await app?.close(); provider.closeAllConnections(); await new Promise(resolve => provider.close(resolve)); rmSync(dataRoot, { recursive: true, force: true }); });
+  t.after(async () => { await app?.close(); provider.closeAllConnections(); proxy.closeAllConnections(); await Promise.all([new Promise(resolve => provider.close(resolve)), new Promise(resolve => proxy.close(resolve))]); rmSync(dataRoot, { recursive: true, force: true }); });
   const mediaFlags = ['--use-fake-device-for-media-stream'];
   app = await electron.launch({ ...(env.PET_DESKTOP_EXECUTABLE ? { executablePath: env.PET_DESKTOP_EXECUTABLE, args: mediaFlags } : { args: [root, ...mediaFlags] }), env: { ...env, PET_DATA_ROOT: dataRoot }, timeout: 30000 });
   const pet = await app.firstWindow(); await pet.waitForURL(`http://127.0.0.1:${port}/desktop`);
@@ -101,9 +108,11 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   await pet.waitForFunction(() => window.testAudioTracks.length >= 2 && window.testAudioTracks.every(track => track.readyState === 'ended'));
   assert.equal(app.windows().length, 1, 'voice chat also stays in the pet window');
   await pet.locator('#chat').click();
-  await pet.locator('#desktop-input').fill('/搜索 有趣的小项目'); await pet.locator('#desktop-send').click();
+  await pet.locator('#desktop-input').fill('再帮我看下网上有什么趣事'); await pet.locator('#desktop-send').click();
   await pet.waitForFunction(() => document.querySelector('.desktop-source')?.textContent.includes('示例来源'));
   assert.equal(searchCalls, 1);
+  assert.equal(proxyCalls, 1, 'packaged backend actually uses the configured proxy');
+  assert.match(await pet.locator('.message-search').last().textContent(), /已联网搜索.*1 条摘要/);
   assert.equal(await pet.locator('.desktop-source').getAttribute('href'), 'https://example.org/projects');
   await app.evaluate(({ shell }) => { globalThis.testOpenedSource = ''; shell.openExternal = async url => { globalThis.testOpenedSource = url; }; });
   await pet.locator('.desktop-source').click();
@@ -123,6 +132,12 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   await room.setViewportSize({ width: 460, height: 800 });
   assert.equal(await room.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
   await room.screenshot({ path: join(artifacts, 'settings-narrow.png') });
+  searchStatus = 432; await room.locator('#search-test').click();
+  await room.waitForFunction(() => document.querySelector('#search-result').textContent.includes('HTTP 432'));
+  assert.equal(proxyCalls, 2); assert.equal(searchCalls, 2);
+  assert.equal(await room.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+  await room.screenshot({ path: join(artifacts, 'search-error-narrow.png') });
+  searchStatus = 200;
   await room.locator('[data-page="memory"]').click();
   await room.locator('#memory-input').fill('我喜欢桌面上的小伙伴'); await room.locator('#memory-form button').click();
   await room.waitForFunction(() => document.querySelector('#memory-list').textContent.includes('我喜欢桌面上的小伙伴'));

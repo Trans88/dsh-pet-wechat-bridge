@@ -66,3 +66,5 @@ button:disabled { cursor:default; opacity:.45; }
 @keyframes happy { 50% { transform:translateY(-4px) rotate(-1deg); } }
 @keyframes affection { from { opacity:0; transform:translateY(8px) scale(.7); } 25% { opacity:1; } to { opacity:0; transform:translateY(-40px) scale(1.15); } }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; } }
+
+.message-search { margin:6px 4px; font-size:10px; color:#977087; overflow-wrap:anywhere; }

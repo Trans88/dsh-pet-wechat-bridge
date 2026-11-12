@@ -94,6 +94,7 @@ test('web setup, text/image chat, memory management and error states work agains
   assert.equal($('#pet-sprite-sheet').style.top, '0%');
   await until(() => store.history('web:owner').length === 2 && !$('#send-button').disabled, 'first reply');
   assert.match($('#messages').textContent, /测试回复/);
+  assert.equal($('#messages .message-search').textContent, '本条未联网搜索');
   assert.equal($('#messages img'), null, 'model HTML must remain plain text');
   assert.match(calls[0].messages[0].content, /团子/);
 
@@ -156,6 +157,23 @@ test('web setup, text/image chat, memory management and error states work agains
   assert.equal($('#pet-cat').hasAttribute('hidden'), false);
   assert.match($('#toast').textContent, /图片未能加载/);
   assert.equal(config.value.pet.appearance, 'taolinghu', 'temporary image failure must not overwrite the saved selection');
+  core.search.fetcher = async () => new Response(JSON.stringify({ results: [{ title: '网页来源', url: 'https://example.org/news', content: '真正返回的摘要' }] }));
+  $('[data-page="settings"]').click();
+  $('[name="search.enabled"]').checked = true; $('[name="search.apiKey"]').value = 'UI-SEARCH-SECRET';
+  $('[name="search.proxyUrl"]').value = 'http://127.0.0.1:7890'; $('#search-save').click();
+  await until(() => $('#search-result').textContent.includes('已保存'), 'search settings saved');
+  assert.equal(config.value.search.proxyUrl, 'http://127.0.0.1:7890');
+  assert.equal($('[name="search.apiKey"]').value, '');
+  $('#search-test').click(); await until(() => $('#search-result').textContent.includes('1 条摘要'), 'actual search receipt');
+  $('[data-page="home"]').click(); $('#message-input').value = '再帮我看下网上有什么趣事'; $('#send-button').click();
+  await until(() => $('#messages .message-search')?.textContent.includes('已联网搜索') && !$('#send-button').disabled, 'natural request invokes search');
+  assert.equal($('#messages .source-link').href, 'https://example.org/news');
+  core.search.fetcher = async () => { throw new Error('UI-SEARCH-SECRET', { cause: { code: 'ENOTFOUND' } }); };
+  // A different saved proxy invalidates cached test evidence without changing the search key.
+  $('[data-page="settings"]').click(); $('[name="search.proxyUrl"]').value = ''; $('#search-save').click();
+  await until(() => config.value.search.proxyUrl === '' && !$('#search-save').disabled, 'proxy reset');
+  $('#search-test').click(); await until(() => $('#search-result').textContent.includes('ENOTFOUND'), 'specific network diagnosis');
+  assert.doesNotMatch($('#search-result').textContent, /UI-SEARCH-SECRET/);
   assert.deepEqual(errors, []);
 });
 

@@ -11,7 +11,7 @@ export const defaults = {
   stt: { enabled: false, baseUrl: '', model: '', apiKey: '' },
   tts: { enabled: false, baseUrl: '', model: '', apiKey: '', voice: 'alloy' },
   voice: { input: 'auto', output: 'auto', autoSpeak: false, language: 'zh-CN', browserVoice: '', rate: 1, pitch: 1, silenceMs: 1500 },
-  search: { enabled: false, provider: 'tavily', baseUrl: 'https://api.tavily.com', apiKey: '', channels: false, dailyLimit: 30 },
+  search: { enabled: false, provider: 'tavily', baseUrl: 'https://api.tavily.com', apiKey: '', proxyUrl: '', channels: false, dailyLimit: 30 },
   diary: { enabled: false, time: '21:30', timeZone: 'Asia/Shanghai' },
   replyAudio: 'voice',
   exploration: {
@@ -88,6 +88,12 @@ export function validateConfig(value) {
   if (!['tavily', 'searxng'].includes(c.search.provider)) throw new BridgeError('请选择支持的搜索服务。');
   c.search.baseUrl = string(c.search.baseUrl, 500, '搜索服务地址'); endpoint(c.search.baseUrl, 'search');
   c.search.apiKey = string(c.search.apiKey, 4096, '搜索密钥', true);
+  c.search.proxyUrl = string(c.search.proxyUrl, 500, '搜索代理地址', true);
+  if (c.search.proxyUrl) {
+    let proxy; try { proxy = new URL(c.search.proxyUrl); } catch { throw new BridgeError('搜索代理地址无效。'); }
+    if (!['http:', 'https:'].includes(proxy.protocol) || !['localhost', '127.0.0.1', '[::1]'].includes(proxy.hostname) || proxy.username || proxy.password || proxy.pathname !== '/' || proxy.search || proxy.hash) throw new BridgeError('搜索代理仅支持本机 HTTP(S) 代理，例如 http://127.0.0.1:7890，不支持账号密码或 SOCKS 地址。');
+    c.search.proxyUrl = proxy.origin;
+  }
   if (typeof c.search.channels !== 'boolean') throw new BridgeError('搜索通道开关应为布尔值。');
   if (!Number.isInteger(c.search.dailyLimit) || c.search.dailyLimit < 1 || c.search.dailyLimit > 500) throw new BridgeError('每天搜索上限应为 1–500 次。');
   if (typeof c.diary.time !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(c.diary.time)) throw new BridgeError('日记时间应为 HH:mm。');

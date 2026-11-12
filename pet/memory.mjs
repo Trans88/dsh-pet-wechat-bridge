@@ -1,7 +1,7 @@
 export function memoryRequest(text) { return /^\/(?:memories|记忆)$/i.test(text) || /^(?:你(?:现在|目前|还)?(?:都)?记得我(?:些|些什么|什么)|(?:查看|看看|列出)(?:你(?:的)?)?(?:当前|现在|目前)?(?:的)?记忆)[？?。！!\s]*$/.test(text); }
 export function memorySnapshot(store, scope) {
   const history = store.history(scope, 24);
-  return { memories: store.memories(scope), context: history.map(({ id, role, text, created, origin, sources, image }) => ({ id, role, text, created, origin, sources, hasImage: Boolean(image) })),
+  return { memories: store.memories(scope), context: history.map(({ id, role, text, created, origin, sources, search, image }) => ({ id, role, text, created, origin, sources, search, hasImage: Boolean(image) })),
     notes: scope === 'web:owner' ? store.notesByIds(history.flatMap(m => (m.sources || []).filter(s => s.type !== 'web').map(s => s.id))) : [] };
 }
 export function describeMemory(store, scope) {

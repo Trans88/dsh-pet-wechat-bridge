@@ -78,7 +78,8 @@
     "baseUrl": "https://api.tavily.com",
     "apiKey": "",
     "channels": false,
-    "dailyLimit": 30
+    "dailyLimit": 30,
+    "proxyUrl": ""
   },
   "diary": {
     "enabled": false,

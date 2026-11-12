@@ -1,6 +1,8 @@
 // Test the dependency chain, not merely the existence of qrcode/package.json.
 // No network access and no files written.
 try {
+  const { ProxyAgent } = await import('undici');
+  if (typeof ProxyAgent !== 'function') throw new Error('search proxy unavailable');
   const { chromium } = await import('playwright');
   if (typeof chromium.launchPersistentContext !== 'function') throw new Error('missing browser driver');
   const { QQBot } = await import('@tencent-connect/qqbot-nodejs');

@@ -11,6 +11,9 @@ import { WebSearch, searchQuery, publicSearchURL } from '../pet/search.mjs';
 import { Diary, diaryDay } from '../pet/diary.mjs';
 import { memorySnapshot } from '../pet/memory.mjs';
 import { createPetServer } from '../pet/server.mjs';
+import { createServer } from 'node:http';
+import { connect } from 'node:net';
+import { BridgeError } from '../lib.mjs';
 
 const json = value => new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } });
 const result = { results: [{ title: '真实来源', url: 'https://example.org/news', content: '实际取得的搜索摘要。' }] };
@@ -184,4 +187,105 @@ test('new APIs retain authentication, redact secrets, and apply edits and delete
   assert.equal(response.status, 200); assert.equal((await response.json()).outcome, 'written');
   await fetch(url + '/api/diary/delete', { method: 'POST', headers, body: JSON.stringify({ day: '2026-11-12' }) });
   assert.equal((await (await fetch(url + '/api/diary', { headers })).json()).entries.length, 0);
+});
+
+test('conversational search requests recognize the reported phrase without sending ordinary or negated chat', () => {
+  for (const text of ['再帮我看下网上有什么趣事', '帮我看看网上有什么新鲜事', '你能不能帮我再搜索最近的科技新闻', '请帮忙上网查一下机器猫', '那就再帮我找点有趣的', '去网上看看最近的趣事', '搜索今天的科技新闻']) assert.ok(searchQuery(text), text);
+  for (const text of ['你好', '帮我看看这段代码', '你觉得网上的趣事好笑吗', '我刚刚搜索到一个笑话', '请不要搜索我的聊天', '不用帮我上网查', '别搜索', '搜索功能怎么用', '搜索失败了怎么办', '你搜索过吗', '你搜过吗', '搜不到东西为什么', '你记得我什么']) assert.equal(searchQuery(text), null, text);
+  assert.throws(() => searchQuery('/搜索'), /关键词/);
+  assert.throws(() => searchQuery('/search  '), /关键词/);
+  assert.equal(searchQuery('/搜索 猫咪 趣事'), '猫咪 趣事');
+  assert.equal(searchQuery('今天的科技新闻', true), '今天的科技新闻');
+});
+
+test('reported natural request performs a search and persists truthful receipts across retries, cache and ordinary replies', async t => {
+  const calls = [], f = fixture(t, async (url, options) => {
+    calls.push({ url: String(url), body: JSON.parse(options.body) });
+    return String(url).endsWith('/search') ? json(result) : json({ choices: [{ message: { content: '看看这个新项目 [1]' } }] });
+  });
+  const input = { text: '再帮我看下网上有什么趣事', requestId: 'reported-request' };
+  await f.core.chat(input); await f.core.chat(input);
+  assert.equal(calls.filter(c => c.url.endsWith('/search')).length, 1);
+  const first = f.store.history('web:owner').at(-1).search;
+  assert.equal(first.status, 'results'); assert.equal(first.resultCount, 1); assert.equal(first.cached, false);
+  assert.match(first.query, /网上有什么趣事/); assert.doesNotMatch(JSON.stringify(first), /PRIVATE/);
+  await f.core.chat({ text: input.text });
+  const cached = f.store.history('web:owner').at(-1).search;
+  assert.equal(cached.cached, true); assert.equal(cached.fetchedAt, first.fetchedAt); assert.match(cached.label, /复用/);
+  assert.equal(calls.filter(c => c.url.endsWith('/search')).length, 1);
+  await f.core.chat({ text: '谢谢' });
+  assert.equal(f.store.history('web:owner').at(-1).search.status, 'not_requested');
+  assert.match(calls.at(-1).body.messages[0].content, /本轮未执行联网搜索，不能声称/);
+  const reopened = new Store(f.root); assert.deepEqual(reopened.history('web:owner')[1].search, first); reopened.close();
+  assert.deepEqual(memorySnapshot(f.store, 'web:owner').context[1].search, first);
+});
+
+test('empty or unusable results are reported without model invention and are not cached as a failed search', async t => {
+  let searches = 0, response = { results: [] };
+  const f = fixture(t, async url => { assert.ok(String(url).endsWith('/search'), 'empty results must not call the model'); searches++; return json(response); });
+  const input = { text: '/搜索 罕见关键词' };
+  assert.match(await f.core.chat(input), /服务返回了 0 条结果/);
+  assert.equal(f.store.history('web:owner').at(-1).search.status, 'empty');
+  response = { results: [{ url: 'http://localhost/private', content: 'private' }] };
+  assert.match(await f.core.chat(input), /返回了 1 条记录，但没有/);
+  assert.equal(searches, 2, 'empty responses must allow an immediate retry');
+  assert.equal(f.store.history('web:owner').at(-1).search.receivedCount, 1);
+});
+
+test('search errors preserve actionable codes without leaking raw messages, keys or provider bodies', async t => {
+  let response;
+  const f = fixture(t, async () => { if (response instanceof Error) throw response; return response; });
+  f.config.update({ search: { dailyLimit: 100 } });
+  let index = 0;
+  const check = async (value, pattern) => {
+    response = value;
+    await assert.rejects(f.core.chat({ text: '/搜索 test-' + index++ }), error => { assert.match(error.message, pattern); assert.doesNotMatch(error.message, /PRIVATE|secret\.example/); return true; });
+  };
+  for (const status of [400, 401, 403, 404, 422, 429, 432, 433, 434, 500]) await check(new Response('SEARCH-PRIVATE', { status }), new RegExp('HTTP ' + status));
+  for (const code of ['ENOTFOUND', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT', 'ECONNREFUSED', 'ECONNRESET', 'CERT_HAS_EXPIRED']) {
+    await check(new Error('SEARCH-PRIVATE https://secret.example', { cause: new AggregateError([Object.assign(new Error('SEARCH-PRIVATE'), { code })]) }), new RegExp(code));
+  }
+  await check(new BridgeError('PRIVATE', 'aborted'), /SEARCH_TIMEOUT/);
+  await check(new Response('<html>SEARCH-PRIVATE</html>'), /SEARCH_INVALID_JSON/);
+  await check(json({ error: 'SEARCH-PRIVATE' }), /SEARCH_FORMAT/);
+  await check(new Error('SEARCH-PRIVATE', { cause: { message: 'unexpected redirect' } }), /SEARCH_REDIRECT/);
+  await check(new Error('SEARCH-PRIVATE'), /SEARCH_NETWORK/);
+  assert.equal(f.store.history('web:owner').length, 0, 'failed search does not invent an assistant answer');
+});
+
+test('optional local HTTP proxy routes real requests through CONNECT and preserves search credentials', async t => {
+  const f = fixture(t); let connections = 0, received;
+  const provider = createServer(async (req, res) => {
+    const chunks = []; for await (const chunk of req) chunks.push(chunk);
+    received = { path: req.url, auth: req.headers.authorization, body: JSON.parse(Buffer.concat(chunks)) };
+    res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(result));
+  });
+  await new Promise(resolve => provider.listen(0, '127.0.0.1', resolve));
+  const port = provider.address().port, proxy = createServer();
+  proxy.on('connect', (req, socket, head) => {
+    connections++;
+    assert.equal(req.url, `127.0.0.1:${port}`); assert.equal(req.headers.authorization, undefined);
+    const upstream = connect(port, '127.0.0.1', () => { socket.write('HTTP/1.1 200 Connection Established\r\n\r\n'); if (head.length) upstream.write(head); socket.pipe(upstream).pipe(socket); });
+    socket.on('error', () => upstream.destroy()); upstream.on('error', () => socket.destroy()); socket.on('close', () => upstream.destroy());
+  });
+  await new Promise(resolve => proxy.listen(0, '127.0.0.1', resolve));
+  t.after(async () => { provider.closeAllConnections(); proxy.closeAllConnections(); await Promise.all([new Promise(r => provider.close(r)), new Promise(r => proxy.close(r))]); });
+  f.config.update({ search: { baseUrl: `http://127.0.0.1:${port}`, proxyUrl: `http://127.0.0.1:${proxy.address().port}` } });
+  // Changing provider origin clears the old key; explicitly save the key for this local fixture.
+  f.config.update({ search: { apiKey: 'SEARCH-PRIVATE' } }); f.core.search.fetcher = fetch;
+  const value = await f.core.search.run('本机代理验证', 'web:owner');
+  assert.equal(connections, 1); assert.equal(value.sources.length, 1); assert.equal(received.path, '/search');
+  assert.equal(received.auth, 'Bearer SEARCH-PRIVATE'); assert.equal(received.body.query, '本机代理验证');
+  for (const proxyUrl of ['socks5://127.0.0.1:7890', 'http://u:PRIVATE@127.0.0.1:7890', 'http://remote.example:8080', 'http://127.0.0.1:7890/path']) assert.throws(() => f.config.update({ search: { proxyUrl } }));
+  assert.equal(new Config(f.root).value.search.proxyUrl, f.config.value.search.proxyUrl);
+});
+
+test('upgrading from v4 keeps historical receipts unknown while retaining chat, memory and request dedup', t => {
+  const root = mkdtempSync(join(tmpdir(), 'pet-search-migration-')); let store = new Store(root);
+  t.after(() => { store.close(); rmSync(root, { recursive: true, force: true }); });
+  store.ensure('web:owner'); store.remember('web:owner', '旧记忆'); store.append('web:owner', '旧聊天', null, '旧回复', 'old-request');
+  store.db.exec('ALTER TABLE messages DROP COLUMN search; PRAGMA user_version=4'); store.close(); store = new Store(root);
+  assert.equal(store.history('web:owner')[1].search, undefined); assert.equal(store.history('web:owner')[0].text, '旧聊天');
+  assert.equal(store.memories('web:owner')[0].text, '旧记忆'); assert.equal(store.cached('web:owner', 'old-request'), '旧回复');
+  assert.equal(store.db.prepare('PRAGMA user_version').get().user_version, 5);
 });

@@ -29,9 +29,10 @@ export class Store {
     if (!columns.includes('origin')) this.db.exec("ALTER TABLE messages ADD COLUMN origin TEXT NOT NULL DEFAULT 'chat'");
     if (!columns.includes('sources')) this.db.exec('ALTER TABLE messages ADD COLUMN sources TEXT');
     if (!columns.includes('sticker')) this.db.exec('ALTER TABLE messages ADD COLUMN sticker TEXT');
+    if (!columns.includes('search')) this.db.exec('ALTER TABLE messages ADD COLUMN search TEXT');
     if (!this.db.prepare('PRAGMA table_info(exploration_notes)').all().some(c => c.name === 'reviewed')) this.db.exec('ALTER TABLE exploration_notes ADD COLUMN reviewed INTEGER NOT NULL DEFAULT 0');
     if (!this.db.prepare('PRAGMA table_info(exploration_notes)').all().some(c => c.name === 'observation')) this.db.exec('ALTER TABLE exploration_notes ADD COLUMN observation TEXT');
-    this.db.exec('PRAGMA user_version=4');
+    this.db.exec('PRAGMA user_version=5');
   }
   ensure(scope, label) {
     validScope(scope);
@@ -40,17 +41,18 @@ export class Store {
   sessions() { return this.db.prepare('SELECT * FROM sessions ORDER BY updated DESC').all(); }
   history(scope, limit = 100) {
     validScope(scope);
-    return this.db.prepare('SELECT * FROM (SELECT id, role, text, image, created, origin, sources, sticker FROM messages WHERE scope=? ORDER BY id DESC LIMIT ?) ORDER BY id').all(scope, limit)
-      .map(row => ({ ...row, image: row.image ? JSON.parse(row.image) : undefined, sources: row.sources ? JSON.parse(row.sources) : undefined }));
+    return this.db.prepare('SELECT * FROM (SELECT id, role, text, image, created, origin, sources, sticker, search FROM messages WHERE scope=? ORDER BY id DESC LIMIT ?) ORDER BY id').all(scope, limit)
+      .map(row => ({ ...row, image: row.image ? JSON.parse(row.image) : undefined, sources: row.sources ? JSON.parse(row.sources) : undefined, search: row.search ? JSON.parse(row.search) : undefined }));
   }
   cached(scope, requestId) { return requestId ? this.db.prepare('SELECT reply FROM requests WHERE scope=? AND request_id=?').get(scope, requestId)?.reply : undefined; }
-  append(scope, text, attachment, reply, requestId, sources = []) {
+  append(scope, text, attachment, reply, requestId, sources = [], search) {
     this.db.exec('BEGIN IMMEDIATE');
     try {
       const stmt = this.db.prepare('INSERT INTO messages(scope, role, text, image, created) VALUES (?, ?, ?, ?, ?)');
       stmt.run(scope, 'user', text, attachment ? JSON.stringify(attachment) : null, Date.now());
       const messageId = Number(stmt.run(scope, 'assistant', reply, null, Date.now()).lastInsertRowid);
       if (sources.length) this.db.prepare('UPDATE messages SET sources=? WHERE id=?').run(JSON.stringify(sources), messageId);
+      if (search) this.db.prepare('UPDATE messages SET search=? WHERE id=?').run(JSON.stringify(search), messageId);
       this.db.prepare('UPDATE sessions SET updated=? WHERE scope=?').run(Date.now(), scope);
       if (requestId) this.db.prepare('INSERT INTO requests VALUES (?, ?, ?)').run(scope, requestId, reply);
       // Retain 500 messages, but only 12 recent images; bound local storage growth.

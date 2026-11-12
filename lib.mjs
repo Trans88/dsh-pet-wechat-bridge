@@ -10,7 +10,7 @@ export const BASE_INFO = {
 };
 
 export class BridgeError extends Error {
-  constructor(message, code = 'bridge-error') { super(message); this.code = code; }
+  constructor(message, code = 'bridge-error', options) { super(message, options); this.code = code; }
 }
 
 export function localOrigin(value) {
@@ -69,8 +69,8 @@ export async function requestJSON(url, options = {}, fetcher = fetch) {
     return parseJSON(Buffer.concat(chunks).toString('utf8'));
   } catch (error) {
     if (error instanceof BridgeError) throw error;
-    if (combined.aborted) throw new BridgeError('请求超时或已停止。', 'aborted');
-    throw new BridgeError('网络连接失败，或接口未返回有效 JSON。', 'network');
+    if (combined.aborted) throw new BridgeError('请求超时或已停止。', 'aborted', { cause: error });
+    throw new BridgeError('网络连接失败，或接口未返回有效 JSON。', 'network', { cause: error });
   }
 }
 
