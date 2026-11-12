@@ -176,16 +176,16 @@ function sourceLink(source) {
   a.href = url.href; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a;
 }
 
-const browserLabels = { 'not-connected': '尚未登录', unverified: '登录待检查', 'awaiting-login': '等待扫码 / 验证', ready: '登录已检查', 'login-required': '需要登录', 'verification-required': '需要安全验证', 'browser-unavailable': '浏览器未就绪', 'layout-changed': '页面需要检查', 'browse-error': '页面加载失败' };
+const browserLabels = { 'not-connected': '尚未登录', unverified: '登录待检查', 'awaiting-login': '等待扫码 / 验证', ready: '已登录', 'login-required': '需要登录', 'verification-required': '需要安全验证', 'browser-unavailable': '浏览器未就绪', 'layout-changed': '页面需要检查', 'browse-error': '页面加载失败' };
 function renderExplorationStatus(s) {
   if (!s) return;
   const e = state.config.exploration;
   $('#exploration-status').textContent = s.busy ? '正在探索' : s.blocked ? '已暂停，等待处理' : !s.enabled ? '自动探索已关闭' : s.quiet ? '免打扰中' : '自动探索已开启';
   $('#exploration-count').textContent = `${s.sentToday} / ${e.dailyLimit}`;
   const format = timestamp => new Date(timestamp).toLocaleString('zh-CN', { timeZone: e.timeZone, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  $('#exploration-next').textContent = s.blocked ? '请查看连接状态和最近动态，处理后重新检查登录或手动重试。' : s.enabled ? (s.nextRunAt ? `下次检查 ${format(s.nextRunAt)} · ${e.timeZone}` : '即将检查探索条件') : '你也可以点「现在去逛逛」尝试一轮。';
+  $('#exploration-next').textContent = s.blocked ? '请查看连接状态和最近动态；完成登录或验证后，可直接点「现在去逛逛」。' : s.enabled ? (s.nextRunAt ? `下次检查 ${format(s.nextRunAt)} · ${e.timeZone}` : '即将检查探索条件') : '你也可以点「现在去逛逛」尝试一轮。';
   $('#xhs-status').textContent = browserLabels[s.browser?.state] || '登录待检查';
-  $('#xhs-message').textContent = s.browser?.message || '登录状态保存在独立浏览器中；首次使用请扫码，随后检查登录。';
+  $('#xhs-message').textContent = s.browser?.message || '登录状态保存在独立浏览器中；扫码后会自动识别，也可直接开始探索。';
   $('#exploration-run').disabled = s.busy || Boolean(s.browser?.busy);
   $('#xhs-verify').disabled = s.busy || Boolean(s.browser?.busy);
 }

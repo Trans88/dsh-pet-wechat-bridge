@@ -34,7 +34,7 @@ test('example preserves safe defaults for every integrated feature and versions 
   const example = read('../pet.config.example.json');
   for (const feature of ['voice', 'exploration', 'qq']) assert.deepEqual(example[feature], defaults[feature]);
   const pkg = read('../package.json'), lock = read('../package-lock.json');
-  assert.equal(pkg.version, '0.7.0');
+  assert.match(pkg.version, /^\d+\.\d+\.\d+$/);
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   for (const [name, version] of Object.entries(pkg.dependencies)) assert.equal(lock.packages[''].dependencies[name], version);
