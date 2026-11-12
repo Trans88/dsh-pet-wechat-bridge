@@ -5,7 +5,7 @@ import { BridgeError, readJSONFile, saveJSONFile } from '../lib.mjs';
 export const defaults = {
   version: 1,
   port: 3210,
-  pet: { name: '小蓝', appearance: 'taolinghu', persona: '你是一只名叫小蓝的 AI 宠物，温柔、有好奇心，偶尔俏皮。用自然简洁的中文陪伴主人。保持自己的判断，不编造经历或能力。', greeting: '我在这里。今天想和我聊点什么？' },
+  pet: { name: '小蓝', appearance: 'taolinghu', chatStyle: 'natural', persona: '你是一只名叫小蓝的 AI 宠物，温柔、有好奇心，偶尔俏皮。用自然简洁的中文陪伴主人。保持自己的判断，不编造经历或能力。', greeting: '在呢，慢慢聊。' },
   model: { baseUrl: 'https://api.deepseek.com', model: 'deepseek-flash', apiKey: '', supportsImages: true },
   vision: { enabled: false, baseUrl: '', model: '', apiKey: '' },
   stt: { enabled: false, baseUrl: '', model: '', apiKey: '' },
@@ -17,7 +17,7 @@ export const defaults = {
     dailyLimit: 3, quietStart: '23:00', quietEnd: '09:00', timeZone: 'Asia/Shanghai',
     browser: 'auto', headless: true, readImages: false, readVideos: false, transcribeVideo: false,
   },
-  qq: { appId: '', appSecret: '', autoConnect: false, sandbox: false, directMode: 'allowlist', allowedUsers: [], groupMode: 'disabled', allowedGroups: [] },
+  qq: { appId: '', appSecret: '', autoConnect: false, sandbox: false, directMode: 'allowlist', allowedUsers: [], groupMode: 'disabled', allowedGroups: [], stickers: 'occasional' },
 };
 
 export function endpoint(base, path) {
@@ -44,6 +44,8 @@ export function validateConfig(value) {
   for (const key of ['name', 'persona', 'greeting']) c.pet[key] = string(value.pet?.[key] ?? c.pet[key], key === 'persona' ? 8000 : 200, `宠物${key}`);
   c.pet.appearance = value.pet?.appearance ?? c.pet.appearance;
   if (!['taolinghu', 'taolinghu-classic', 'blue-cat'].includes(c.pet.appearance)) throw new BridgeError('请选择内置的宠物形象。');
+  c.pet.chatStyle = value.pet?.chatStyle ?? c.pet.chatStyle;
+  if (!['natural', 'custom'].includes(c.pet.chatStyle)) throw new BridgeError('请选择支持的聊天风格。');
   for (const kind of ['model', 'vision', 'stt', 'tts']) {
     const incoming = value[kind] || {};
     if (typeof incoming !== 'object' || Array.isArray(incoming)) throw new BridgeError(`${kind}配置格式错误。`);
@@ -97,6 +99,7 @@ export function validateConfig(value) {
   c.qq.appSecret = string(c.qq.appSecret, 4096, 'QQ AppSecret', true);
   for (const key of ['autoConnect', 'sandbox']) if (typeof c.qq[key] !== 'boolean') throw new BridgeError('QQ 开关应为布尔值。');
   for (const key of ['directMode', 'groupMode']) if (!['disabled', 'allowlist', 'open'].includes(c.qq[key])) throw new BridgeError('QQ 访问范围错误。');
+  if (!['off', 'occasional', 'lively'].includes(c.qq.stickers)) throw new BridgeError('请选择支持的 QQ 表情包频率。');
   for (const key of ['allowedUsers', 'allowedGroups']) {
     if (!Array.isArray(c.qq[key]) || c.qq[key].length > 100 || c.qq[key].some(v => typeof v !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(v))) throw new BridgeError('QQ 名单需填写 OpenID，每行一个，最多 100 个。');
     c.qq[key] = [...new Set(c.qq[key])];

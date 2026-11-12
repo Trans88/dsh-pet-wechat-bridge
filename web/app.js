@@ -117,6 +117,11 @@ async function refreshHistory() {
     item.append(el('div', 'message-label', msg.role === 'user' ? '你' : state.config.pet.name + (msg.origin === 'exploration' ? ' · 主动分享' : '')));
     if (msg.image) { const img = el('img'); img.src = `data:${msg.image.mediaType};base64,${msg.image.data}`; img.alt = '发送的图片'; bubble.append(img); }
     bubble.append(document.createTextNode(msg.text)); item.append(bubble);
+    const sticker = msg.role === 'assistant' && state.stickers?.find(s => s.id === msg.sticker);
+    if (sticker) {
+      const img = el('img', 'reply-sticker'); img.src = sticker.url; img.alt = `表情包：${sticker.label}`;
+      img.loading = 'lazy'; item.append(img);
+    }
     if (msg.sources?.length) {
       const sources = el('div', 'message-sources');
       for (const source of msg.sources) { const a = sourceLink(source); if (a) sources.append(a); }
@@ -583,6 +588,11 @@ function fillQQ() {
   }
   $('#qq-form [name="appId"]').disabled = q.appIdFromEnvironment;
   $('#qq-secret-hint').textContent = q.secretFromEnvironment ? '环境变量 QQBOT_SECRET 优先；更换时请修改环境变量并重启' : '留空保留已保存的密钥；更换 AppID 时请重新填写对应的 AppSecret';
+  const pack = $('#sticker-pack'); pack.replaceChildren();
+  for (const sticker of state.stickers || []) {
+    const card = el('figure'), img = el('img'); img.src = sticker.url; img.alt = sticker.label; img.loading = 'lazy';
+    card.append(img, el('figcaption', '', sticker.label)); pack.append(card);
+  }
 }
 function renderQQ() {
   const q = state?.qq || { state: 'stopped', contacts: [] }, config = state?.config.qq;

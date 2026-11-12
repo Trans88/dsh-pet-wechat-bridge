@@ -39,3 +39,21 @@ test('example preserves safe defaults for every integrated feature and versions 
   assert.equal(lock.packages[''].version, pkg.version);
   for (const [name, version] of Object.entries(pkg.dependencies)) assert.equal(lock.packages[''].dependencies[name], version);
 });
+
+test('natural chat defaults and sticker settings preserve existing personas and credentials', t => {
+  const root = mkdtempSync(join(tmpdir(), 'pet-natural-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const config = new Config(root);
+  const persona = '你叫桃铃狐，喜欢打游戏，说话直率。';
+  config.update({ pet: { name: '桃铃狐', persona, greeting: '回来啦' }, qq: { appId: '12345', appSecret: 'TEST-SECRET' } });
+  assert.equal(config.value.pet.chatStyle, 'natural'); assert.equal(config.value.qq.stickers, 'occasional');
+  config.update({ pet: { chatStyle: 'custom' }, qq: { stickers: 'off' } });
+  const loaded = new Config(root);
+  assert.equal(loaded.value.pet.persona, persona); assert.equal(loaded.value.pet.greeting, '回来啦');
+  assert.equal(loaded.value.qq.appSecret, 'TEST-SECRET'); assert.equal(loaded.value.qq.stickers, 'off');
+  assert.equal(loaded.value.pet.chatStyle, 'custom');
+  const before = readFileSync(config.path, 'utf8');
+  assert.throws(() => config.update({ pet: { chatStyle: 'invalid' } }));
+  assert.throws(() => config.update({ qq: { stickers: true } }));
+  assert.equal(readFileSync(config.path, 'utf8'), before);
+});

@@ -1165,3 +1165,11 @@ dialog p {
 @keyframes hd-breathe { 50% { transform:scale(1.006,.99); } }
 @keyframes hd-think { 50% { transform:rotate(2deg); } }
 @media (prefers-reduced-motion:reduce) { .pet-sprite { animation:none!important; } }
+
+/* Bundled reaction pack: two columns also fit a narrow channel card. */
+.sticker-pack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.sticker-pack figure { margin: 0; padding: 10px; text-align: center; border: 1px solid var(--line, #e4eaf3); border-radius: 16px; background: #fff; }
+.sticker-pack img { display: block; width: 100%; max-width: 144px; height: auto; aspect-ratio: 1; object-fit: contain; margin: auto; }
+.sticker-pack figcaption { margin-top: 6px; font-size: 13px; }
+.sticker-details { min-width: 0; }
+.reply-sticker { display: block; width: 150px; max-width: 60%; height: auto; margin: 6px 0; object-fit: contain; }

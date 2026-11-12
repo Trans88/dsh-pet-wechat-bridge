@@ -45,7 +45,7 @@ async function fixture(t, connectionTimeoutMs = 60000) {
     .catch(error => { throw new Error(`${error.message}; ${$('#chat-error').textContent}; ${errors.join('; ')}`, { cause: error }); });
   $('[data-page="channels"]').click();
   const refresh = async () => { $('#qq-refresh').click(); await until(() => !$('#qq-refresh').disabled, 'status refresh'); };
-  return { qq, bots, w, $, refresh, errors };
+  return { qq, bots, w, $, refresh, errors, config, store };
 }
 
 test('QQ UI shows waiting, cancel, connected without busy cursor, and an empty allowlist next step', async t => {
@@ -107,5 +107,29 @@ test('a stalled local control response times out, leaves no busy controls and ca
   w.fetch = realFetch; w.setTimeout = realTimeout;
   $('#qq-refresh').click(); await until(() => !$('#qq-start').disabled, 'status recovered');
   assert.equal($('#qq-start').textContent, '连接 QQ'); assert.equal($('#qq-error').hidden, true);
+  assert.deepEqual(errors, []);
+});
+
+test('chat style and QQ sticker settings save without losing credentials; bundled images are served', async t => {
+  const { $, w, config, store, refresh, errors } = await fixture(t);
+  assert.equal($('[name="pet.chatStyle"]').value, 'natural');
+  assert.equal($('#qq-form [name="stickers"]').value, 'occasional');
+  assert.equal($('#sticker-pack').querySelectorAll('img').length, 4);
+  const url = $('#sticker-pack img').src;
+  const asset = await fetch(url); assert.equal(asset.status, 200); assert.equal(asset.headers.get('content-type'), 'image/png');
+  assert.equal(Buffer.from(await asset.arrayBuffer()).subarray(1, 4).toString(), 'PNG');
+  assert.equal((await fetch(new URL('/assets/stickers/unknown.png', w.location.href))).status, 401);
+  $('#qq-form [name="stickers"]').value = 'off';
+  $('#qq-form').dispatchEvent(new w.SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: $('#qq-form [type="submit"]') }));
+  await until(() => config.value.qq.stickers === 'off' && !$('#qq-form [type="submit"]').disabled, 'sticker setting saved');
+  assert.equal(config.value.qq.appSecret, 'PRIVATE-QQ-TEST');
+  $('[name="pet.chatStyle"]').value = 'custom';
+  $('#settings-form').dispatchEvent(new w.SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: $('#settings-form [type="submit"]') }));
+  await until(() => config.value.pet.chatStyle === 'custom', 'chat style saved');
+  await refresh(); assert.equal($('#qq-form [name="stickers"]').value, 'off');
+  store.ensure('web:owner'); const id = store.append('web:owner', '好事', null, '替你高兴', 'shown');
+  store.recordSticker('web:owner', id, 'cheer');
+  $('[data-page="home"]').click(); await until(() => $('.reply-sticker'), 'confirmed sticker in history');
+  assert.equal($('.reply-sticker').alt, '表情包：好耶');
   assert.deepEqual(errors, []);
 });

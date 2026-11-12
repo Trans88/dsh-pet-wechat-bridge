@@ -23,9 +23,10 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   await pet.waitForFunction(() => document.querySelector('#pet-sprite-sheet').naturalWidth === 1254);
   const native = await app.evaluate(({ BrowserWindow }) => {
     const win = BrowserWindow.getAllWindows()[0], prefs = win.webContents.getLastWebPreferences();
-    return { frame: prefs.nodeIntegration, isolated: prefs.contextIsolation, sandbox: prefs.sandbox, top: win.isAlwaysOnTop(), bounds: win.getBounds() };
+    return { node: prefs.nodeIntegration, isolated: prefs.contextIsolation, sandbox: prefs.sandbox, top: win.isAlwaysOnTop(), background: win.getBackgroundColor(), resizable: win.isResizable(), bounds: win.getBounds() };
   });
-  assert.equal(native.frame, false); assert.equal(native.isolated, true); assert.equal(native.sandbox, true); assert.equal(native.top, true);
+  assert.equal(native.node, false); assert.equal(native.isolated, true); assert.equal(native.sandbox, true); assert.equal(native.top, true);
+  assert.equal(native.background, '#00000000'); assert.equal(native.resizable, false);
   assert.equal(await pet.evaluate(() => typeof window.require), 'undefined');
   assert.equal(await pet.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgba(0, 0, 0, 0)');
   await pet.locator('#pet-character').press('Enter'); await pet.waitForFunction(() => document.querySelector('#bubble').textContent.includes('手心') || document.querySelector('#bubble').textContent.includes('耳朵'));
@@ -36,6 +37,7 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   await pet.locator('#chat').click();
   const room = await roomReady;
   assert.ok(room); await room.waitForLoadState(); await room.locator('[data-page="settings"]').click();
+  await room.waitForFunction(() => document.querySelector('[name="pet.name"]').value === '小蓝');
   await room.locator('[name="pet.appearance"]').selectOption('taolinghu-classic'); await room.locator('#settings-form button[type="submit"]').click();
   await pet.waitForFunction(() => document.querySelector('#pet-character').dataset.appearance === 'taolinghu-classic');
   await room.locator('[name="pet.appearance"]').selectOption('taolinghu'); await room.locator('#settings-form button[type="submit"]').click();
