@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { BridgeError } from '../lib.mjs';
+import { prepareQQMessage } from './qq-media.mjs';
 
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const idOK = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value);
@@ -50,8 +51,8 @@ async function makeBot(options) {
 // The official SDK owns token refresh, heartbeat and reconnect. No public HTTP
 // listener, account password, or dsh process is needed by this channel.
 export class QQBridge {
-  constructor({ config, store, core, factory = makeBot, connectionTimeoutMs = 60000, now = () => Date.now(), log = () => {} }) {
-    Object.assign(this, { config, store, core, factory, connectionTimeoutMs, now, log });
+  constructor({ config, store, core, factory = makeBot, fetcher = fetch, connectionTimeoutMs = 60000, now = () => Date.now(), log = () => {} }) {
+    Object.assign(this, { config, store, core, factory, fetcher, connectionTimeoutMs, now, log });
     this.state = 'stopped'; this.lastError = ''; this.generation = 0;
     this.waitStartedAt = null; this.waitTimer = null;
     this.contacts = new Map(); this.queue = Promise.resolve(); this.pending = 0;
@@ -99,7 +100,7 @@ export class QQBridge {
       try {
         bot = await this.factory({ ...credentials, transport: 'websocket', intents: 1 << 25, markdownSupport: false,
           baseUrl: this.config.value.qq.sandbox ? 'https://sandbox.api.sgroup.qq.com' : 'https://api.sgroup.qq.com',
-          reconnect: { maxAttempts: 10 }, userAgent: 'little-pet/0.7.2' });
+          reconnect: { maxAttempts: 10 }, userAgent: 'little-pet/0.7.3' });
         if (!live()) { bot.stop(); return; }
         this.bot = bot;
         for (const event of ['ready', 'resumed']) bot.on(event, () => {
@@ -153,20 +154,20 @@ export class QQBridge {
     this.pending++;
     const task = this.queue.then(async () => {
       if (!context.live() || !this.allowed(msg)) return;
-      let text = typeof msg.content === 'string' ? msg.content.replace(/<@!?\d+>/g, '').trim() : '';
       let reply;
-      if (!text && msg.attachments?.length) reply = 'QQ 通道目前支持文字。图片和语音可以在网页或微信里发给我。';
-      else if (!text) reply = '我在呢。可以和我聊天，或发 /宠物 看看互动菜单。';
-      else if (text.length > 8000) reply = '这条消息有点长，请缩短到 8000 字符以内再发给我。';
-      else {
-        try {
+      try {
+        const input = await prepareQQMessage(msg, { config: this.config.value, signal: context.signal, fetcher: this.fetcher });
+        if (!context.live() || !this.allowed(msg)) return;
+        if (input.reply) reply = input.reply;
+        else {
           const scope = qqScope(context.appId, msg);
-          reply = await this.core.chat({ scope, text, requestId: id,
+          reply = await this.core.chat({ scope, text: input.text, attachment: input.attachment, requestId: id,
             label: `QQ · ${msg.kind === 'group' ? '群聊成员' : '私聊'} · ${scope.slice(-6)}` }, context.signal);
-        } catch (error) {
-          if (!context.live()) return;
-          reply = error instanceof BridgeError ? error.message : '刚刚没能接住这条消息，请稍后再试。';
+          if (input.note) reply += `\n${input.note}`;
         }
+      } catch (error) {
+        if (!context.live()) return;
+        reply = error instanceof BridgeError ? error.message : '刚刚没能接住这条消息，请稍后再试。';
       }
       if (!context.live() || !this.allowed(msg)) return;
       const chars = Array.from(reply);

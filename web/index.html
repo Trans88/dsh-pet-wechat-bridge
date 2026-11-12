@@ -103,7 +103,7 @@
     <section id="page-channels" class="page" hidden>
       <div class="section-intro"><h2>换个地方，继续陪伴</h2><p>宠物的性格相同，聊天和记忆各自保存。</p></div>
       <div class="channel-grid"><article class="surface channel-card"><div class="channel-symbol green">微</div><h3>微信</h3><p>复用已绑定的微信 Bot 私聊，支持文字、图片和语音处理。</p><span class="pill" id="wechat-status">未连接</span><div class="button-row"><button class="primary" id="wechat-start">连接微信</button><button id="wechat-stop">断开</button><button id="wechat-login">重新扫码</button></div><p class="muted">换号请先断开，再重新扫码。若手机要求验证码，在启动程序的终端输入。</p><button class="text-button" id="qr-refresh">显示 / 刷新二维码</button><img id="wechat-qr" alt="微信登录二维码" hidden></article>
-      <article class="surface channel-card qq-card"><div class="channel-symbol blue">Q</div><h3>QQ</h3><p>把小伙伴带进私聊和群里的 @ 对话。可以聊天，也能发 /抱抱、/投喂 和 /宠物。</p><span class="pill" id="qq-status">未连接</span>
+      <article class="surface channel-card qq-card"><div class="channel-symbol blue">Q</div><h3>QQ</h3><p>把小伙伴带进私聊和群里的 @ 对话。可以发文字、单张图片，也能发 /抱抱、/投喂 和 /宠物。</p><span class="pill" id="qq-status">未连接</span>
         <form id="qq-form" class="qq-form">
           <label class="field">机器人 AppID<input name="appId" inputmode="numeric" autocomplete="off" maxlength="30" placeholder="QQ 开放平台的 AppID"></label>
           <label class="field">AppSecret<input name="appSecret" type="password" autocomplete="new-password" placeholder="填写机器人密钥"><small id="qq-secret-hint">密钥保存后不会回显</small></label>
@@ -116,7 +116,7 @@
         <p class="muted" id="qq-connection-detail" role="status">保存 AppID 和 AppSecret 后，点击「连接 QQ」。</p>
         <p class="inline-error" id="qq-error" role="status" hidden></p>
         <div id="qq-contacts" class="qq-contacts"></div>
-        <details class="qq-guide"><summary>第一次接入 QQ</summary><ol><li>到 <a href="https://q.qq.com/" target="_blank" rel="noreferrer">QQ 开放平台</a> 创建机器人并获取 AppID / AppSecret，启用所需的单聊或群聊能力。</li><li>按平台配置测试人员、测试群及 IP 白名单；接入方式选择 WebSocket。</li><li>保存配置，点击「连接 QQ」。若只允许指定联系人，发消息后把下方 OpenID 加入名单并保存。</li></ol><p class="muted">接入的是机器人账号。目前支持文字与宠物互动；图片、语音可使用网页或微信。平台实际权限以你的机器人后台为准。</p></details>
+        <details class="qq-guide"><summary>第一次接入 QQ</summary><ol><li>到 <a href="https://q.qq.com/" target="_blank" rel="noreferrer">QQ 开放平台</a> 创建机器人并获取 AppID / AppSecret，启用所需的单聊或群聊能力。</li><li>按平台配置测试人员、测试群及 IP 白名单；接入方式选择 WebSocket。</li><li>保存配置，点击「连接 QQ」。若只允许指定联系人，发消息后把下方 OpenID 加入名单并保存。</li></ol><p class="muted">支持文字、单张图片与宠物互动。看图需在设置中启用图片能力或独立图片模型；表情包若只收到编号/名称，请保存到相册后通过「图片」发送。语音可先转成文字。平台实际权限以你的机器人后台为准。</p></details>
       </article></div>
     </section>
 
