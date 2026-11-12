@@ -158,6 +158,46 @@ test('captcha pauses scheduled attempts until a successful user login check', as
   await f.autonomy.tick(); assert.equal(f.store.history('web:owner').length,1);
 });
 
+test('manual exploration rechecks the browser after opening login without requiring the check button', async t => {
+  const f = fixture(t); let verified = 0;
+  f.explorer.verifyLogin = async () => { verified++; return { state: 'ready' }; };
+  await f.autonomy.openLogin(); assert.equal(f.autonomy.saved().blocked, 'login-required');
+  assert.equal((await f.autonomy.run(true)).outcome, 'shared');
+  assert.equal(verified, 0); assert.equal(f.autonomy.saved().blocked, '');
+});
+
+test('passive sign-in recognition clears the gate without starting disabled browsing or repeating events', async t => {
+  const f = fixture(t); let signedIn = false;
+  f.config.update({ exploration: { enabled: false } });
+  f.explorer.refreshLogin = async () => signedIn;
+  await f.autonomy.openLogin();
+  await f.autonomy.tick(); assert.equal(f.autonomy.saved().blocked, 'login-required');
+  signedIn = true; await f.autonomy.tick();
+  assert.equal(f.autonomy.saved().blocked, ''); assert.equal(f.explorer.calls, 0); assert.equal(f.calls.length, 0);
+  const events = f.store.events().length;
+  await f.autonomy.tick(); assert.equal(f.store.events().length, events);
+  f.config.update({ exploration: { enabled: true } }); f.advance(60000);
+  await f.autonomy.tick(); assert.equal(f.explorer.calls, 1);
+});
+
+test('idle login window survives settings and repeated open-login actions; explicit stop closes it', async t => {
+  const f = fixture(t); let closed = 0;
+  f.explorer.close = async () => { closed++; };
+  await f.autonomy.openLogin(); await f.autonomy.settingsChanged(); await f.autonomy.openLogin();
+  assert.equal(closed, 0);
+  await f.autonomy.settingsChanged({ closeBrowser: true }); assert.equal(closed, 1);
+});
+
+test('a stopped session cannot be resumed by a late passive login check', async t => {
+  const f = fixture(t); let finish, entered;
+  const pending = new Promise(resolve => { entered = resolve; });
+  f.explorer.refreshLogin = async () => { entered(); return new Promise(resolve => { finish = resolve; }); };
+  await f.autonomy.openLogin();
+  const tick = f.autonomy.tick(); await pending;
+  await f.autonomy.stop(); finish(true); await tick;
+  assert.equal(f.autonomy.saved().blocked, 'login-required'); assert.equal(f.explorer.calls, 0);
+});
+
 test('follow-up questions receive only source excerpts actually shared in that conversation', async t => {
   const f = fixture(t); await f.autonomy.run();
   f.models.complete = async messages => { f.calls.push(messages); return '可以一起看看。'; };

@@ -7,7 +7,7 @@ const ORIGIN = 'https://www.xiaohongshu.com';
 export function noteURL(value) {
   try {
     const url = new URL(value, ORIGIN);
-    const match = url.pathname.match(/^\/(?:explore|discovery\/item)\/([a-f0-9]{24})\/?$/i);
+    const match = url.pathname.match(/^\/(?:explore|search_result|discovery\/item)\/([a-f0-9]{24})\/?$/i);
     if (url.origin !== ORIGIN || url.username || url.password || !match) return null;
     const clean = new URL(`/explore/${match[1]}`, ORIGIN);
     for (const key of ['xsec_token', 'xsec_source']) {
@@ -30,12 +30,25 @@ export function allowedRequest(value, mainDocument = false) {
 // authentication storage, network signatures, or page-provided instructions.
 export function collectCardsDOM() {
   const visible = e => Boolean(e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden');
-  return [...document.querySelectorAll('a[href*="/explore/"], a[href*="/discovery/item/"]')]
+  const links = 'a[href*="/explore/"], a[href*="/search_result/"], a[href*="/discovery/item/"]';
+  return [...document.querySelectorAll(links)]
     .filter(visible).slice(0,60).map(a => {
       const card = a.closest('.note-item, section, article') || a;
-      return { url: a.href, title: (card.querySelector('.title')?.innerText || a.innerText || '').trim().slice(0,200),
+      const title = [...card.querySelectorAll('.title, ' + links)].find(e => visible(e) && e.innerText?.trim());
+      return { url: a.href, title: (title?.innerText || a.innerText || '').trim().slice(0,200),
         video: Boolean(card.querySelector('.play-icon, .video-play-icon, video')) };
     });
+}
+export function normalizeCards(raw) {
+  const cards = new Map();
+  for (const card of raw) {
+    const note = noteURL(card.url); if (!note) continue;
+    const previous = cards.get(note.id);
+    // Search cards can contain an empty cover link and a token-bearing title link.
+    const url = previous && new URL(previous.url).searchParams.has('xsec_token') ? previous.url : note.url;
+    cards.set(note.id, { ...note, url, title: previous?.title || card.title, video: Boolean(previous?.video || card.video) });
+  }
+  return [...cards.values()];
 }
 export function pageStateDOM() {
   const visible = e => Boolean(e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' && getComputedStyle(e).display !== 'none');
@@ -43,8 +56,13 @@ export function pageStateDOM() {
   const body = (document.body?.innerText || '').slice(0,2000);
   const challenge = any('[id*="captcha"], [class*="captcha"], .verify-container, .verify-dialog, [class*="risk-control"]') ||
     /^(?:\s*小红书\s*)?(?:安全验证|访问过于频繁|访问频繁|请完成验证|网络环境存在风险)/.test(body.trim());
-  const login = any('.login-container, .login-modal, .login-mask, [class*="login-dialog"]') || /扫码登录|手机号登录/.test(body.slice(0,700));
-  return { challenge, login };
+  const signedIn = [...document.querySelectorAll('a[href*="/user/profile/"]')].some(e => visible(e) &&
+    /^(我|个人主页)$/.test((e.innerText || e.getAttribute('aria-label') || '').trim()));
+  const login = any('.login-container, .login-modal, .login-mask, [class*="login-dialog"]') ||
+    (!signedIn && /扫码登录|手机号登录/.test(body.slice(0,700)));
+  const empty = [...document.querySelectorAll('.empty-container, .no-result, .no-results, .search-empty')]
+    .some(e => visible(e) && /暂无|没有|无相关|无结果/.test(e.innerText || ''));
+  return { challenge, login, signedIn, empty };
 }
 export function readNoteDOM() {
   const visible = e => Boolean(e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden');
@@ -61,11 +79,12 @@ export class XiaohongshuExplorer {
   constructor(root, config, { launcher = chromium } = {}) {
     this.config = config; this.launcher = launcher;
     this.profile = join(root, 'data', 'xiaohongshu-profile');
-    this.context = null; this.page = null; this.busy = false;
+    this.context = null; this.page = null; this.busy = false; this.headless = null; this.recoveryURL = '';
     this.operation = null; this.closeRevision = 0;
     this.state = existsSync(this.profile) ? 'unverified' : 'not-connected'; this.message = '';
   }
-  status() { return { state: this.state, message: this.message, busy: this.busy }; }
+  hasPage() { return Boolean(this.context && this.page && !this.page.isClosed()); }
+  status() { return { state: this.state, message: this.message, busy: this.busy, windowOpen: this.hasPage() && !this.headless }; }
   async exclusive(fn) {
     if (this.busy) throw new BridgeError('小红书浏览器正在使用，请稍后再试。', 'busy');
     this.busy = true;
@@ -81,10 +100,13 @@ export class XiaohongshuExplorer {
   }
   async close(invalidate = true) {
     if (invalidate) this.closeRevision++;
-    const context = this.context; this.context = null; this.page = null;
+    const context = this.context; this.context = null; this.page = null; this.headless = null;
     if (context) await context.close().catch(() => {});
   }
   async launch(headless) {
+    // A visible login/verification window belongs to the user until they close it
+    // or explicitly stop. Never replace it just to switch to background browsing.
+    if (this.hasPage() && (!this.headless || headless)) return this.page;
     const revision = this.closeRevision;
     const checkCancelled = () => {
       if (revision !== this.closeRevision) throw new BridgeError('浏览器操作已停止。', 'aborted');
@@ -112,7 +134,7 @@ export class XiaohongshuExplorer {
       checkCancelled();
     }
     if (!context) throw new BridgeError('无法打开浏览器。请安装 Chrome/Edge，或在项目目录运行 npm run browser:install。Linux 扫码登录还需要图形桌面。', 'browser-unavailable');
-    this.context = context;
+    this.context = context; this.headless = headless;
     context.setDefaultTimeout(10000);
     await context.route('**/*', async route => {
       const request = route.request();
@@ -129,7 +151,7 @@ export class XiaohongshuExplorer {
     this.page = context.pages()[0] || await context.newPage(); preparePage(this.page);
     for (const p of context.pages()) if (p !== this.page) await p.close();
     context.on('page', p => { preparePage(p); if (p !== this.page) p.close().catch(() => {}); });
-    context.on('close', () => { if (this.context === context) { this.context = null; this.page = null; } });
+    context.on('close', () => { if (this.context === context) { this.context = null; this.page = null; this.headless = null; } });
     return this.page;
   }
   async visit(url) {
@@ -142,6 +164,29 @@ export class XiaohongshuExplorer {
     // Cookies are examined locally only and are never returned to the API/model.
     const hasSession = (await this.context.cookies(ORIGIN)).some(c => c.name === 'web_session' && c.value);
     if (state.login || !hasSession) throw new BridgeError('请先扫码登录小红书；登录失效时需要重新登录。', 'login-required');
+    return state;
+  }
+  ready(message = '登录已确认，窗口会保留；可以直接点击「现在去逛逛」。') {
+    this.state = 'ready'; this.message = message; this.recoveryURL = '';
+    return this.status();
+  }
+  async refreshLogin() {
+    // Passive check only: never launch, reload or navigate a verification page.
+    if (this.busy || !this.hasPage() || this.headless) return false;
+    return this.exclusive(async () => {
+      try {
+        const state = await this.assertAccess();
+        if (!state.signedIn) return false;
+        this.ready(); return true;
+      } catch (e) { this.failure(e); return false; }
+    });
+  }
+  async waitForContent(selector, timeout) {
+    try {
+      // .first() can pick a hidden template and wait while other cards are visible.
+      await this.page.waitForFunction(selector => [...document.querySelectorAll(selector)].some(e =>
+        e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden'), selector, { timeout });
+    } catch (e) { if (e.name !== 'TimeoutError') throw e; }
   }
   failure(error) {
     const e = error instanceof BridgeError ? error : new BridgeError('小红书页面没有成功加载，请检查网络或稍后重试。', 'browse-error');
@@ -151,42 +196,48 @@ export class XiaohongshuExplorer {
   async openLogin() {
     return this.exclusive(async () => {
       try {
-        await this.launch(false); await this.visit(`${ORIGIN}/explore`);
-        this.state = 'awaiting-login'; this.message = '在新窗口完成扫码或验证，然后回到这里点击「检查登录」。';
+        const reuse = this.hasPage() && !this.headless;
+        await this.launch(false);
+        if (!reuse || !allowedRequest(this.page.url(), true)) await this.visit(this.recoveryURL || `${ORIGIN}/explore`);
+        await this.page.bringToFront();
+        this.state = 'awaiting-login'; this.message = '请在浏览器中完成扫码或验证。会自动识别登录，也可直接点「现在去逛逛」；检查登录不会关闭窗口。';
         return this.status();
-      } catch (e) { await this.close(); throw this.failure(e); }
+      } catch (e) { throw this.failure(e); }
     });
   }
   async verifyLogin() {
     return this.exclusive(async () => {
       try {
-        if (!this.context || !this.page || this.page.isClosed()) { await this.launch(false); await this.visit(`${ORIGIN}/explore`); }
+        if (!this.hasPage()) { await this.launch(false); await this.visit(this.recoveryURL || `${ORIGIN}/explore`); }
         await this.page.locator('body').waitFor({ state: 'visible' });
         await this.assertAccess();
-        this.state = 'ready'; this.message = '登录已检查，浏览时仍会检测会话是否有效。';
-        await this.close();
-        return this.status();
+        return this.ready();
       } catch (e) { throw this.failure(e); }
     });
   }
   async explore(topic, { signal, seen = () => false, limit = 3 } = {}) {
-    if (this.state === 'awaiting-login') throw new BridgeError('请先在登录窗口完成扫码并点击「检查登录」。', 'login-required');
     return this.exclusive(async () => {
       const abort = () => { void this.close(); };
       signal?.throwIfAborted(); signal?.addEventListener('abort', abort, { once: true });
       try {
+        // Check the existing page before navigation so an unfinished CAPTCHA stays
+        // intact; a stale awaiting-login flag alone must not block a signed-in user.
+        if (this.hasPage()) await this.assertAccess();
         await this.launch(this.config.value.exploration.headless); signal?.throwIfAborted();
         const search = new URL('/search_result', ORIGIN); search.searchParams.set('keyword', topic); search.searchParams.set('source', 'web_explore_feed');
         await this.visit(search.href);
-        await this.page.locator('a[href*="/explore/"], a[href*="/discovery/item/"], .login-container, [id*="captcha"], .empty-container').first().waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
-        await this.assertAccess();
+        await this.waitForContent('a[href*="/explore/"], a[href*="/search_result/"], a[href*="/discovery/item/"], .login-container, .login-modal, [id*="captcha"], [class*="captcha"], .empty-container, .no-result, .no-results, .search-empty', 15000);
+        const state = await this.assertAccess();
         const raw = await this.page.evaluate(collectCardsDOM);
-        const cards = [...new Map(raw.filter(c => !c.video).flatMap(c => { const n = noteURL(c.url); return n ? [[n.id, { ...c, ...n }]] : []; })).values()];
-        if (!cards.length) throw new BridgeError('没有读取到图文笔记。可能没有搜索结果，或小红书页面已变化；本轮不会生成浏览分享。', 'layout-changed');
+        const allCards = normalizeCards(raw), cards = allCards.filter(c => !c.video);
+        if (!cards.length) {
+          if (state.empty || allCards.length) { this.ready(state.empty ? '这个话题暂无搜索结果，可更换兴趣后再试。' : '本轮只有视频笔记，暂不读取视频内容。'); return []; }
+          throw new BridgeError('搜索页没有显示可读取的笔记，可能尚未加载完成或页面结构已变化。请打开小红书窗口检查后重试；本轮不会生成浏览分享。', 'layout-changed');
+        }
         const notes = []; let unreadable = false;
         for (const card of cards.filter(c => !seen(c.id)).slice(0, limit)) {
           signal?.throwIfAborted(); await this.visit(card.url);
-          await this.page.locator('#detail-desc, .note-content .desc, .note-text .desc, .login-container, [id*="captcha"]').first().waitFor({ state: 'visible', timeout: 12000 }).catch(() => {});
+          await this.waitForContent('#detail-desc, .note-content .desc, .note-text .desc, .login-container, .login-modal, [id*="captcha"], [class*="captcha"]', 12000);
           await this.assertAccess();
           const note = await this.page.evaluate(readNoteDOM);
           if (note.video) continue;
@@ -196,12 +247,14 @@ export class XiaohongshuExplorer {
           notes.push({ id: card.id, url: card.url, title: note.title || card.title || '小红书笔记', author: note.author, excerpt: note.excerpt });
         }
         if (!notes.length && unreadable) throw new BridgeError('笔记正文未能读取，本轮不会把标题当成已读内容。可打开登录窗口检查页面。', 'layout-changed');
-        this.state = 'ready'; this.message = '';
+        this.ready('');
         return notes;
       } catch (e) {
         if (signal?.aborted) throw new BridgeError('本轮探索已停止。', 'aborted');
+        const currentURL = this.page?.url();
+        if (allowedRequest(currentURL, true)) this.recoveryURL = currentURL;
         throw this.failure(e);
-      } finally { signal?.removeEventListener('abort', abort); await this.close(); }
+      } finally { signal?.removeEventListener('abort', abort); if (this.headless) await this.close(); }
     });
   }
 }

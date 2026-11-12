@@ -77,10 +77,11 @@ export function createPetServer({ root, config, store, core, models, wechat, aut
       if (!input || typeof input !== 'object' || Array.isArray(input)) throw new BridgeError('请求内容须为对象。');
       if (url.pathname === '/api/config') {
         const before = JSON.stringify([config.qqCredentials(), config.value.qq.sandbox]);
+        const wasExploring = config.value.exploration.enabled;
         const result = config.update(input);
         if (input.qq && before !== JSON.stringify([config.qqCredentials(), config.value.qq.sandbox])) await qq?.stop();
 
-        if (input.exploration !== undefined || input.model !== undefined || input.pet !== undefined) await autonomy?.settingsChanged();
+        if (input.exploration !== undefined || input.model !== undefined || input.pet !== undefined) await autonomy?.settingsChanged({ closeBrowser: wasExploring && !config.value.exploration.enabled });
         return send(200, { config: result });
       }
       if (url.pathname.startsWith('/api/exploration/')) {
@@ -93,7 +94,7 @@ export function createPetServer({ root, config, store, core, models, wechat, aut
           void autonomy.run(true).catch(e => store.event('error', e instanceof BridgeError ? e.message : '探索未能启动。'));
           return send(202, { ok: true, message: '已检查探索条件，请在动态中查看结果。' });
         }
-        if (url.pathname === '/api/exploration/stop') { config.update({ exploration: { enabled: false } }); await autonomy.settingsChanged(); return send(200, { ok: true }); }
+        if (url.pathname === '/api/exploration/stop') { config.update({ exploration: { enabled: false } }); await autonomy.settingsChanged({ closeBrowser: true }); return send(200, { ok: true }); }
         if (url.pathname === '/api/exploration/read') { store.markExplorationRead(input.lastId); return send(200, { ok: true }); }
         if (url.pathname === '/api/exploration/clear') return send(200, await autonomy.clear());
       }

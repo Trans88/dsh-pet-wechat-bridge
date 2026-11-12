@@ -45,40 +45,52 @@ export class Autonomy {
     if (this.timer) return;
     this.stopped = false;
     this.timer = setInterval(() => { void this.tick().catch(() => {}); }, 30000); this.timer.unref?.();
-    // No browser or model work until the feature is explicitly enabled.
+    // No scheduled browsing or model work until the feature is explicitly enabled.
     void this.tick().catch(() => {});
   }
   async tick() {
-    if (this.stopped || this.job || !this.config.value.exploration.enabled || this.explorer.busy || this.saved().blocked) return;
+    if (this.stopped || this.job || this.explorer.busy) return;
+    const revision = this.settingsRevision;
+    const awaitingLogin = ['login-required', 'verification-required'].includes(this.saved().blocked) || this.explorer.status().state === 'awaiting-login';
+    if (awaitingLogin && await this.explorer.refreshLogin?.()) {
+      if (this.stopped || revision !== this.settingsRevision) return;
+      this.connected('已识别到小红书登录完成，验证窗口已保留。');
+    }
+    if (this.stopped || this.job || this.explorer.busy || !this.config.value.exploration.enabled || this.saved().blocked) return;
     if (this.saved().nextRunAt <= this.now()) await this.run(false);
   }
-  async cancel() {
+  async cancel({ closeBrowser = true } = {}) {
     this.controller?.abort();
-    if (this.explorer.cancel) await this.explorer.cancel();
-    else await this.explorer.close();
+    if (closeBrowser || this.explorer.busy) {
+      if (this.explorer.cancel) await this.explorer.cancel();
+      else await this.explorer.close();
+    }
     if (this.job) await this.job.catch(() => {});
   }
   async stop() { this.settingsRevision++; this.stopped = true; clearInterval(this.timer); this.timer = null; await this.cancel(); }
-  async settingsChanged() {
+  async settingsChanged({ closeBrowser = false } = {}) {
     this.settingsRevision++;
-    await this.cancel();
+    await this.cancel({ closeBrowser });
     const s = this.saved(); s.nextRunAt = this.now() + MINUTE;
     this.store.setRuntime('exploration', s);
   }
   async openLogin() {
     const revision = this.settingsRevision;
-    await this.cancel();
+    await this.cancel({ closeBrowser: false });
     if (revision !== this.settingsRevision || this.stopped) throw new BridgeError('登录操作已停止。', 'aborted');
     const s = this.saved(); s.blocked = 'login-required'; this.store.setRuntime('exploration', s);
     return this.explorer.openLogin();
+  }
+  connected(message) {
+    const s = this.saved(); s.blocked = ''; s.nextRunAt = this.now() + MINUTE; this.store.setRuntime('exploration', s);
+    this.store.event('connected', message, this.now());
   }
   async verifyLogin() {
     if (this.job) throw new BridgeError('请等本轮探索结束，或先停止探索。', 'busy');
     const revision = this.settingsRevision;
     const browser = await this.explorer.verifyLogin();
     if (revision !== this.settingsRevision || this.stopped) throw new BridgeError('登录检查已停止。', 'aborted');
-    const s = this.saved(); s.blocked = ''; s.nextRunAt = this.now() + MINUTE; this.store.setRuntime('exploration', s);
-    this.store.event('connected', '小红书登录已检查。', this.now()); return browser;
+    this.connected('小红书登录已确认，验证窗口已保留。'); return browser;
   }
   async clear() {
     await this.cancel();
@@ -116,7 +128,7 @@ export class Autonomy {
       if (manual) this.store.event('waiting', skip, this.now());
       return { outcome: 'waiting', message: skip };
     }
-    if (['login-required', 'verification-required'].includes(s.blocked)) throw new BridgeError('探索已暂停，请打开小红书登录窗口，完成登录或验证后点击「检查登录」。', s.blocked);
+    // Manual runs recheck the actual browser state; only scheduled runs stay paused.
     if (s.lastRunAt && this.now() - s.lastRunAt < MINUTE) return { outcome: 'waiting', message: '请至少间隔一分钟再探索。' };
     const e = structuredClone(this.config.value.exploration), revision = this.settingsRevision;
     const activityRevision = this.store.runtime('ownerActivity', { revision: 0 }).revision;

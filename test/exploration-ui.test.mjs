@@ -44,7 +44,7 @@ test('exploration UI saves settings, checks login, displays a sourced message an
   $('#exploration-form button[type="submit"]').click();await until(()=>$('#exploration-result').textContent==='已保存');
   assert.deepEqual(config.value.exploration.interests,['自然卷','数码']);assert.equal(config.value.exploration.enabled,true);assert.equal(config.value.voice.rate,1.2,'exploration save preserves voice settings');
   $('#xhs-login').click();await until(()=>$('#xhs-status').textContent.includes('等待扫码'));
-  $('#xhs-verify').click();await until(()=>$('#xhs-status').textContent==='登录已检查');
+  $('#xhs-verify').click();await until(()=>$('#xhs-status').textContent==='已登录');
   $('#exploration-run').click();await until(()=>store.history('web:owner').length===1);
   $('[data-page="exploration"]').click();await until(()=>$('#exploration-notes').textContent.includes('自然卷笔记'));
   assert.equal($('#exploration-notes script'),null);assert.ok($('#exploration-notes a').href.startsWith('https://www.xiaohongshu.com/explore/'));
