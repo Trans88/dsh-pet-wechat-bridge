@@ -21,7 +21,7 @@ export async function connectBackend({ appRoot, dataRoot, execPath = process.exe
     } catch {}
   }
   const child = fork(join(appRoot, 'app.mjs'), ['start', '--no-open'], {
-    execPath, cwd: appRoot, windowsHide: true,
+    execPath, execArgv: [], cwd: appRoot, windowsHide: true,
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', PET_DATA_ROOT: dataRoot },
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
   });

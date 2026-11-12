@@ -83,6 +83,7 @@ async function openHome(page = 'home') {
 function menuTemplate() {
   return [
     { label: '显示 / 找回桌宠', click: showPet },
+    { label: '刷新桌宠', click: () => { pet.reload(); showPet(); } },
     { label: '打开小窝聊天', click: () => void openHome() },
     { type: 'separator' },
     ...[['pat', '摸摸头'], ['feed', '投喂'], ['hug', '抱抱'], ['play', '逗逗它'], ['dance', '跳个舞'], ['sleep', '睡觉'], ['wake', '叫醒']].map(([action, label]) =>

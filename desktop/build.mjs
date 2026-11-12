@@ -27,6 +27,6 @@ try {
     electronVersion: JSON.parse(readFileSync(join(root, 'package.json'))).devDependencies.electron,
     out: join(root, 'dist'), overwrite: true, asar: false, prune: false,
     appVersion: manifest.version, appBundleId: 'com.littlepet.companion',
-    win32metadata: { ProductName: 'Little Pet', FileDescription: 'Little Pet desktop companion' } });
+    win32metadata: { CompanyName: 'Trans88', ProductName: 'Little Pet', FileDescription: 'Little Pet desktop companion' } });
   console.log(`桌面程序已生成：${paths.join(', ')}\n请分发整个目录。Windows 双击 LittlePet.exe，不需要另装 Node.js。`);
 } finally { rmSync(stage, { recursive: true, force: true }); }
