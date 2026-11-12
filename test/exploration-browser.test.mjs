@@ -71,10 +71,10 @@ test('real browser UI saves media options, switches and logs out at desktop and 
   await page.locator('#exploration-form button[type="submit"]').click();
   await page.waitForFunction(() => document.querySelector('#exploration-result').textContent === '已保存');
   assert.equal(config.value.exploration.readImages, true); assert.equal(config.value.exploration.readVideos, true);
-  await page.locator('#xhs-switch').click(); await page.waitForFunction(() => document.querySelector('#xhs-status').textContent.includes('等待扫码'));
+  await page.locator('#xhs-switch').click(); await page.waitForFunction(() => !document.querySelector('#xhs-switch').disabled && document.querySelector('#xhs-status').textContent.includes('等待扫码'));
   assert.equal(switches, 1); assert.equal(config.value.exploration.enabled, false);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.locator('#xhs-logout').click(); await page.waitForFunction(() => document.querySelector('#xhs-status').textContent === '尚未登录');
+  await page.locator('#xhs-logout').click(); await page.waitForFunction(() => !document.querySelector('#xhs-logout').disabled && document.querySelector('#xhs-status').textContent === '尚未登录');
   assert.equal(logouts, 1);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, 'no horizontal clipping at 390px');
   assert.deepEqual(errors, []);

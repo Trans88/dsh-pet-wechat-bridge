@@ -60,9 +60,11 @@ test('exploration UI saves settings, checks login, displays a sourced message an
   $('[data-page="exploration"]').click();$('#exploration-clear').click();$('#exploration-clear-confirm').click();
   await until(()=>!$('#exploration-clear-dialog').hasAttribute('open')&&store.recentNotes().length===0);
   assert.equal(store.memories('web:owner').length,1);assert.equal(autonomy.saved().sentToday,1);
-  $('#exploration-stop').click();await until(()=>!config.value.exploration.enabled&&!$('[name="enabled"]').checked);
-  $('#xhs-switch').click();await until(()=>switched===1&&$('#xhs-status').textContent.includes('等待扫码'));
-  $('#xhs-logout').click();await until(()=>loggedOut===1&&$('#xhs-status').textContent==='尚未登录');
+  $('#exploration-stop').click();await until(()=>!$('#exploration-stop').disabled&&!config.value.exploration.enabled&&!$('[name="enabled"]').checked);
+  $('#xhs-switch').click();await until(()=>!$('#xhs-switch').disabled&&switched===1&&$('#xhs-status').textContent.includes('等待扫码'));
+  // The status label updates before loadState finishes refreshing the diary.
+  // Wait for the action's finally block before closing the DOM in teardown.
+  $('#xhs-logout').click();await until(()=>!$('#xhs-logout').disabled&&loggedOut===1&&$('#xhs-status').textContent==='尚未登录');
   assert.equal(store.memories('web:owner').length,1);
   assert.deepEqual(errors,[]);
 });
