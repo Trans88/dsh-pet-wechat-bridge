@@ -1,6 +1,6 @@
 const $ = selector => document.querySelector(selector);
 const token = $('meta[name="pet-token"]').content;
-const titles = { home: '欢迎回到小窝', exploration: '今天，会发现什么呢', memory: '我们的小小记忆', channels: '连接你的日常', settings: '让它更像你的小伙伴' };
+const titles = { home: '欢迎回到小窝', exploration: '今天，会发现什么呢', memory: '我们的小小记忆', diary: '一页一页，记下相处的日子', channels: '连接你的日常', settings: '让它更像你的小伙伴' };
 let state, scope = 'web:owner', page = 'home', attachment, pendingRequestId, sending = false, sleeping = false, toastTimer, lastUpdate = 0;
 let historyRevision = 0, memoryRevision = 0;
 let explorationRevision = 0, lastReadPosted = 0, stateLoading = false;
@@ -58,6 +58,7 @@ function showPage(next) {
   // but defer reads that need pet/config/session data until initialization.
   if (!state) return;
   if (next === 'memory') renderMemories().catch(e => toast(e.message));
+  if (next === 'diary') refreshDiary().catch(e => toast(e.message));
   if (next === 'home') refreshHistory().catch(e => chatError(e.message));
   if (next === 'exploration') refreshExploration().catch(e => toast(e.message));
   if (next === 'settings') refreshBalance();
@@ -95,8 +96,9 @@ async function loadState(initial = false) {
   if (sessions.some(s => s.scope === memoryScope)) $('#memory-scope').value = memoryScope;
   const updated = state.sessions.find(s => s.scope === scope)?.updated || 0;
   if (initial || (!sending && updated !== lastUpdate && page === 'home')) { lastUpdate = updated; await refreshHistory(); }
-  if (initial) { fillSettings(); fillExploration(); fillQQ(); }
+  if (initial) { fillSettings(); fillExploration(); fillQQ(); fillDiary(); }
   if (page === 'exploration') await refreshExploration();
+  if (page === 'diary') await refreshDiary();
 }
 
 async function refreshHistory() {
@@ -164,6 +166,11 @@ async function refreshHistory() {
 function sourceLink(source) {
   let url;
   try { url = new URL(source.url); } catch { return null; }
+  if (source.type === 'web') {
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) return null;
+    const a = el('a', 'source-link', `${source.title || url.hostname} · 搜索摘要 ↗`);
+    a.href = url.href; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a;
+  }
   if (url.origin !== 'https://www.xiaohongshu.com' || url.username || url.password || !/^\/explore\/[a-f0-9]{24}\/?$/i.test(url.pathname)) return null;
   const a = el('a', 'source-link', `${source.title || '查看小红书原文'}${evidenceLabel(source.evidence) ? ' · ' + evidenceLabel(source.evidence) : ''} ↗`);
   a.href = url.href; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a;
@@ -431,16 +438,40 @@ $('#confirm-clear').addEventListener('click', async () => {
 
 async function renderMemories() {
   const revision = ++memoryRevision, requestedScope = $('#memory-scope').value;
-  const result = await api(`/api/history?scope=${encodeURIComponent(requestedScope)}`);
+  const result = await api(`/api/memory?scope=${encodeURIComponent(requestedScope)}`);
   if (revision !== memoryRevision || requestedScope !== $('#memory-scope').value) return;
   const list = $('#memory-list'); list.replaceChildren();
+  list.append(el('h3', '', `长期记忆 · ${result.memories.length} 条`));
   if (!result.memories.length) list.append(el('p', 'muted', '这里还是空的。把重要的小事留下来吧。'));
   for (const memory of result.memories) {
-    const row = el('div', 'memory-item'), content = el('div'), remove = el('button', '', '忘记');
+    const row = el('div', 'memory-item'), content = el('div'), remove = el('button', '', '忘记'), edit = el('button', '', '编辑');
     content.append(el('p', '', memory.text), el('small', '', new Date(memory.created).toLocaleDateString()));
     remove.addEventListener('click', async () => { try { await api('/api/memory/delete', { scope: $('#memory-scope').value, id: memory.id }); await renderMemories(); } catch (e) { toast(e.message); } });
-    row.append(content, remove); list.append(row);
+    edit.addEventListener('click', () => {
+      const input = el('textarea'); input.value = memory.text; input.maxLength = 1000; input.rows = 3; input.setAttribute('aria-label', '编辑记忆内容');
+      const save = el('button', '', '保存'), cancel = el('button', '', '取消');
+      save.addEventListener('click', async () => { save.disabled = true; try { await api('/api/memory/edit', { scope: requestedScope, id: memory.id, text: input.value }); await renderMemories(); } catch (error) { toast(error.message); save.disabled = false; } });
+      cancel.addEventListener('click', () => renderMemories().catch(e => toast(e.message)));
+      row.replaceChildren(input, save, cancel); input.focus();
+    });
+    row.append(content, edit, remove); list.append(row);
   }
+  const context = el('details', 'knowledge-context'); context.append(el('summary', '', `最近聊天上下文 · ${result.context.length} 条（最多 24 条）`), el('p', 'muted', '这些聊天会随新消息滚动更新；不是已经保存的长期记忆。'));
+  for (const message of result.context) context.append(el('p', '', `${message.role === 'user' ? '你' : state.config.pet.name}：${message.text}${message.hasImage ? ' [附有图片]' : ''}`));
+  list.append(context);
+  const notes = el('details', 'knowledge-context'); notes.append(el('summary', '', `本会话已分享的探索资料 · ${result.notes.length} 条`));
+  for (const note of result.notes) {
+    notes.append(el('h4', '', note.title), el('p', '', note.excerpt));
+    if (note.observation?.summary) notes.append(el('p', '', `画面观察：${note.observation.summary}`));
+    if (note.observation?.transcript) notes.append(el('p', '', `音频转写：${note.observation.transcript}`));
+  }
+  const previousSearches = result.context.flatMap(m => (m.sources || []).filter(s => s.type === 'web')).slice(-10);
+  const searches = el('details', 'knowledge-context'); searches.append(el('summary', '', `本会话搜索摘要 · ${previousSearches.length} 条`));
+  for (const source of previousSearches) {
+    const link = sourceLink(source); if (link) searches.append(link);
+    searches.append(el('small', '', `取得于 ${new Date(source.retrievedAt).toLocaleString('zh-CN')}`), el('p', '', source.snippet));
+  }
+  list.append(notes, searches, el('p', 'muted', '日记是独立保存的手帐，不自动变成长期记忆。聊天里发 /记忆 或问「你记得我什么」，也能核对已保存内容。'));
 }
 $('#memory-scope').addEventListener('change', () => renderMemories().catch(e => toast(e.message)));
 $('#memory-form').addEventListener('submit', async event => {
@@ -545,6 +576,58 @@ async function refreshBalance() {
 $('#balance-refresh').addEventListener('click', refreshBalance);
 for (const name of ['model.baseUrl', 'model.apiKey']) $('[name="' + name + '"]').addEventListener('input', resetBalance);
 window.addEventListener('pagehide', resetBalance);
+
+let diaryRevision = 0, diaryBusy = false, deletingDiary;
+function fillDiary() {
+  const settings = state.config.diary;
+  if (!settings) return;
+  for (const input of $('#diary-form').elements) if (input.name) { if (input.type === 'checkbox') input.checked = settings[input.name]; else input.value = settings[input.name]; }
+  if (state.diary?.today) { $('#diary-day').value ||= state.diary.today; $('#diary-day').max = state.diary.today; }
+}
+async function refreshDiary() {
+  if (!state?.diary) { $('#diary-status').textContent = '更新后请重启宠物程序，启用日记服务。'; return; }
+  const revision = ++diaryRevision, data = await api('/api/diary');
+  if (revision !== diaryRevision || page !== 'diary') return;
+  const schedule = data.status.enabled ? `每天 ${data.status.time} · ${data.status.timeZone}` : '自动日记未开启，也可以手动写一篇。';
+  const failure = data.status.retryAt ? `${data.status.message} ${data.status.enabled ? '稍后会自动重试，也可以手动再写一次。' : '可以手动再写一次。'}` : '';
+  $('#diary-status').textContent = data.status.busy ? '正在写日记…' : [schedule, failure].filter(Boolean).join(' · ');
+  $('#diary-day').max = data.status.today;
+  $('#diary-write').disabled = diaryBusy || data.status.busy;
+  const list = $('#diary-list'), key = JSON.stringify(data.entries.map(e => [e.day, e.created]));
+  if (list.dataset.key === key) return;
+  list.dataset.key = key; list.replaceChildren();
+  if (!data.entries.length) list.append(el('div', 'surface diary-empty', '第一篇日记，还在等我们一起度过的一天。'));
+  for (const entry of data.entries) {
+    const card = el('article', 'surface diary-entry'), head = el('header'), remove = el('button', 'text-button', '删除');
+    head.append(el('time', '', entry.day), el('small', '', entry.source_count ? `参考 ${entry.source_count} 条当天记录` : '安静的一天'));
+    remove.addEventListener('click', () => { deletingDiary = entry.day; $('#diary-delete-label').textContent = `${entry.day} · ${entry.title}`; $('#diary-delete-dialog').showModal(); });
+    card.append(head, el('h3', '', entry.title), el('p', 'diary-text', entry.text), remove); list.append(card);
+  }
+}
+$('#diary-form').addEventListener('submit', async event => {
+  event.preventDefault(); const button = event.submitter, diary = {}; button.disabled = true;
+  for (const input of event.currentTarget.elements) if (input.name) diary[input.name] = input.type === 'checkbox' ? input.checked : input.value;
+  try { await api('/api/config', { diary }); await loadState(); fillDiary(); $('#diary-result').textContent = '日记安排已保存'; } catch (error) { $('#diary-result').textContent = error.message; } finally { button.disabled = false; }
+});
+$('#diary-write').addEventListener('click', async event => {
+  const button = event.currentTarget; diaryBusy = true; button.disabled = true; $('#diary-result').textContent = '正在把今天的小事写下来…';
+  try { const result = await api('/api/diary/write', { day: $('#diary-day').value }); $('#diary-result').textContent = ({ written: '这一页写好了。', exists: '这一天已经有日记了。', deleted: '这篇日记已删除，不会自动重建。' })[result.outcome]; await refreshDiary(); }
+  catch (error) { $('#diary-result').textContent = error.message; } finally { diaryBusy = false; button.disabled = false; }
+});
+$('#diary-delete-cancel').addEventListener('click', () => $('#diary-delete-dialog').close());
+$('#diary-delete-confirm').addEventListener('click', async event => {
+  const button = event.currentTarget; button.disabled = true;
+  try { await api('/api/diary/delete', { day: deletingDiary }); $('#diary-delete-dialog').close(); await refreshDiary(); } catch (error) { toast(error.message); } finally { button.disabled = false; }
+});
+$('#search-save').addEventListener('click', async event => {
+  const button = event.currentTarget, search = {}; button.disabled = true;
+  for (const input of document.querySelectorAll('[name^="search."]')) search[input.name.split('.')[1]] = input.type === 'checkbox' ? input.checked : input.type === 'number' ? Number(input.value) : input.value;
+  try { await api('/api/config', { search }); await loadState(); fillSettings(); $('#search-result').textContent = '搜索设置已保存'; } catch (error) { $('#search-result').textContent = error.message; } finally { button.disabled = false; }
+});
+$('#search-test').addEventListener('click', async event => {
+  const button = event.currentTarget; button.disabled = true; $('#search-result').textContent = '正在测试已保存的搜索设置…';
+  try { const result = await api('/api/search/test', {}); $('#search-result').textContent = `搜索连接成功，取得 ${result.sources.length} 条摘要；今天已用 ${result.status.used}/${result.status.limit} 次。`; } catch (error) { $('#search-result').textContent = error.message; } finally { button.disabled = false; }
+});
 
 function fillSettings() {
   fillBrowserVoices(state.config.voice?.browserVoice || '');
