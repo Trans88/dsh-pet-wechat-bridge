@@ -1,7 +1,7 @@
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
-import { unlinkSync, existsSync } from 'node:fs';
+import { unlinkSync, existsSync, mkdirSync } from 'node:fs';
 import { Config } from './pet/config.mjs';
 import { Store } from './pet/store.mjs';
 import { Models } from './pet/model.mjs';
@@ -13,7 +13,9 @@ import { QQBridge } from './pet/qq.mjs';
 import { BridgeError, saveJSONFile } from './lib.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
-const config = new Config(root);
+const dataRoot = process.env.PET_DATA_ROOT ? resolve(process.env.PET_DATA_ROOT) : root;
+mkdirSync(dataRoot, { recursive: true, mode: 0o700 });
+const config = new Config(dataRoot);
 const command = process.argv[2] || 'start';
 
 function openBrowser(url) {
@@ -24,11 +26,11 @@ function openBrowser(url) {
 
 class WechatProcess {
   constructor() { this.child = null; this.state = 'stopped'; }
-  status() { return { state: this.state, linked: existsSync(join(root, 'data', 'account.json')), hasQr: existsSync(join(root, 'data', 'login-qr.png')) }; }
+  status() { return { state: this.state, linked: existsSync(join(dataRoot, 'data', 'account.json')), hasQr: existsSync(join(dataRoot, 'data', 'login-qr.png')) }; }
   async start(relogin) {
     if (this.child) throw new BridgeError('微信通道已在运行；换号前请先断开连接。');
     this.state = 'starting';
-    const child = spawn(process.execPath, [join(root, 'bridge.mjs'), relogin ? 'login' : 'start'], { cwd: root, stdio: ['inherit', 'pipe', 'pipe'] });
+    const child = spawn(process.execPath, [join(root, 'bridge.mjs'), relogin ? 'login' : 'start'], { cwd: root, windowsHide: true, env: { ...process.env, PET_DATA_ROOT: dataRoot }, stdio: ['inherit', 'pipe', 'pipe'] });
     this.child = child;
     child.stdout.on('data', bytes => {
       process.stdout.write(bytes);
@@ -57,16 +59,16 @@ if (command === 'check') {
   console.log(`自主探索：${config.value.exploration.enabled ? '已开启' : '未开启'}；登录及频率设置在网页「探索」。`);
   console.log(`QQ：${config.qqCredentials().appId && config.qqCredentials().appSecret ? '凭据已配置，连接后才能验证' : '未配置'}；互动：摸头、投喂、抱抱、玩耍、跳舞、睡觉。`);
 } else if (command === 'start') {
-  const store = new Store(root), models = new Models(config), core = new PetCore(config, store, models), wechat = new WechatProcess();
-  const explorer = new XiaohongshuExplorer(root, config), autonomy = new Autonomy({ config, store, core, models, explorer });
+  const store = new Store(dataRoot), models = new Models(config), core = new PetCore(config, store, models), wechat = new WechatProcess();
+  const explorer = new XiaohongshuExplorer(dataRoot, config), autonomy = new Autonomy({ config, store, core, models, explorer });
   const qq = new QQBridge({ config, store, core, log: text => console.log(text) });
-  const app = createPetServer({ root, config, store, core, models, wechat, autonomy, qq });
-  const runtimePath = join(root, 'data', 'pet-runtime.json');
+  const app = createPetServer({ root, dataRoot, config, store, core, models, wechat, autonomy, qq });
+  const runtimePath = join(dataRoot, 'data', 'pet-runtime.json');
   try {
     await new Promise((resolve, reject) => { app.server.once('error', reject); app.server.listen(config.value.port, '127.0.0.1', resolve); });
     const url = `http://127.0.0.1:${config.value.port}`;
     saveJSONFile(runtimePath, { url, token: app.token, pid: process.pid });
-    console.log(`\nLittle Pet · 独立 AI 宠物 v0.9.0\n打开 ${url}\n首次使用：进入设置，填写模型 API Key。自主浏览请进入「探索」扫码登录并开启。\n按 Ctrl+C 停止。`);
+    console.log(`\nLittle Pet · 独立 AI 宠物 v0.10.0\n打开 ${url}\n首次使用：进入设置，填写模型 API Key。自主浏览请进入「探索」扫码登录并开启。\n按 Ctrl+C 停止。`);
     autonomy.start();
     if (config.value.qq.autoConnect) qq.start().catch(e => console.error(e.message));
     if (!process.argv.includes('--no-open')) openBrowser(url);
@@ -77,11 +79,15 @@ if (command === 'check') {
       await autonomy.stop();
       await qq.stop();
       await wechat.stop();
-      await new Promise(resolve => app.server.close(resolve));
+      await new Promise(resolve => { app.server.close(resolve); app.server.closeIdleConnections(); });
       store.close();
       try { unlinkSync(runtimePath); } catch {}
+      if (process.connected) process.disconnect();
     };
     process.once('SIGINT', stop); process.once('SIGTERM', stop);
+    process.on('message', value => { if (value?.type === 'pet-stop') void stop(); });
+    process.once('disconnect', stop);
+    if (process.send) process.send({ type: 'pet-ready', url, token: app.token });
   } catch (e) {
     store.close();
     console.error(e.code === 'EADDRINUSE' ? '端口已被占用：请关闭另一份宠物程序，或修改 pet.config.json 的 port。' : '宠物启动失败，请检查端口和目录权限。');

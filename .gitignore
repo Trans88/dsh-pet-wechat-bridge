@@ -2,6 +2,8 @@ node_modules/
 data/
 config.json
 pet.config.json
+desktop.settings.json
+desktop.settings.json.tmp
 .env
 .env.*
 !.env.example

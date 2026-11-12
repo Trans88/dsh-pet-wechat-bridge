@@ -8,54 +8,21 @@ let qqAction = '', qqActionError = '', qqStateError = '';
 let balanceRevision = 0, balanceController;
 let voiceUI = { phase: 'idle', active: false, mode: null };
 let previewVoice;
-let avatarTimer, patTimer, petting = false, avatarKey, spriteFailed = false;
+let patTimer, petting = false;
 let interactionBusy = false, interactionTimer, careState, effectAction;
 const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
-// Original ChatGPT atlas: 8 columns, 11 rows, 192 x 208 pixels per cell.
-// Use only the occupied frames in each row. Rest holds the final closed-eye pose.
-const avatarAnimations = {
-  idle: { row: 0, durations: [280, 110, 110, 140, 140, 320] },
-  petting: { row: 3, durations: [140, 140, 140, 280] },
-  thinking: { row: 8, durations: [150, 150, 150, 150, 150, 280] },
-  sleeping: { row: 5, column: 7, durations: [0] },
-};
 const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
-
+const avatar = new window.PetAvatar({ character: $('#pet-character'), sprite: $('#pet-sprite'), sheet: $('#pet-sprite-sheet'), cat: $('#pet-cat'),
+  onError: () => toast('桃铃狐图片未能加载，暂时显示蓝猫。请刷新页面重试。') });
 function renderAvatar(force = false) {
-  const selected = state?.config.pet.appearance || 'taolinghu';
-  const appearance = selected === 'taolinghu' && !spriteFailed ? 'taolinghu' : 'blue-cat';
-  const animation = sending ? 'thinking' : sleeping ? 'sleeping' : petting ? 'petting' : 'idle';
   $('#pet-character').classList.toggle('speaking', voiceUI.phase === 'speaking');
-  const playing = appearance === 'taolinghu' && page === 'home' && !document.hidden && !reducedMotion?.matches;
-  const key = `${appearance}/${animation}/${playing}`;
-  if (!force && avatarKey === key) return;
-  avatarKey = key; clearTimeout(avatarTimer);
-  const character = $('#pet-character');
-  character.dataset.appearance = appearance;
-  character.dataset.animation = animation;
-  $('#pet-sprite').hidden = appearance !== 'taolinghu';
-  $('#pet-cat').toggleAttribute('hidden', appearance !== 'blue-cat');
-  if (appearance !== 'taolinghu') return;
-  const sequence = avatarAnimations[animation], sheet = $('#pet-sprite-sheet');
-  let frame = 0;
-  function draw() {
-    sheet.style.left = `${-100 * (sequence.column ?? frame)}%`;
-    sheet.style.top = `${-100 * sequence.row}%`;
-    if (playing && sequence.durations[frame] > 0) {
-      avatarTimer = setTimeout(() => { frame = (frame + 1) % sequence.durations.length; draw(); }, sequence.durations[frame]);
-    }
-  }
-  draw();
+  avatar.render({ appearance: state?.config.pet.appearance || 'taolinghu',
+    animation: sending ? 'thinking' : sleeping ? 'sleeping' : petting ? 'petting' : 'idle',
+    playing: page === 'home' && !document.hidden && !reducedMotion?.matches }, force);
 }
-function spriteLoadFailed() {
-  spriteFailed = true; renderAvatar();
-  if ((state?.config.pet.appearance || 'taolinghu') === 'taolinghu') toast('桃铃狐图片未能加载，暂时显示蓝猫。请刷新页面重试。');
-}
-$('#pet-sprite-sheet').addEventListener('error', spriteLoadFailed);
-if ($('#pet-sprite-sheet').complete && !$('#pet-sprite-sheet').naturalWidth) spriteLoadFailed();
 document.addEventListener('visibilitychange', () => { if (document.hidden) { voice.stop(); previewVoice?.stop(); } renderAvatar(); if (!document.hidden && state) loadState().catch(() => {}); });
 reducedMotion?.addEventListener('change', () => renderAvatar());
-window.addEventListener('pagehide', () => { voice.stop(); previewVoice?.stop(); clearTimeout(avatarTimer); clearTimeout(patTimer); clearTimeout(interactionTimer); interactionBusy = false; petting = false; clearPetEffect(); interactionControls(); avatarKey = undefined; });
+window.addEventListener('pagehide', () => { voice.stop(); previewVoice?.stop(); avatar.stop(); clearTimeout(patTimer); clearTimeout(interactionTimer); interactionBusy = false; petting = false; clearPetEffect(); interactionControls(); });
 window.addEventListener('pageshow', () => renderAvatar(true));
 renderAvatar();
 
@@ -686,6 +653,8 @@ for (const action of ['start', 'stop', 'refresh']) $(`#qq-${action}`).addEventLi
   catch (e) { qqActionError = e.message; if (action !== 'refresh') qqStateError = '连接操作未完成，请刷新以确认当前状态。'; toast(e.message); }
   finally { qqAction = ''; renderQQ(); }
 });
+window.addEventListener('hashchange', () => { const next = location.hash.slice(1); if (Object.hasOwn(titles, next)) showPage(next); });
+if (Object.hasOwn(titles, location.hash.slice(1))) showPage(location.hash.slice(1));
 loadState(true).catch(e => { chatError(e.message); $('#model-status').textContent = '连接失败'; });
 setInterval(() => {
   if (!document.hidden && !stateLoading) {

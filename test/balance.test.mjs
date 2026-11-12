@@ -158,6 +158,7 @@ test('balance UI loads, refreshes, shows errors and drops results for unsaved or
   w.setInterval = () => 0;
   try {
     w.eval(readFileSync(join(f.root, 'web', 'voice.js'), 'utf8'));
+    w.eval(readFileSync(join(f.root, 'web', 'avatar.js'), 'utf8'));
     w.eval(readFileSync(join(f.root, 'web', 'app.js'), 'utf8'));
     await until(() => $('[name="model.baseUrl"]').value === provider.baseUrl, 'configuration');
     assert.equal(calls, 0, 'no polling while on the home page');
