@@ -588,7 +588,10 @@ async function refreshDiary() {
   if (!state?.diary) { $('#diary-status').textContent = '更新后请重启宠物程序，启用日记服务。'; return; }
   const revision = ++diaryRevision, data = await api('/api/diary');
   if (revision !== diaryRevision || page !== 'diary') return;
-  $('#diary-status').textContent = data.status.busy ? '正在写日记…' : data.status.enabled ? `每天 ${data.status.time} · ${data.status.timeZone}` : '自动日记未开启，也可以手动写一篇。';
+  const schedule = data.status.enabled ? `每天 ${data.status.time} · ${data.status.timeZone}` : '自动日记未开启，也可以手动写一篇。';
+  const failure = data.status.retryAt ? `${data.status.message} ${data.status.enabled ? '稍后会自动重试，也可以手动再写一次。' : '可以手动再写一次。'}` : '';
+  $('#diary-status').textContent = data.status.busy ? '正在写日记…' : [schedule, failure].filter(Boolean).join(' · ');
+  $('#diary-day').max = data.status.today;
   $('#diary-write').disabled = diaryBusy || data.status.busy;
   const list = $('#diary-list'), key = JSON.stringify(data.entries.map(e => [e.day, e.created]));
   if (list.dataset.key === key) return;
