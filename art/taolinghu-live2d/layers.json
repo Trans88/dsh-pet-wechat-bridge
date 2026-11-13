@@ -7,10 +7,10 @@
     {
       "name": "tail",
       "file": "layers/tail.png",
-      "left": 725,
-      "top": 866,
-      "width": 210,
-      "height": 197,
+      "left": 675,
+      "top": 804,
+      "width": 245,
+      "height": 230,
       "source": "body",
       "cell": 2,
       "sourceBounds": [
@@ -231,10 +231,10 @@
     {
       "name": "face",
       "file": "layers/face.png",
-      "left": 422,
-      "top": 191,
-      "width": 410,
-      "height": 456,
+      "left": 439,
+      "top": 230,
+      "width": 375,
+      "height": 417,
       "source": "head",
       "cell": 1,
       "sourceBounds": [
@@ -279,10 +279,10 @@
     {
       "name": "irides-r",
       "file": "layers/irides-r.png",
-      "left": 506,
-      "top": 446,
-      "width": 87,
-      "height": 89,
+      "left": 512,
+      "top": 451,
+      "width": 76,
+      "height": 77,
       "source": "face",
       "cell": 2,
       "sourceBounds": [
@@ -295,10 +295,10 @@
     {
       "name": "irides-l",
       "file": "layers/irides-l.png",
-      "left": 681,
-      "top": 446,
-      "width": 87,
-      "height": 88,
+      "left": 686,
+      "top": 451,
+      "width": 76,
+      "height": 77,
       "source": "face",
       "cell": 3,
       "sourceBounds": [
@@ -455,10 +455,10 @@
     {
       "name": "front hair 1",
       "file": "layers/front_hair_1.png",
-      "left": 276,
+      "left": 310,
       "top": 245,
-      "width": 243,
-      "height": 400,
+      "width": 220,
+      "height": 362,
       "source": "head",
       "cell": 3,
       "sourceBounds": [
@@ -471,10 +471,10 @@
     {
       "name": "front hair 2",
       "file": "layers/front_hair_2.png",
-      "left": 735,
+      "left": 724,
       "top": 245,
-      "width": 247,
-      "height": 399,
+      "width": 220,
+      "height": 356,
       "source": "head",
       "cell": 4,
       "sourceBounds": [

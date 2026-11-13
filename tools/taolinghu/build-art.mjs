@@ -51,7 +51,7 @@ const parts = [
 // Artwork is placed in one source-canvas coordinate system. Width is the
 // uniform scale anchor; never stretch individual face/hair parts to a box.
 const layout = {
-  'tail': [725, 866, 210],
+  'tail': [675, 804, 245],
   'topwear back cape': [474, 617, 306],
   'legwear-r': [514, 895, 108], 'legwear-l': [625, 895, 110],
   'handwear-r': [395, 702, 151], 'handwear-l': [708, 702, 152],
@@ -60,14 +60,14 @@ const layout = {
   'topwear cape-r': [410, 619, 217], 'topwear cape-l': [627, 619, 213],
   'neckwear clasp': [605, 634, 45],
   'ears-r': [359, 25, 224], 'ears-l': [687, 25, 230],
-  'back hair': [340, 135, 575], 'face': [422, 191, 410],
+  'back hair': [340, 135, 575], 'face': [439, 230, 375],
   'eyewhite-r': [484, 445, 125], 'eyewhite-l': [666, 445, 125],
-  'irides-r': [506, 446, 87], 'irides-l': [681, 446, 87],
+  'irides-r': [512, 451, 76], 'irides-l': [686, 451, 76],
   'facedetail lowerlid-r': [507, 514, 85], 'facedetail lowerlid-l': [682, 514, 85],
   'eyelash-r': [475, 432, 140], 'eyelash-l': [665, 432, 140],
   'eyebrow-r': [493, 380, 78], 'eyebrow-l': [692, 380, 78],
   'nose': [625, 534, 5], 'mouth_open': [606, 548, 43], 'mouth_close': [606, 557, 43],
-  'front hair 1': [276, 245, 243], 'front hair 2': [735, 245, 247],
+  'front hair 1': [310, 245, 220], 'front hair 2': [724, 245, 220],
   'front hair 3': [392, 132, 470],
   'headwear diamond': [397, 298, 96], 'earwear bow-l': [824, 218, 100],
 };
