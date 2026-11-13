@@ -331,8 +331,11 @@
         audio.onwaiting = audio.onpause = () => { clearInterval(sampleTimer); this.onAudio?.({ active: false, level: 0 }); };
         signal.addEventListener('abort', abort, { once: true });
         timer = setTimeout(() => done(new Error('音频播放超时，语音已停止。')), 180000);
-        void (async () => {
-          if (this.onAudio) {
+        if (signal.aborted) return done(canceled());
+        if (this.onAudio) {
+          // AudioContext.resume can wait indefinitely for a browser gesture.
+          // Analysis must never hold up the ordinary media element playback.
+          void (async () => {
             try {
               const Context = window.AudioContext || window.webkitAudioContext;
               if (Context) {
@@ -341,18 +344,17 @@
                 // Never reroute audio into a suspended context: playback must still work.
                 if (context.state === 'running' && context.createMediaElementSource) {
                   // Keep the audible path independent of the optional analyser.
-                  source = context.createMediaElementSource(audio); source.connect(context.destination);
                   analyser = context.createAnalyser(); analyser.fftSize = 512;
-                  samples = new Uint8Array(analyser.fftSize); source.connect(analyser);
+                  samples = new Uint8Array(analyser.fftSize);
+                  source = context.createMediaElementSource(audio); source.connect(context.destination); source.connect(analyser);
                 }
               }
             } catch { analyser = null; /* Mouth analysis is optional; preserve the audible path. */ }
-          }
-          if (settled) return;
-          if (signal.aborted) return done(canceled());
-          try { await audio.play(); }
-          catch (error) { done(new Error(error.name === 'NotAllowedError' ? '浏览器阻止了自动播放，请点击消息旁的「朗读」后重试。' : '语音播放失败，请检查扬声器后重试。')); }
-        })();
+          })();
+        }
+        try {
+          Promise.resolve(audio.play()).catch(error => done(new Error(error.name === 'NotAllowedError' ? '浏览器阻止了自动播放，请点击消息旁的「朗读」后重试。' : '语音播放失败，请检查扬声器后重试。')));
+        } catch (error) { done(error); }
       });
     }
   }

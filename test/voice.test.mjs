@@ -291,3 +291,26 @@ test('audio mouth uses output samples, stays closed during TTS download and rele
   assert.equal(h.audioSignals.at(-1).active, false); assert.equal(h.intervals.size, 0);
   assert.equal(h.context.closed, 1); assert.equal(disconnected, 2); assert.equal(h.revoked.length, 1);
 });
+
+test('a suspended analyser cannot block audible playback or reconnect after stop', async t => {
+  const resume = deferred(); let played = 0, rerouted = 0;
+  const h = setup(t, { audioSignals: true, config: { tts: { enabled: true }, voice: { output: 'server' } }, play: audio => { played++; audio.onplaying(); return Promise.resolve(); } });
+  h.context.state = 'suspended'; h.context.resume = () => resume.promise;
+  h.context.createMediaElementSource = () => { rerouted++; return { connect() {} }; };
+  const done = h.voice.speak('分析器不能阻塞声音');
+  await until(() => played === 1);
+  assert.equal(h.audioSignals.at(-1).approximate, true); assert.equal(rerouted, 0);
+  h.voice.stop(); await done; h.context.state = 'running'; resume.resolve(); await delay(5);
+  assert.equal(h.context.closed, 1); assert.equal(rerouted, 0);
+  assert.equal(h.audioSignals.at(-1).active, false); assert.equal(h.intervals.size, 0);
+});
+
+test('analyser creation failure leaves the ordinary audio path usable', async t => {
+  let played = 0, rerouted = 0;
+  const h = setup(t, { audioSignals: true, config: { tts: { enabled: true }, voice: { output: 'server' } }, play: audio => { played++; audio.onplaying(); return Promise.resolve(); } });
+  h.context.createAnalyser = () => { throw new Error('analysis unavailable'); };
+  h.context.createMediaElementSource = () => { rerouted++; return { connect() {} }; };
+  const done = h.voice.speak('仍然可以朗读'); await until(() => played === 1); await delay(5); h.sample();
+  assert.equal(rerouted, 0); assert.equal(h.audioSignals.at(-1).approximate, true);
+  h.audioPlayers[0].onended(); await done; assert.deepEqual(h.errors, []); assert.equal(h.context.closed, 1);
+});
