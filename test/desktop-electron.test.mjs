@@ -140,7 +140,8 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   const mesh = PNG.sync.read(await pet.locator('.pet-live2d').screenshot({ path: join(artifacts, 'live2d-model.png'), omitBackground: true }));
   assert.ok(mesh.data.filter((v, i) => i % 4 === 3 && v > 100).length > 500, 'packaged Cubism draws visible model pixels');
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith('/desktop')).hide());
-  await pet.waitForFunction(() => document.querySelector('.pet-live2d')?.dataset.paused === 'true');
+  // A hidden Chromium window does not service rAF polling; use timer polling here.
+  await pet.waitForFunction(() => document.hidden && document.querySelector('.pet-live2d')?.dataset.paused === 'true', undefined, { polling: 100 });
   const pausedFrame = await pet.locator('.pet-live2d').getAttribute('data-frames'); await pet.waitForTimeout(350);
   assert.equal(await pet.locator('.pet-live2d').getAttribute('data-frames'), pausedFrame, 'hidden native window stops the animation loop');
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith('/desktop')).show());
