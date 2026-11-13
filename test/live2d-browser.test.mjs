@@ -37,6 +37,7 @@ for (const appearance of ['haru-live2d', 'taolinghu-live2d']) test(`real Cubism 
   mkdirSync('dist/live2d-qa', { recursive: true }); await page.screenshot({ path: shot('room') });
   await page.locator('[data-interaction="hug"]').click();
   await page.waitForFunction(() => avatar.live2d.action?.name === 'hug');
+  assert.equal(await page.locator('#pet-character').evaluate(node => getComputedStyle(node).opacity), '1', 'interaction cooldown does not fade the animated character');
   if (appearance === 'taolinghu-live2d') {
     await page.waitForFunction(() => avatar.live2d.model.getParameterValueById(avatar.live2d.id('ParamArmL')) > 0.85);
     await page.screenshot({ path: shot('hug') });
@@ -45,8 +46,11 @@ for (const appearance of ['haru-live2d', 'taolinghu-live2d']) test(`real Cubism 
     await page.screenshot({ path: shot('feed') });
   }
   await page.locator('[data-page="settings"]').click();
+  await page.waitForFunction(() => avatar.live2d.canvas.dataset.paused === 'true');
   const frozen = await page.evaluate(() => avatar.live2d.frames); await page.waitForTimeout(350);
   assert.equal(await page.evaluate(() => avatar.live2d.frames), frozen, 'no frame loop while away from room');
+  await page.evaluate(() => { for (let i = 0; i < 3; i++) avatar.render({ ...avatar.options }); });
+  assert.equal(await page.evaluate(() => avatar.live2d.frames), frozen, 'late care/status updates cannot redraw a hidden room');
   await page.locator('[data-page="home"]').click();
   const audio = readFileSync(new URL('./fixtures/desktop-tone.mp3.base64', import.meta.url), 'utf8').trim();
   await page.evaluate(base64 => {

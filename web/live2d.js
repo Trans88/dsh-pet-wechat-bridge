@@ -100,12 +100,16 @@ export class Live2DAvatar {
   }
   update(options) {
     if (options.animation === 'thinking' && this.options.animation !== 'thinking') this.cancel();
+    const wasPlaying = this.options.playing;
     this.options = options;
     if (!this.ready || this.disposed) return;
     this.canvas.dataset.paused = String(!options.playing);
     if (!options.playing) {
       cancelAnimationFrame(this.raf); this.raf = null; this.last = 0; this.nextFrame = 0; this.action = null; this.speech = { active: false, level: 0 }; this.mouth = 0;
-      this.draw(0); return;
+      // Pending care/state callbacks may update an already hidden avatar.
+      // Clear speech once on pause; repeated updates must not redraw it.
+      if (wasPlaying !== false) this.draw(0);
+      return;
     }
     if (!this.raf) { this.last = 0; this.nextFrame = 0; this.raf = requestAnimationFrame(t => this.tick(t)); }
   }
@@ -145,8 +149,12 @@ export class Live2DAvatar {
   }
   draw(dt) {
     if (!this.ready || this.disposed) return;
+    const width = this.canvas.getBoundingClientRect().width;
+    // ResizeObserver also fires when the room becomes display:none. Keep the
+    // last canvas and simulation state intact until it is visible again.
+    if (!width) return;
     const gl = this.gl, m = this.model, u = this.user, s = this.sdk;
-    const side = Math.max(1, Math.round(this.canvas.getBoundingClientRect().width * Math.min(devicePixelRatio || 1, 2)));
+    const side = Math.max(1, Math.round(width * Math.min(devicePixelRatio || 1, 2)));
     if (this.canvas.width !== side || this.canvas.height !== side) { this.canvas.width = this.canvas.height = side; }
     this.time += dt; const sleeping = this.options.animation === 'sleeping';
     this.sleep += ((sleeping ? 1 : 0) - this.sleep) * (1 - Math.exp(-dt * 5));

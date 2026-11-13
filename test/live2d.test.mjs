@@ -26,6 +26,25 @@ test('continuous updates keep a 60 Hz cadence across common display refresh rate
   } finally { if (previous) globalThis.requestAnimationFrame = previous; else delete globalThis.requestAnimationFrame; }
 });
 
+test('pause cancels rendering and repeated state updates do not redraw; hidden resize preserves the canvas', async () => {
+  const previous = globalThis.cancelAnimationFrame; const cancelled = [];
+  globalThis.cancelAnimationFrame = id => cancelled.push(id);
+  try {
+    const { Live2DAvatar } = await import('../web/live2d.js');
+    const avatar = Object.create(Live2DAvatar.prototype); let draws = 0;
+    Object.assign(avatar, { ready: true, options: { playing: true }, canvas: { dataset: {} }, raf: 42, speech: { active: true }, mouth: 0.7, draw: () => draws++ });
+    avatar.update({ playing: false });
+    assert.equal(cancelled[0], 42); assert.equal(avatar.raf, null);
+    assert.equal(avatar.speech.active, false); assert.equal(avatar.mouth, 0); assert.equal(draws, 1);
+    for (let i = 0; i < 3; i++) avatar.update({ playing: false, animation: 'idle' });
+    assert.equal(draws, 1, 'pending care/state callbacks do not redraw a paused avatar');
+    avatar.canvas = { width: 800, height: 800, getBoundingClientRect: () => ({ width: 0 }) };
+    avatar.time = 10; avatar.frames = 80;
+    Live2DAvatar.prototype.draw.call(avatar, 0);
+    assert.equal(avatar.canvas.width, 800); assert.equal(avatar.time, 10); assert.equal(avatar.frames, 80);
+  } finally { if (previous) globalThis.cancelAnimationFrame = previous; else delete globalThis.cancelAnimationFrame; }
+});
+
 for (const modelName of ['Haru', 'Taolinghu']) test(`bundled real Cubism Core loads ${modelName} and parameters continuously deform mesh vertices`, async () => {
   const context = { console, atob, btoa, TextDecoder, TextEncoder, performance, document: { currentScript: { src: 'http://localhost/core.js' } } }; context.window = context;
   const core = readFileSync(new URL('vendor/live2d/live2dcubismcore.min.js', web));
