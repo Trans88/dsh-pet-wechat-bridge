@@ -5,10 +5,35 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import vm from 'node:vm';
+import { PNG } from 'pngjs';
 import { Config } from '../pet/config.mjs';
 import { LIVE2D_ASSETS } from '../pet/live2d-assets.mjs';
 import { createPetServer } from '../pet/server.mjs';
 const web = new URL('../web/', import.meta.url);
+
+test('Taolinghu source layers preserve artwork proportions and fit the shared canvas', () => {
+  const root = new URL('../art/taolinghu-live2d/', import.meta.url);
+  const { canvas, layers } = JSON.parse(readFileSync(new URL('layers.json', root)));
+  const names = new Set(layers.map(layer => layer.name));
+  assert.equal(names.size, layers.length, 'layer names are unique rig targets');
+  for (const required of ['face', 'back hair', 'front hair 3', 'eyewhite-l', 'eyewhite-r', 'irides-l', 'irides-r', 'mouth_open', 'mouth_close', 'handwear-l', 'handwear-r', 'ears-l', 'ears-r', 'tail']) {
+    assert.ok(names.has(required), `${required}: required animation component exists`);
+  }
+  const sources = new Map();
+  for (const layer of layers) {
+    const { name, left, top, width, height, source, sourceBounds } = layer;
+    assert.ok([left, top, width, height, ...sourceBounds].every(Number.isInteger), `${name}: integer pixel bounds`);
+    assert.ok(width > 0 && height > 0 && left >= 0 && top >= 0 && left + width <= canvas.width && top + height <= canvas.height, `${name}: fits the shared canvas`);
+    if (!sources.has(source)) sources.set(source, PNG.sync.read(readFileSync(new URL(`source/${source}.png`, root))));
+    const sheet = sources.get(source), [x0, y0, x1, y1] = sourceBounds;
+    assert.ok(x0 >= 0 && y0 >= 0 && x1 > x0 && y1 > y0 && x1 <= sheet.width && y1 <= sheet.height, `${name}: source crop is valid`);
+    // Nearest-pixel rounding is tolerated; anisotropic resizing is not.
+    assert.ok(Math.abs(height - width * (y1 - y0) / (x1 - x0)) <= 0.5 + Number.EPSILON * height, `${name}: uniform scale preserves the original silhouette`);
+    const image = PNG.sync.read(readFileSync(new URL(layer.file, root)));
+    assert.equal(image.width, width, `${name}: actual layer width matches its placement`);
+    assert.equal(image.height, height, `${name}: actual layer height matches its placement`);
+  }
+});
 
 test('continuous updates keep a 60 Hz cadence across common display refresh rates', async () => {
   const previous = globalThis.requestAnimationFrame; globalThis.requestAnimationFrame = () => 1;
@@ -71,6 +96,37 @@ for (const modelName of ['Haru', 'Taolinghu']) test(`bundled real Cubism Core lo
         model.setParameterValueById(id, b); model.update(); const second = vertices();
         assert.notDeepEqual(first, second, `${name} drives real geometry`);
         assert.ok(second.every(Number.isFinite), `${name}: no invalid vertices`);
+      }
+      // Check the exported MOC, not just the authoring requests: a stale export
+      // can animate correctly while restoring the extra eyelid and mouth ink.
+      const opacity = name => {
+        const index = model.getDrawableIndex(s.CubismFramework.getIdManager().getId(name));
+        assert.ok(index >= 0, `${name}: drawable exists in the exported model`);
+        return model.getDrawableOpacity(index);
+      };
+      for (const [side, other] of [['L', 'R'], ['R', 'L']]) {
+        let previous = -1;
+        for (const open of [0, 0.2, 0.5, 0.65, 1]) {
+          reset();
+          model.setParameterValueById(s.CubismFramework.getIdManager().getId(`ParamEye${side}Open`), open);
+          model.update();
+          const lowerLid = opacity(`ArtMeshFaceDetail${side}`);
+          assert.ok(lowerLid >= previous && lowerLid <= 1, `${side}: lower eyelid fades continuously as the eye opens`);
+          if (open <= 0.2) assert.equal(lowerLid, 0, `${side}: closed eye leaves no lower eyelid ink`);
+          else if (open < 1) assert.ok(lowerLid > 0 && lowerLid < 1, `${side}: partial blink interpolates opacity`);
+          else assert.equal(lowerLid, 1, `${side}: open eye restores its lower eyelid`);
+          assert.equal(opacity(`ArtMeshFaceDetail${other}`), 1, `${side}: a wink leaves the opposite eye open`);
+          for (const part of ['Eyelash', 'Eyewhite', 'Irides']) assert.equal(opacity(`ArtMesh${part}${side}`), 1, `${side}: blink retains the deforming ${part} layer`);
+          previous = lowerLid;
+        }
+      }
+      for (const form of [-1, 0, 1]) for (const open of [0, 0.2, 0.5, 1]) {
+        reset();
+        model.setParameterValueById(s.CubismFramework.getIdManager().getId('ParamMouthForm'), form);
+        model.setParameterValueById(s.CubismFramework.getIdManager().getId('ParamMouthOpenY'), open);
+        model.update();
+        assert.equal(opacity('ArtMeshMouthClose'), 0, `mouth ${form}/${open}: redundant fixed stroke stays hidden`);
+        for (const part of ['ArtMeshMouthOpen', 'ArtMeshMouthOpen_lip_0', 'ArtMeshMouthOpen_lip_1']) assert.equal(opacity(part), 1, `mouth ${form}/${open}: ${part} remains visible`);
       }
       const manifest = JSON.parse(readFileSync(new URL('assets/live2d/Taolinghu/Taolinghu.model3.json', web)));
       const known = new Set(Array.from({ length: model.getParameterCount() }, (_, i) => model.getParameterId(i).getString().s));

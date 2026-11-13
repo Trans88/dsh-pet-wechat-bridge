@@ -15,7 +15,11 @@ for (const file of [refs.Moc, refs.Physics, refs.DisplayInfo, ...refs.Textures])
   if (!file || !/^[\w./-]+$/.test(file) || file.split('/').includes('..')) throw new Error('Unexpected export path');
   mkdirSync(dirname(join(output, file)), { recursive: true }); copyFileSync(join(source, file), join(output, file));
 }
-copyFileSync(join(source, 'Taolinghu.cmo3'), join(root, 'art/taolinghu-live2d/Taolinghu.cmo3'));
+// Keep the editable source beside the compiled model so future edits cannot
+// accidentally start from the previous rig. Save it in the export directory first.
+for (const file of ['Taolinghu.cmo3', 'Taolinghu.psd2live']) {
+  copyFileSync(join(source, file), join(root, 'art/taolinghu-live2d', file));
+}
 
 // Flat tangents produce continuous eased movement, not frame stepping.
 function curve(id, points) {
