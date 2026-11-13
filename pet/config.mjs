@@ -45,7 +45,7 @@ export function validateConfig(value) {
   if (!Number.isInteger(c.port) || c.port < 1024 || c.port > 65535) throw new BridgeError('端口应为 1024–65535 的整数。');
   for (const key of ['name', 'persona', 'greeting']) c.pet[key] = string(value.pet?.[key] ?? c.pet[key], key === 'persona' ? 8000 : 200, `宠物${key}`);
   c.pet.appearance = value.pet?.appearance ?? c.pet.appearance;
-  if (!['taolinghu', 'taolinghu-classic', 'blue-cat'].includes(c.pet.appearance)) throw new BridgeError('请选择内置的宠物形象。');
+  if (!['taolinghu', 'taolinghu-classic', 'blue-cat', 'haru-live2d'].includes(c.pet.appearance)) throw new BridgeError('请选择内置的宠物形象。');
   c.pet.chatStyle = value.pet?.chatStyle ?? c.pet.chatStyle;
   if (!['natural', 'custom'].includes(c.pet.chatStyle)) throw new BridgeError('请选择支持的聊天风格。');
   for (const kind of ['model', 'vision', 'stt', 'tts']) {

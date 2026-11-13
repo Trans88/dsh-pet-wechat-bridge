@@ -5,6 +5,7 @@ import { timingSafeEqual, randomBytes } from 'node:crypto';
 import { BridgeError } from '../lib.mjs';
 import { STICKERS } from './stickers.mjs';
 import { memorySnapshot } from './memory.mjs';
+import { LIVE2D_ASSETS } from './live2d-assets.mjs';
 
 // Public code and bundled artwork contain no configuration or credentials.
 const assets = { '/app.js': 'text/javascript; charset=utf-8', '/avatar.js': 'text/javascript; charset=utf-8', '/voice.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/desktop.js': 'text/javascript; charset=utf-8', '/desktop.css': 'text/css; charset=utf-8', '/assets/taolinghu.png': 'image/png', '/assets/taolinghu-hd.png': 'image/png' };
@@ -12,6 +13,7 @@ assets['/care.css'] = 'text/css; charset=utf-8';
 assets['/assets/taolinghu-care.png'] = 'image/png';
 assets['/desktop-chat.js'] = 'text/javascript; charset=utf-8';
 for (const sticker of STICKERS) assets[sticker.url] = 'image/png';
+for (const path of LIVE2D_ASSETS) assets[path] = path.endsWith('.js') ? 'text/javascript; charset=utf-8' : path.endsWith('.css') ? 'text/css; charset=utf-8' : path.endsWith('.png') ? 'image/png' : path.endsWith('.json') ? 'application/json; charset=utf-8' : path.endsWith('.txt') ? 'text/plain; charset=utf-8' : 'application/octet-stream';
 function equal(a, b) { const x = Buffer.from(a || ''), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); }
 async function body(req) {
   if (!(req.headers['content-type'] || '').startsWith('application/json')) throw new BridgeError('请求需要 JSON 格式。');
@@ -41,7 +43,7 @@ export function createPetServer({ root, dataRoot = root, config, store, core, mo
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'same-origin');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     if (!allowedHosts.includes(req.headers.host)) return send(403, { code: 'invalid_host', error: `访问地址不受支持，请在运行宠物程序的电脑上打开 http://127.0.0.1:${port}/。` });
     try {
       const url = new URL(req.url, origin);
@@ -61,7 +63,7 @@ export function createPetServer({ root, dataRoot = root, config, store, core, mo
           const html = readFileSync(join(root, 'web', url.pathname === '/desktop' ? 'desktop.html' : 'index.html'), 'utf8').replace('__PET_TOKEN__', token);
           return send(200, html, 'text/html; charset=utf-8');
         }
-        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.13.1' });
+        if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, project: 'little-pet', version: '0.14.0' });
       }
       // APIs use an explicit, unguessable per-start bearer token, never cookies.
       // A valid token is authoritative even when Origin/Fetch Metadata is absent

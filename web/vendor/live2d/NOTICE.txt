@@ -1,0 +1,35 @@
+Little Pet — Live2D component and sample notices
+
+This content uses sample data owned and copyrighted by Live2D Inc. The sample data are utilized in accordance with terms and conditions set by Live2D Inc. This content itself is created at the author's sole discretion.
+
+Haru is an original sample character by Live2D Inc. It is not Taolinghu / 桃铃狐.
+No character artwork or model geometry has been changed. Model manifest references to unused sample voice, display info and user data were removed. The original sample voice recordings are not bundled or played.
+
+Haru source:
+https://github.com/Live2D/CubismWebSamples/tree/b1de66b0b1f1cb881d95fb6158622aeb6a2827bd/Samples/Resources/Haru
+Free Material License Agreement:
+https://www.live2d.com/eula/live2d-free-material-license-agreement_en.html
+Terms of Use for Live2D Cubism Sample Data:
+https://www.live2d.com/en/learn/sample/model-terms/
+
+Cubism Core is proprietary software by Live2D Inc. It is redistributed unmodified as a component of this application, not under a project or Framework open-source license. By using this component you agree to the following license and its restrictions on modification, reverse engineering and redistribution:
+https://www.live2d.com/eula/live2d-proprietary-software-license-agreement_en.html
+Source: https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js
+Retrieved: 2026-11-13
+SHA-256: 25ae938cb4fe282ce189b357bcc97e603d1e1f7ec78bf04150d401c23cdc792f
+The unmodified file header explicitly identifies this file as Redistributable Code.
+
+Cubism Web Framework 5-r.4, copyright Live2D Inc.:
+https://github.com/Live2D/CubismWebFramework/tree/8df84780f2aa1298f3b30965cdae143e049f3c8e
+Live2D Open Software License Agreement:
+https://www.live2d.com/eula/live2d-open-software-license-agreement_en.html
+framework.js is a generated bundle of the official Framework, not Cubism Core.
+Rebuild: node scripts/build-cubism.mjs <checkout-at-the-pinned-commit>
+
+This version offers a fixed bundled model. It does not provide arbitrary model import, a model marketplace or a Live2D editor. Publication licensing depends on the publisher and use; adding expandable model import or commercial distribution requires reviewing the applicable terms:
+https://www.live2d.com/en/sdk/license/
+
+中文说明：
+Haru 为 Live2D 官方示例角色；使用该形象即同意上列运行库与素材授权条款。
+桃铃狐现有 PNG 形象继续保留；它尚未制作成专属 Live2D 模型。
+运行库、模型、贴图与动作均随本程序提供，运行时不连接第三方 CDN。

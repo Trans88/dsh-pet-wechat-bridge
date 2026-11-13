@@ -2,12 +2,25 @@
   const $ = selector => document.querySelector(selector), bridge = window.petDesktop;
   const token = $('meta[name="pet-token"]').content, character = $('#pet-character'), sheet = $('#pet-sprite-sheet');
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let state, prefs = {}, petting = false, busy = false, polling = false, disposed = false;
+  let state, prefs = {}, petting = false, busy = false, polling = false, disposed = false, nativeVisible = true;
+  const hidden = () => !nativeVisible || document.hidden;
   let bubbleTimer, effectTimer, patTimer, clickTimer, pollTimer, point, lastHit, lastJournal = 0, lastReply = 0, initial = true;
   let pixels, pixelSource, sourceWidth, sourceHeight, bubbleDuration = 0, chat;
   const lifetime = new AbortController();
   // Reuse the existing vector blue-cat artwork when that appearance is selected.
-  const avatar = new window.PetAvatar({ character, sprite: $('#pet-sprite'), sheet, cat: $('#pet-cat'), onError: () => say('形象加载失败，请从右键菜单打开设置并重新选择形象。') });
+  const avatar = new window.PetAvatar({ character, sprite: $('#pet-sprite'), sheet, cat: $('#pet-cat'), onError: message => say(message || '形象加载失败，请从右键菜单打开设置并重新选择形象。') });
+  let cursorTimer;
+  async function followCursor() {
+    if (disposed) return;
+    try {
+      if (!hidden() && !reduced.matches && state?.config.pet.appearance === 'haru-live2d' && bridge?.cursor) {
+        const cursor = await bridge.cursor(); if (cursor && !disposed) avatar.trackPointer(cursor.x, cursor.y);
+      }
+    } catch { /* Browser preview and closing windows have no native cursor. */ }
+    if (!disposed) cursorTimer = setTimeout(followCursor, !hidden() && !reduced.matches && state?.config.pet.appearance === 'haru-live2d' ? 80 : 1000);
+  }
+  void followCursor();
+  window.addEventListener('pagehide', () => clearTimeout(cursorTimer));
   async function api(path, data, binary = false, signal) {
     const response = await fetch(path, { method: data === undefined ? 'GET' : 'POST', credentials: 'omit', mode: 'same-origin',
       headers: { Authorization: `Bearer ${token}`, ...(data === undefined ? {} : { 'Content-Type': 'application/json' }) },
@@ -27,7 +40,7 @@
   function render() {
     avatar.render({ appearance: state?.config.pet.appearance || 'taolinghu',
       animation: chat?.busy || chat?.voiceState.phase === 'thinking' ? 'thinking' : state?.care.sleeping ? 'sleeping' : petting ? 'petting' : 'idle',
-      playing: !document.hidden && !reduced.matches });
+      playing: !hidden() && !reduced.matches });
     $('#mood').textContent = chat?.voiceState.phase === 'listening' ? '正在听你说' : chat?.voiceState.phase === 'speaking' ? '正在说话' : state?.care.moodLabel || '在这里陪你';
     character.classList.toggle('speaking', chat?.voiceState.phase === 'speaking');
   }
@@ -69,7 +82,7 @@
       if (initial) { initial = false; say(`${state.config.pet.name}来陪你啦。拖动我换个位置，右键可以投喂、抱抱。`, 9000); }
       render();
     } catch (error) { if (error.name !== 'AbortError') say(error.message); }
-    finally { polling = false; if (!disposed) pollTimer = setTimeout(poll, document.hidden ? 15000 : 5000); }
+    finally { polling = false; if (!disposed) pollTimer = setTimeout(poll, hidden() ? 15000 : 5000); }
   }
   // Alpha hit testing leaves the empty area around the fox usable on Windows.
   sheet.addEventListener('load', () => {
@@ -82,6 +95,7 @@
   function hit(event) {
     if (event.target.closest('#toolbar, #bubble, #conversation')) return true;
     if (!event.target.closest('#pet-character')) return false;
+    const liveHit = avatar.hit(event.clientX, event.clientY); if (liveHit !== null) return liveHit;
     if (character.dataset.appearance === 'blue-cat' || !pixels || pixelSource !== sheet.src) return true;
     const box = $('#pet-sprite').getBoundingClientRect();
     const columns = Number(sheet.dataset.columns) || 2;
@@ -117,7 +131,7 @@
   character.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void interact('pat'); } });
   document.addEventListener('contextmenu', event => { if (event.target.closest('#conversation, #bubble-text')) return; event.preventDefault(); cancelDrag(); bridge?.menu(); });
   $('#menu').addEventListener('click', () => bridge?.menu());
-  chat = new window.DesktopChat({ api, bridge, onReply: text => say(text, 0), onChange: render, isInteracting: () => busy });
+  chat = new window.DesktopChat({ api, bridge, onReply: text => say(text, 0), onChange: render, onAudio: value => avatar.setSpeech(value), isInteracting: () => busy });
   $('#bubble-close').addEventListener('click', () => { clearTimeout(bubbleTimer); $('#bubble').hidden = true; });
   $('#bubble').addEventListener('pointerenter', () => clearTimeout(bubbleTimer));
   $('#bubble').addEventListener('focusin', () => clearTimeout(bubbleTimer));
@@ -125,13 +139,15 @@
   $('#bubble').addEventListener('focusout', scheduleBubble);
   const offAction = bridge?.onAction(action => {
     if (action === 'chat') void chat.open();
+    else if (action === 'hidden' || action === 'shown') { nativeVisible = action === 'shown'; visibilityChanged(); }
     else if (action === 'pause') chat.suspend();
     else if (action === 'voice') void chat.startVoice();
     else if (['pat', 'feed', 'hug', 'play', 'dance', 'sleep', 'wake'].includes(action)) void interact(action);
   });
   const offPrefs = bridge?.onPreferences(settings);
   reduced.addEventListener('change', render);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) chat.suspend(); render(); if (!document.hidden) { clearTimeout(pollTimer); void poll(); } });
+  function visibilityChanged() { if (hidden()) { chat.suspend(); cancelDrag(); } render(); if (!hidden()) { clearTimeout(pollTimer); void poll(); } }
+  document.addEventListener('visibilitychange', visibilityChanged);
   window.addEventListener('pagehide', () => {
     disposed = true; lifetime.abort(); chat.dispose(); cancelDrag(); avatar.stop(); offAction?.(); offPrefs?.();
     [bubbleTimer, effectTimer, patTimer, clickTimer, pollTimer].forEach(clearTimeout);

@@ -37,12 +37,17 @@
       });
     }
     play(action) {
+      if (this.live2d) return this.live2d.play(action);
       if (!sequences[action]) return false;
       this.sequence = { action, index: 0 };
       this.render(this.options, true); return true;
     }
-    cancel() { this.sequence = null; this.render(this.options, true); }
+    cancel() { this.live2d?.cancel(); this.sequence = null; this.render(this.options, true); }
     render(options = {}, force = false) {
+      if (options.appearance === 'haru-live2d' && !this.failed.has('live2d')) return this.renderLive2d(options);
+      if (options.appearance !== 'haru-live2d') this.failed.delete('live2d');
+      this.releaseLive2d();
+      if (options.appearance === 'haru-live2d') options = { ...options, appearance: 'taolinghu' };
       if (this.options?.appearance !== options.appearance || options.animation === 'thinking' || options.playing === false) this.sequence = null;
       this.options = options;
       const { appearance = 'taolinghu', animation = 'idle', playing = true } = options;
@@ -88,7 +93,45 @@
       };
       draw();
     }
+    renderLive2d(options) {
+      if (this.live2d || this.live2dLoading) {
+        this.options = options; this.live2d?.update(options); return;
+      }
+      // A familiar poster remains visible until the actual mesh has loaded.
+      this.render({ ...options, appearance: 'taolinghu', playing: false });
+      this.options = options; this.sequence = null; this.caption.hidden = true;
+      this.character.dataset.appearance = 'haru-live2d';
+      const generation = this.live2dGeneration = (this.live2dGeneration || 0) + 1;
+      this.live2dLoading = true;
+      import('/live2d.js').then(async ({ Live2DAvatar }) => {
+        if (generation !== this.live2dGeneration) return;
+        const fail = error => {
+          if (generation !== this.live2dGeneration) return;
+          this.failed.add('live2d'); this.releaseLive2d(); this.render(options, true);
+          this.onError(`${error?.message || 'Live2D 加载失败。'}已暂时显示桃铃狐，可重新选择 Live2D 或刷新重试。`);
+        };
+        this.live2d = new Live2DAvatar({ character: this.character, onError: fail });
+        this.live2d.update(this.options);
+        await this.live2d.load();
+        if (generation !== this.live2dGeneration) return;
+        this.live2dLoading = false; this.sprite.hidden = true; this.cat?.toggleAttribute('hidden', true);
+        this.character.classList.remove('motion-paused'); this.live2d.setSpeech(this.speech);
+      }).catch(error => {
+        if (generation !== this.live2dGeneration) return;
+        this.failed.add('live2d'); this.releaseLive2d(); this.render(options, true);
+        this.onError(`${error?.message || 'Live2D 加载失败。'}已暂时显示桃铃狐。`);
+      });
+    }
+    releaseLive2d() {
+      if (!this.live2d && !this.live2dLoading) return;
+      this.live2dGeneration++; this.live2dLoading = false; this.key = null;
+      this.live2d?.dispose(); this.live2d = null;
+    }
+    setSpeech(value) { this.speech = value; this.live2d?.setSpeech(value); }
+    trackPointer(x, y) { this.live2d?.trackPointer(x, y); }
+    hit(x, y) { return this.live2d ? this.live2d.hit(x, y) : null; }
     stop() { clearTimeout(this.timer); this.sequence = null; this.key = null;
+      this.releaseLive2d();
       this.caption.hidden = true; this.character.classList.remove('care-active');
       delete this.character.dataset.careAction; delete this.character.dataset.careStep;
     }

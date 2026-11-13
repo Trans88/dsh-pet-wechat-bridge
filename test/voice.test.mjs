@@ -14,7 +14,7 @@ async function until(predicate) {
 function setup(t, options = {}) {
   const config = { voice: { input: 'auto', output: 'auto', language: 'zh-CN', rate: 1, pitch: 1, silenceMs: 1500 }, stt: { enabled: false }, tts: { enabled: false }, ...options.config };
   const states = [], errors = [], transcripts = [], recognitions = [], utterances = [], recorders = [], audioPlayers = [], calls = [], urls = [], revoked = [];
-  const timers = new Set(), intervals = new Map();
+  const timers = new Set(), intervals = new Map(), audioSignals = [];
   let microphoneCalls = 0, canceledSpeech = 0, tick = Date.now(), nextInterval = 1;
   const track = { stops: 0, stop() { this.stops++; } }, stream = { getTracks: () => [track] };
   class Recognition {
@@ -82,10 +82,11 @@ function setup(t, options = {}) {
       return path === '/api/stt' ? { text: '识别出来的话' } : new Blob(['fake mp3'], { type: 'audio/mpeg' });
     },
     onState: state => states.push(state), onError: error => errors.push(error),
+    onAudio: options.audioSignals ? value => audioSignals.push(value) : null,
     onTranscript: async (text, meta) => { transcripts.push({ text, ...meta }); return options.onTranscript ? options.onTranscript(text, meta) : '宠物的语音回复'; },
   });
   t.after(() => { voice.stop(); for (const timer of timers) clearTimeout(timer); });
-  return { voice, config, states, errors, transcripts, recognitions, utterances, recorders, audioPlayers, calls, track, stream, context, analyser, intervals, urls, revoked, sandbox,
+  return { voice, config, states, errors, transcripts, recognitions, utterances, recorders, audioPlayers, calls, track, stream, context, analyser, intervals, urls, revoked, sandbox, audioSignals,
     get microphoneCalls() { return microphoneCalls; }, get canceledSpeech() { return canceledSpeech; },
     sample(ms = 100) { tick += ms; for (const callback of intervals.values()) callback(); },
   };
@@ -259,4 +260,57 @@ test('voices arriving asynchronously are selected; stopping while waiting never 
   await until(() => h.utterances.length === 1);
   assert.equal(h.utterances[0].voice.voiceURI, 'late-voice');
   h.utterances[0].onend(); await second; assert.equal(listener, undefined);
+});
+
+test('system mouth starts on actual speech start, pauses and closes on cancellation', async t => {
+  const h = setup(t, { audioSignals: true }); const done = h.voice.speak('嘴巴要跟着声音动');
+  await until(() => h.utterances.length === 1);
+  assert.equal(h.audioSignals.some(s => s.active), false, 'waiting for system speech must keep mouth closed');
+  const utterance = h.utterances[0]; utterance.onstart();
+  assert.equal(h.audioSignals.at(-1).active, true); assert.equal(h.audioSignals.at(-1).approximate, true);
+  utterance.onpause(); assert.equal(h.audioSignals.at(-1).active, false);
+  utterance.onresume(); assert.equal(h.audioSignals.at(-1).active, true);
+  h.voice.stop(); await done; assert.equal(h.audioSignals.at(-1).active, false);
+  assert.equal(utterance.onstart, null);
+});
+
+test('audio mouth uses output samples, stays closed during TTS download and releases analyser', async t => {
+  const download = deferred(); const h = setup(t, { audioSignals: true, config: { tts: { enabled: true }, voice: { output: 'server' } }, api: () => download.promise });
+  let disconnected = 0;
+  h.context.createMediaElementSource = () => ({ connect() {}, disconnect() { disconnected++; } });
+  h.analyser.connect = () => {}; h.analyser.disconnect = () => { disconnected++; };
+  const done = h.voice.speak('实际音频口型'); await until(() => h.calls.length === 1);
+  assert.equal(h.audioSignals.some(s => s.active), false);
+  download.resolve(new Blob(['test-audio'], { type: 'audio/mpeg' }));
+  await until(() => h.audioPlayers.length === 1 && h.audioPlayers[0].onplaying);
+  await delay(5); h.audioPlayers[0].onplaying(); h.sample();
+  assert.equal(h.audioSignals.at(-1).level, 0); assert.equal(h.audioSignals.at(-1).approximate, false);
+  h.analyser.loud = true; h.sample(); assert.ok(h.audioSignals.at(-1).level > 0.5);
+  h.audioPlayers[0].onwaiting(); assert.equal(h.audioSignals.at(-1).active, false);
+  h.audioPlayers[0].onplaying(); h.voice.stop(); await done;
+  assert.equal(h.audioSignals.at(-1).active, false); assert.equal(h.intervals.size, 0);
+  assert.equal(h.context.closed, 1); assert.equal(disconnected, 2); assert.equal(h.revoked.length, 1);
+});
+
+test('a suspended analyser cannot block audible playback or reconnect after stop', async t => {
+  const resume = deferred(); let played = 0, rerouted = 0;
+  const h = setup(t, { audioSignals: true, config: { tts: { enabled: true }, voice: { output: 'server' } }, play: audio => { played++; audio.onplaying(); return Promise.resolve(); } });
+  h.context.state = 'suspended'; h.context.resume = () => resume.promise;
+  h.context.createMediaElementSource = () => { rerouted++; return { connect() {} }; };
+  const done = h.voice.speak('分析器不能阻塞声音');
+  await until(() => played === 1);
+  assert.equal(h.audioSignals.at(-1).approximate, true); assert.equal(rerouted, 0);
+  h.voice.stop(); await done; h.context.state = 'running'; resume.resolve(); await delay(5);
+  assert.equal(h.context.closed, 1); assert.equal(rerouted, 0);
+  assert.equal(h.audioSignals.at(-1).active, false); assert.equal(h.intervals.size, 0);
+});
+
+test('analyser creation failure leaves the ordinary audio path usable', async t => {
+  let played = 0, rerouted = 0;
+  const h = setup(t, { audioSignals: true, config: { tts: { enabled: true }, voice: { output: 'server' } }, play: audio => { played++; audio.onplaying(); return Promise.resolve(); } });
+  h.context.createAnalyser = () => { throw new Error('analysis unavailable'); };
+  h.context.createMediaElementSource = () => { rerouted++; return { connect() {} }; };
+  const done = h.voice.speak('仍然可以朗读'); await until(() => played === 1); await delay(5); h.sample();
+  assert.equal(rerouted, 0); assert.equal(h.audioSignals.at(-1).approximate, true);
+  h.audioPlayers[0].onended(); await done; assert.deepEqual(h.errors, []); assert.equal(h.context.closed, 1);
 });

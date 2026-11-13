@@ -4,3 +4,8 @@
 *.md text eol=lf
 *.yml text eol=lf
 *.cmd text eol=crlf
+
+# Keep third-party runtime/model bytes identical on Windows (including Core's hash).
+web/vendor/live2d/live2dcubismcore.min.js -text
+web/vendor/live2d/framework.js text eol=lf
+web/assets/live2d/** -text
