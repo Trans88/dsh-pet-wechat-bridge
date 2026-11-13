@@ -7,7 +7,19 @@
   let pixels, pixelSource, sourceWidth, sourceHeight, bubbleDuration = 0, chat;
   const lifetime = new AbortController();
   // Reuse the existing vector blue-cat artwork when that appearance is selected.
-  const avatar = new window.PetAvatar({ character, sprite: $('#pet-sprite'), sheet, cat: $('#pet-cat'), onError: () => say('形象加载失败，请从右键菜单打开设置并重新选择形象。') });
+  const avatar = new window.PetAvatar({ character, sprite: $('#pet-sprite'), sheet, cat: $('#pet-cat'), onError: message => say(message || '形象加载失败，请从右键菜单打开设置并重新选择形象。') });
+  let cursorTimer;
+  async function followCursor() {
+    if (disposed) return;
+    try {
+      if (!document.hidden && !reduced.matches && state?.config.pet.appearance === 'haru-live2d' && bridge?.cursor) {
+        const cursor = await bridge.cursor(); if (cursor && !disposed) avatar.trackPointer(cursor.x, cursor.y);
+      }
+    } catch { /* Browser preview and closing windows have no native cursor. */ }
+    if (!disposed) cursorTimer = setTimeout(followCursor, !document.hidden && !reduced.matches && state?.config.pet.appearance === 'haru-live2d' ? 80 : 1000);
+  }
+  void followCursor();
+  window.addEventListener('pagehide', () => clearTimeout(cursorTimer));
   async function api(path, data, binary = false, signal) {
     const response = await fetch(path, { method: data === undefined ? 'GET' : 'POST', credentials: 'omit', mode: 'same-origin',
       headers: { Authorization: `Bearer ${token}`, ...(data === undefined ? {} : { 'Content-Type': 'application/json' }) },
@@ -82,6 +94,7 @@
   function hit(event) {
     if (event.target.closest('#toolbar, #bubble, #conversation')) return true;
     if (!event.target.closest('#pet-character')) return false;
+    const liveHit = avatar.hit(event.clientX, event.clientY); if (liveHit !== null) return liveHit;
     if (character.dataset.appearance === 'blue-cat' || !pixels || pixelSource !== sheet.src) return true;
     const box = $('#pet-sprite').getBoundingClientRect();
     const columns = Number(sheet.dataset.columns) || 2;
@@ -117,7 +130,7 @@
   character.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void interact('pat'); } });
   document.addEventListener('contextmenu', event => { if (event.target.closest('#conversation, #bubble-text')) return; event.preventDefault(); cancelDrag(); bridge?.menu(); });
   $('#menu').addEventListener('click', () => bridge?.menu());
-  chat = new window.DesktopChat({ api, bridge, onReply: text => say(text, 0), onChange: render, isInteracting: () => busy });
+  chat = new window.DesktopChat({ api, bridge, onReply: text => say(text, 0), onChange: render, onAudio: value => avatar.setSpeech(value), isInteracting: () => busy });
   $('#bubble-close').addEventListener('click', () => { clearTimeout(bubbleTimer); $('#bubble').hidden = true; });
   $('#bubble').addEventListener('pointerenter', () => clearTimeout(bubbleTimer));
   $('#bubble').addEventListener('focusin', () => clearTimeout(bubbleTimer));

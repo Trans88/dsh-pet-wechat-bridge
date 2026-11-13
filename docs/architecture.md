@@ -193,3 +193,13 @@ SQLite v4 只在 messages 增加可空 sticker 列，保存平台确认送达的
 聊天先识别明确的搜索动作，支持口语前缀和上网查看请求，否定请求及搜索功能提问不触发。WebSearch.run 返回来源和实际检索凭据（服务、关键词、摘要数量、取得时间、是否复用缓存）；凭据与回复在同一事务存入 messages.search，schema 5 新增可空列，旧消息不伪造状态。空结果不请求聊天模型、不缓存；失败直接返回诊断，不保存虚构回复。
 
 requestJSON 保持原有错误类别，并在内部保留 cause。搜索模块只输出白名单错误码与固定说明，绝不返回异常原文或服务错误正文。可选 search.proxyUrl 限本机 HTTP(S) 无凭据代理；单次请求使用 Undici ProxyAgent，响应、失败或取消后销毁，仅影响搜索，不修改全局 dispatcher。
+
+### Live2D 渲染与语音驱动（v0.14.0）
+
+`PetAvatar` 按已验证的 appearance 选择逐帧或 `Live2DAvatar`。Cubism Core、Framework、Haru moc3/动作/贴图均为本地固定资源，`live2d-assets.mjs` 逐项映射允许路由；不接受用户路径和远程模型。加载通过 AbortController 与渲染代次避免换装后迟到结果恢复旧模型。故障释放 WebGL 并回退桃铃狐，不更改保存的选择。
+
+`live2d.js` 统一推进动作、眨眼、呼吸、视线、表情、口型、物理和模型更新，再提交透明 WebGL。更新基于时间，requestAnimationFrame 上限 60 Hz，DPR 上限 2；后台、非首页及减少动态效果停止循环。换装释放模型、动作、贴图、观察器和事件；最后一个实例释放 Framework。96×96 alpha 缓存用于桌面命中检测，避免每次鼠标事件都 GPU 回读。
+
+桌宠 preload 仅增加可信 `/desktop` 主帧可调用的 `pet:cursor`，返回相对窗口的逻辑像素坐标；隐藏窗口不返回坐标。UI 每 80 ms 读取，Cubism 的拖拽参数继续平滑插值，不采集屏幕或摄像头。
+
+`PetVoice.onAudio` 独立于 UI 的 speaking 阶段：TTS 下载或排队期间不张嘴。服务音频通过 Web Audio 分支 analyser 每 40 ms 取 RMS，带噪声门限并在渲染层平滑；分析失败保留声音并使用近似口型。系统朗读依赖 utterance 的 start/pause/resume/end 事件。结束、取消、缓冲、页面隐藏都会归零或停止，释放音频节点、计时器与 Object URL。

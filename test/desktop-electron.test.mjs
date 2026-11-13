@@ -11,7 +11,7 @@ import { createServer as createHttpServer } from 'node:http';
 import { Config } from '../pet/config.mjs';
 import { PNG } from 'pngjs';
 
-test('packaged native pet: transparent window, isolated preload, interaction, appearance and shutdown', { skip: process.env.PET_DESKTOP_TEST !== '1', timeout: 90000 }, async t => {
+test('packaged native pet: transparent window, isolated preload, interaction, appearance and shutdown', { skip: process.env.PET_DESKTOP_TEST !== '1', timeout: 120000 }, async t => {
   const root = fileURLToPath(new URL('..', import.meta.url));
   const dataRoot = mkdtempSync(join(tmpdir(), 'pet-electron-'));
   const portServer = createServer(); await new Promise(r => portServer.listen(0, '127.0.0.1', r)); const port = portServer.address().port; await new Promise(r => portServer.close(r));
@@ -45,7 +45,7 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   const { ELECTRON_RUN_AS_NODE: _, ...env } = process.env;
   let app;
   t.after(async () => { await app?.close(); provider.closeAllConnections(); proxy.closeAllConnections(); await Promise.all([new Promise(resolve => provider.close(resolve)), new Promise(resolve => proxy.close(resolve))]); rmSync(dataRoot, { recursive: true, force: true }); });
-  const mediaFlags = ['--use-fake-device-for-media-stream'];
+  const mediaFlags = ['--use-fake-device-for-media-stream', '--enable-unsafe-swiftshader'];
   app = await electron.launch({ ...(env.PET_DESKTOP_EXECUTABLE ? { executablePath: env.PET_DESKTOP_EXECUTABLE, args: mediaFlags } : { args: [root, ...mediaFlags] }), env: { ...env, PET_DATA_ROOT: dataRoot }, timeout: 30000 });
   const pet = await app.firstWindow(); await pet.waitForURL(`http://127.0.0.1:${port}/desktop`);
   await pet.waitForFunction(() => document.querySelector('#bubble').textContent.includes('来陪你'));
@@ -128,7 +128,25 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   await room.waitForFunction(() => document.querySelector('[name="pet.name"]').value === '小蓝');
   await room.locator('[name="pet.appearance"]').selectOption('taolinghu-classic'); await room.locator('#settings-form button[type="submit"]').click();
   await pet.waitForFunction(() => document.querySelector('#pet-character').dataset.appearance === 'taolinghu-classic');
+  await room.locator('[name="pet.appearance"]').selectOption('haru-live2d'); await room.locator('#settings-form button[type="submit"]').click();
+  await pet.waitForSelector('.pet-live2d[data-state="ready"]', { timeout: 20000 });
+  await pet.waitForFunction(() => Number(document.querySelector('.pet-live2d')?.dataset.frames) > 5);
+  const liveFrame = await pet.locator('.pet-live2d').getAttribute('data-frames');
+  await pet.waitForFunction(before => Number(document.querySelector('.pet-live2d')?.dataset.frames) > Number(before) + 5, liveFrame);
+  const cursor = await pet.evaluate(() => window.petDesktop.cursor());
+  assert.ok(Number.isFinite(cursor.x) && Number.isFinite(cursor.y), 'sandboxed desktop can follow the native cursor');
+  const liveImage = PNG.sync.read(await pet.screenshot({ path: join(artifacts, 'desktop-live2d.png'), omitBackground: true }));
+  assert.equal(liveImage.data[3], 0, 'Live2D preserves the transparent desktop');
+  const mesh = PNG.sync.read(await pet.locator('.pet-live2d').screenshot({ path: join(artifacts, 'live2d-model.png'), omitBackground: true }));
+  assert.ok(mesh.data.filter((v, i) => i % 4 === 3 && v > 100).length > 500, 'packaged Cubism draws visible model pixels');
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith('/desktop')).hide());
+  await pet.waitForFunction(() => document.querySelector('.pet-live2d')?.dataset.paused === 'true');
+  const pausedFrame = await pet.locator('.pet-live2d').getAttribute('data-frames'); await pet.waitForTimeout(350);
+  assert.equal(await pet.locator('.pet-live2d').getAttribute('data-frames'), pausedFrame, 'hidden native window stops the animation loop');
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith('/desktop')).show());
+  await pet.waitForFunction(() => document.querySelector('.pet-live2d')?.dataset.paused === 'false');
   await room.locator('[name="pet.appearance"]').selectOption('taolinghu'); await room.locator('#settings-form button[type="submit"]').click();
+  await pet.waitForFunction(() => !document.querySelector('.pet-live2d') && document.querySelector('#pet-character').dataset.appearance === 'taolinghu');
   await room.setViewportSize({ width: 460, height: 800 });
   assert.equal(await room.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
   await room.screenshot({ path: join(artifacts, 'settings-narrow.png') });

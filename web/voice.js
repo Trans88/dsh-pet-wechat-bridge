@@ -31,8 +31,9 @@
   }
 
   class PetVoice {
-    constructor({ api, getConfig, onState = () => {}, onTranscript = () => {}, onError = () => {} }) {
+    constructor({ api, getConfig, onState = () => {}, onTranscript = () => {}, onError = () => {}, onAudio = null }) {
       this.api = api; this.getConfig = getConfig; this.onState = onState;
+      this.onAudio = onAudio;
       this.onTranscript = onTranscript; this.onError = onError;
       this.active = false; this.phase = 'idle'; this.mode = null;
       this.generation = 0; this.controller = null; this.finishCapture = null;
@@ -50,6 +51,7 @@
       this.generation++; this.controller?.abort(); this.controller = null;
       this.finishCapture = null; clearTimeout(this.nextTurn);
       this.active = false; this.mode = null; this.update('idle');
+      this.onAudio?.({ active: false, level: 0 });
     }
     startConversation() {
       if (this.active) return;
@@ -283,10 +285,15 @@
         if (voice) utterance.voice = voice;
         const done = error => {
           if (settled) return; settled = true; clearTimeout(timer); signal.removeEventListener('abort', abort);
-          utterance.onend = utterance.onerror = null;
+          utterance.onend = utterance.onerror = utterance.onstart = utterance.onpause = utterance.onresume = null;
+          this.onAudio?.({ active: false, level: 0 });
           if (error) { synthesis.cancel(); reject(error); } else resolve();
         };
         const abort = () => done(canceled());
+        // System speech exposes no PCM samples. Mark its mouth motion as approximate,
+        // and start only when the system actually begins speaking.
+        utterance.onstart = utterance.onresume = () => { if (!settled) this.onAudio?.({ active: true, level: 0, approximate: true }); };
+        utterance.onpause = () => this.onAudio?.({ active: false, level: 0 });
         utterance.onend = () => done();
         utterance.onerror = event => done(new Error(event.error === 'not-allowed' ? '浏览器阻止了自动朗读，请点击消息旁的「朗读」后重试。' : '朗读失败，请检查系统音色，或在设置中改用独立 TTS 服务。'));
         signal.addEventListener('abort', abort, { once: true });
@@ -298,21 +305,54 @@
     }
     playAudio(blob, signal, settings) {
       return new Promise((resolve, reject) => {
-        let settled = false, timer;
+        let settled = false, timer, context, source, analyser, sampleTimer, samples;
         const url = URL.createObjectURL(blob), audio = new Audio(url);
         audio.playbackRate = Number(settings.rate);
         const done = error => {
-          if (settled) return; settled = true; clearTimeout(timer); signal.removeEventListener('abort', abort);
-          audio.onended = audio.onerror = null; audio.pause(); audio.removeAttribute('src'); URL.revokeObjectURL(url);
+          if (settled) return; settled = true; clearTimeout(timer); clearInterval(sampleTimer); signal.removeEventListener('abort', abort);
+          audio.onended = audio.onerror = audio.onplaying = audio.onwaiting = audio.onpause = null;
+          audio.pause(); audio.removeAttribute('src'); URL.revokeObjectURL(url);
+          try { source?.disconnect(); analyser?.disconnect(); } catch {}
+          if (context) { try { Promise.resolve(context.close()).catch(() => {}); } catch {} }
+          this.onAudio?.({ active: false, level: 0 });
           if (error) reject(error); else resolve();
         };
         const abort = () => done(canceled());
         audio.onended = () => done(); audio.onerror = () => done(new Error('语音音频播放失败，请重试朗读。'));
+        const sample = () => {
+          if (settled) return;
+          if (audio.paused) return this.onAudio?.({ active: false, level: 0 });
+          if (!analyser) return this.onAudio?.({ active: true, level: 0, approximate: true });
+          analyser.getByteTimeDomainData(samples); let sum = 0;
+          for (const value of samples) sum += ((value - 128) / 128) ** 2;
+          this.onAudio?.({ active: true, level: Math.min(1, Math.max(0, Math.sqrt(sum / samples.length) - 0.008) * 6), approximate: false });
+        };
+        audio.onplaying = () => { if (!settled && this.onAudio) { clearInterval(sampleTimer); sample(); sampleTimer = setInterval(sample, 40); } };
+        audio.onwaiting = audio.onpause = () => { clearInterval(sampleTimer); this.onAudio?.({ active: false, level: 0 }); };
         signal.addEventListener('abort', abort, { once: true });
         timer = setTimeout(() => done(new Error('音频播放超时，语音已停止。')), 180000);
-        try {
-          Promise.resolve(audio.play()).catch(error => done(new Error(error.name === 'NotAllowedError' ? '浏览器阻止了自动播放，请点击消息旁的「朗读」后重试。' : '语音播放失败，请检查扬声器后重试。')));
-        } catch (error) { done(error); }
+        void (async () => {
+          if (this.onAudio) {
+            try {
+              const Context = window.AudioContext || window.webkitAudioContext;
+              if (Context) {
+                context = new Context(); await context.resume();
+                if (settled) return;
+                // Never reroute audio into a suspended context: playback must still work.
+                if (context.state === 'running' && context.createMediaElementSource) {
+                  // Keep the audible path independent of the optional analyser.
+                  source = context.createMediaElementSource(audio); source.connect(context.destination);
+                  analyser = context.createAnalyser(); analyser.fftSize = 512;
+                  samples = new Uint8Array(analyser.fftSize); source.connect(analyser);
+                }
+              }
+            } catch { analyser = null; /* Mouth analysis is optional; preserve the audible path. */ }
+          }
+          if (settled) return;
+          if (signal.aborted) return done(canceled());
+          try { await audio.play(); }
+          catch (error) { done(new Error(error.name === 'NotAllowedError' ? '浏览器阻止了自动播放，请点击消息旁的「朗读」后重试。' : '语音播放失败，请检查扬声器后重试。')); }
+        })();
       });
     }
   }

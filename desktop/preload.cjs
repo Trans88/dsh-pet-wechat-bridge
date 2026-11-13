@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('petDesktop', Object.freeze({
   preferences: () => ipcRenderer.invoke('pet:preferences'),
+  cursor: () => ipcRenderer.invoke('pet:cursor'),
   menu: () => ipcRenderer.invoke('pet:menu'),
   openHome: page => ipcRenderer.invoke('pet:home', page),
   chat: open => ipcRenderer.invoke('pet:chat', open === true),

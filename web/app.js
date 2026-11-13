@@ -13,7 +13,7 @@ let interactionBusy = false, interactionTimer, careState, effectAction;
 const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
 const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
 const avatar = new window.PetAvatar({ character: $('#pet-character'), sprite: $('#pet-sprite'), sheet: $('#pet-sprite-sheet'), cat: $('#pet-cat'),
-  onError: () => toast('桃铃狐图片未能加载，暂时显示蓝猫。请刷新页面重试。') });
+  onError: message => toast(message || '桃铃狐图片未能加载，暂时显示蓝猫。请刷新页面重试。') });
 function renderAvatar(force = false) {
   $('#pet-character').classList.toggle('speaking', voiceUI.phase === 'speaking');
   avatar.render({ appearance: state?.config.pet.appearance || 'taolinghu',
@@ -337,6 +337,7 @@ async function sendMessage(text, { signal, fromVoice = false } = {}) {
 }
 const voice = new window.PetVoice({
   api, getConfig: () => state?.config || {},
+  onAudio: value => avatar.setSpeech(value),
   onState: next => { voiceUI = next; renderVoice(); },
   onError: error => { toast(error.message || String(error)); },
   onTranscript: async (text, { mode, signal }) => {

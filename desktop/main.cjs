@@ -179,6 +179,11 @@ else {
     tray.on('click', showPet); tray.on('double-click', () => { showPet(); send('pet:action', 'chat'); }); updateMenu();
 
     ipcMain.handle('pet:preferences', event => trusted(event) ? prefs : null);
+    ipcMain.handle('pet:cursor', event => {
+      if (!trusted(event) || !pet.isVisible()) return null;
+      const point = screen.getCursorScreenPoint(), bounds = pet.getBounds();
+      return { x: point.x - bounds.x, y: point.y - bounds.y };
+    });
     ipcMain.handle('pet:menu', event => { if (trusted(event)) Menu.buildFromTemplate(menuTemplate()).popup({ window: pet }); });
     ipcMain.handle('pet:home', (event, page) => { if (trusted(event)) return openHome(page); });
     ipcMain.handle('pet:chat', (event, open) => trusted(event) && typeof open === 'boolean' ? setChatOpen(open) : false);

@@ -1,0 +1,28 @@
+// Exact public allowlist: no arbitrary local files or remote model URLs.
+export const LIVE2D_ASSETS = [
+  "/live2d.js",
+  "/live2d.css",
+  "/vendor/live2d/framework.js",
+  "/vendor/live2d/live2dcubismcore.min.js",
+  "/vendor/live2d/NOTICE.txt",
+  "/assets/live2d/Haru/Haru.model3.json",
+  "/assets/live2d/Haru/Haru.moc3",
+  "/assets/live2d/Haru/Haru.physics3.json",
+  "/assets/live2d/Haru/Haru.pose3.json",
+  "/assets/live2d/Haru/Haru.2048/texture_00.png",
+  "/assets/live2d/Haru/Haru.2048/texture_01.png",
+  "/assets/live2d/Haru/expressions/F01.exp3.json",
+  "/assets/live2d/Haru/expressions/F02.exp3.json",
+  "/assets/live2d/Haru/expressions/F03.exp3.json",
+  "/assets/live2d/Haru/expressions/F04.exp3.json",
+  "/assets/live2d/Haru/expressions/F05.exp3.json",
+  "/assets/live2d/Haru/expressions/F06.exp3.json",
+  "/assets/live2d/Haru/expressions/F07.exp3.json",
+  "/assets/live2d/Haru/expressions/F08.exp3.json",
+  "/assets/live2d/Haru/motions/haru_g_idle.motion3.json",
+  "/assets/live2d/Haru/motions/haru_g_m15.motion3.json",
+  "/assets/live2d/Haru/motions/haru_g_m26.motion3.json",
+  "/assets/live2d/Haru/motions/haru_g_m06.motion3.json",
+  "/assets/live2d/Haru/motions/haru_g_m20.motion3.json",
+  "/assets/live2d/Haru/motions/haru_g_m09.motion3.json"
+];

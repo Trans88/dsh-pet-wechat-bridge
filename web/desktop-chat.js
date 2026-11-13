@@ -2,11 +2,11 @@
   const $ = selector => document.querySelector(selector);
   const node = (tag, className, text) => { const element = document.createElement(tag); element.className = className; element.textContent = text; return element; };
   class DesktopChat {
-    constructor({ api, bridge, onReply, onChange, isInteracting = () => false }) {
+    constructor({ api, bridge, onReply, onChange, onAudio, isInteracting = () => false }) {
       Object.assign(this, { api, bridge, onReply, onChange, isInteracting });
       this.opened = false; this.busy = false; this.disposed = false; this.generation = 0; this.historyRevision = 0;
       this.voiceState = { phase: 'idle', active: false, mode: null };
-      this.voice = new window.PetVoice({ api, getConfig: () => this.state?.config || {},
+      this.voice = new window.PetVoice({ api, getConfig: () => this.state?.config || {}, onAudio,
         onState: value => { this.voiceState = value; this.controls(); this.onChange(); },
         onError: message => this.error(message),
         onTranscript: (text, { mode, signal }) => {
