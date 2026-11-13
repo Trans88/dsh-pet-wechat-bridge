@@ -1,0 +1,624 @@
+{
+  "description": "Native eye-shape refinement after face-refinement.json: open the eye aperture and elongate the smaller iris to match the original taolinghu-hd neutral frame. Apply once to every existing geometry key, with no new animation axes, pixels or UV changes. rig_deform uses fixed input bounds normalized x-right/y-down; pivots below were converted from shared canvas y=486 (white/lash/lower line) or y=489 (iris). Geometry keys are complete, including ParamEyeBallForm -1/0/1 and per-eye opening 0/1. Scaling all keys preserves closed eyelash curves, gaze and iris deformation; independent opacity channels and clipping are unchanged. Rest-bound coordinates are for the v0.15.2 native source import; remeasure them if the artwork layout changes.",
+  "measurements": [
+    {
+      "target": "mesh:ArtMeshEyewhiteL",
+      "sourceRestBounds": [
+        666.3242,
+        445.62393,
+        790.18274,
+        523.8516
+      ],
+      "canvasPivotY": 486,
+      "scaleY": 1.35,
+      "geometryAxes": {
+        "ParamEyeLOpen": [
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "target": "mesh:ArtMeshEyelashL",
+      "sourceRestBounds": [
+        666.7594,
+        433.76678,
+        802.31177,
+        500.39966
+      ],
+      "canvasPivotY": 486,
+      "scaleY": 1.35,
+      "geometryAxes": {
+        "ParamEyeLOpen": [
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "target": "mesh:ArtMeshFaceDetailL",
+      "sourceRestBounds": [
+        691.9279,
+        519.97797,
+        760.0171,
+        534.24927
+      ],
+      "canvasPivotY": 486,
+      "scaleY": 1.35,
+      "geometryAxes": {
+        "ParamEyeLOpen": [
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "target": "mesh:ArtMeshIridesL",
+      "sourceRestBounds": [
+        686.8771,
+        451.71268,
+        761.6535,
+        527.3593
+      ],
+      "canvasPivotY": 489,
+      "scaleY": 1.17,
+      "geometryAxes": {
+        "ParamEyeBallForm": [
+          -1.0,
+          0.0,
+          1.0
+        ],
+        "ParamEyeLOpen": [
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "target": "mesh:ArtMeshEyewhiteR",
+      "sourceRestBounds": [
+        485.92145,
+        445.32452,
+        607.524,
+        523.7287
+      ],
+      "canvasPivotY": 486,
+      "scaleY": 1.35,
+      "geometryAxes": {
+        "ParamEyeROpen": [
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "target": "mesh:ArtMeshEyelashR",
+      "sourceRestBounds": [
+        476.60028,
+        433.72418,
+        613.20935,
+        502.42307
+      ],
+      "canvasPivotY": 486,
+      "scaleY": 1.35,
+      "geometryAxes": {
+        "ParamEyeROpen": [
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "target": "mesh:ArtMeshFaceDetailR",
+      "sourceRestBounds": [
+        511.6584,
+        516.05133,
+        580.34735,
+        538.7295
+      ],
+      "canvasPivotY": 486,
+      "scaleY": 1.35,
+      "geometryAxes": {
+        "ParamEyeROpen": [
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "target": "mesh:ArtMeshIridesR",
+      "sourceRestBounds": [
+        512.4987,
+        451.00165,
+        587.2536,
+        527.3938
+      ],
+      "canvasPivotY": 489,
+      "scaleY": 1.17,
+      "geometryAxes": {
+        "ParamEyeBallForm": [
+          -1.0,
+          0.0,
+          1.0
+        ],
+        "ParamEyeROpen": [
+          0.0,
+          1.0
+        ]
+      }
+    }
+  ],
+  "operation": "rig_deform",
+  "request": {
+    "changes": [
+      {
+        "target": "mesh:ArtMeshEyewhiteL",
+        "key": {
+          "ParamEyeLOpen": 0.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.35
+            ],
+            "pivot": [
+              0.5,
+              0.5161354032403117
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshEyewhiteL",
+        "key": {
+          "ParamEyeLOpen": 1.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.35
+            ],
+            "pivot": [
+              0.5,
+              0.5161354032403117
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshEyelashL",
+        "key": {
+          "ParamEyeLOpen": 0.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.35
+            ],
+            "pivot": [
+              0.5,
+              0.7838955782790721
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshEyelashL",
+        "key": {
+          "ParamEyeLOpen": 1.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.35
+            ],
+            "pivot": [
+              0.5,
+              0.7838955782790721
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshFaceDetailL",
+        "key": {
+          "ParamEyeLOpen": 0.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.35
+            ],
+            "pivot": [
+              0.5,
+              -2.3808601879296236
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshFaceDetailL",
+        "key": {
+          "ParamEyeLOpen": 1.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.35
+            ],
+            "pivot": [
+              0.5,
+              -2.3808601879296236
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": -1.0,
+          "ParamEyeLOpen": 0.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.17
+            ],
+            "pivot": [
+              0.5,
+              0.49291455454321725
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": -1.0,
+          "ParamEyeLOpen": 1.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.17
+            ],
+            "pivot": [
+              0.5,
+              0.49291455454321725
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": 0.0,
+          "ParamEyeLOpen": 0.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.17
+            ],
+            "pivot": [
+              0.5,
+              0.49291455454321725
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": 0.0,
+          "ParamEyeLOpen": 1.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.17
+            ],
+            "pivot": [
+              0.5,
+              0.49291455454321725
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": 1.0,
+          "ParamEyeLOpen": 0.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.17
+            ],
+            "pivot": [
+              0.5,
+              0.49291455454321725
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": 1.0,
+          "ParamEyeLOpen": 1.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.17
+            ],
+            "pivot": [
+              0.5,
+              0.49291455454321725
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshEyewhiteR",
+        "key": {
+          "ParamEyeROpen": 0.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.35
+            ],
+            "pivot": [
+              0.5,
+              0.5187922378628281
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshEyewhiteR",
+        "key": {
+          "ParamEyeROpen": 1.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.35
+            ],
+            "pivot": [
+              0.5,
+              0.5187922378628281
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshEyelashR",
+        "key": {
+          "ParamEyeROpen": 0.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.35
+            ],
+            "pivot": [
+              0.5,
+              0.7609412612052393
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshEyelashR",
+        "key": {
+          "ParamEyeROpen": 1.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.35
+            ],
+            "pivot": [
+              0.5,
+              0.7609412612052393
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshFaceDetailR",
+        "key": {
+          "ParamEyeROpen": 0.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.35
+            ],
+            "pivot": [
+              0.5,
+              -1.3251214714414776
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshFaceDetailR",
+        "key": {
+          "ParamEyeROpen": 1.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.35
+            ],
+            "pivot": [
+              0.5,
+              -1.3251214714414776
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": -1.0,
+          "ParamEyeROpen": 0.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.17
+            ],
+            "pivot": [
+              0.5,
+              0.4974117104964316
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": -1.0,
+          "ParamEyeROpen": 1.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.17
+            ],
+            "pivot": [
+              0.5,
+              0.4974117104964316
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": 0.0,
+          "ParamEyeROpen": 0.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.17
+            ],
+            "pivot": [
+              0.5,
+              0.4974117104964316
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": 0.0,
+          "ParamEyeROpen": 1.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.17
+            ],
+            "pivot": [
+              0.5,
+              0.4974117104964316
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": 1.0,
+          "ParamEyeROpen": 0.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.17
+            ],
+            "pivot": [
+              0.5,
+              0.4974117104964316
+            ]
+          }
+        ]
+      },
+      {
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": 1.0,
+          "ParamEyeROpen": 1.0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              1,
+              1.17
+            ],
+            "pivot": [
+              0.5,
+              0.4974117104964316
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

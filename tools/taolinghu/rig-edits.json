@@ -1,5 +1,5 @@
 {
-  "description": "Native Cubism rotations for revised 1254×1254 Taolinghu artwork. Shoulder pivots at y=720; tail pivot [751,942] maps the previous hidden root into the new tail rectangle.",
+  "description": "Native Cubism rotations for corrected Taolinghu. Tail pivot [705,893] is inside opaque tail art and behind the right hip, keeping its root attached while rotating.",
   "rotations": [
     {
       "operation": "canvas_rotation",
@@ -71,8 +71,8 @@
           "ArtMeshTail"
         ],
         "origin": [
-          751,
-          942
+          705,
+          893
         ],
         "preservePose": true
       }

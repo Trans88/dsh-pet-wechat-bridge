@@ -90,12 +90,28 @@ for (const modelName of ['Haru', 'Taolinghu']) test(`bundled real Cubism Core lo
     if (modelName === 'Taolinghu') {
       const reset = () => { for (let i = 0; i < model.getParameterCount(); i++) model.setParameterValueByIndex(i, model.getParameterDefaultValue(i)); };
       assert.equal(model.getDrawableCount(), 35); assert.equal(model.getParameterCount(), 25);
-      for (const [name, a, b] of [['ParamEyeLOpen', 0, 1], ['ParamMouthOpenY', 0, 1], ['ParamBreath', 0, 1], ['ParamArmL', -0.8, 0.8], ['ParamArmR', -0.8, 0.8], ['ParamEarL', -1, 1], ['ParamEarR', -1, 1], ['ParamTail', -1, 1]]) {
+      for (const [name, a, b] of [['ParamEyeLOpen', 0, 1], ['ParamEyeBallForm', -1, 1], ['ParamMouthOpenY', 0, 1], ['ParamBreath', 0, 1], ['ParamArmL', -0.8, 0.8], ['ParamArmR', -0.8, 0.8], ['ParamEarL', -1, 1], ['ParamEarR', -1, 1], ['ParamTail', -1, 1]]) {
         reset(); const id = s.CubismFramework.getIdManager().getId(name);
         model.setParameterValueById(id, a); model.update(); const first = vertices();
         model.setParameterValueById(id, b); model.update(); const second = vertices();
         assert.notDeepEqual(first, second, `${name} drives real geometry`);
         assert.ok(second.every(Number.isFinite), `${name}: no invalid vertices`);
+      }
+      reset(); model.update();
+      const drawableBounds = name => {
+        const index = model.getDrawableIndex(s.CubismFramework.getIdManager().getId(name));
+        assert.ok(index >= 0, `${name}: compiled drawable exists`);
+        const points = model.getDrawableVertices(index), x = [], y = [];
+        for (let i = 0; i < points.length; i += 2) { x.push(points[i]); y.push(points[i + 1]); }
+        return { width: Math.max(...x) - Math.min(...x), height: Math.max(...y) - Math.min(...y) };
+      };
+      for (const side of ['L', 'R']) {
+        const white = drawableBounds(`ArtMeshEyewhite${side}`), iris = drawableBounds(`ArtMeshIrides${side}`);
+        const apertureRatio = white.height / white.width, irisRatio = iris.height / iris.width;
+        assert.ok(apertureRatio > 0.75 && apertureRatio < 1, `${side}: neutral eye aperture is open and rounded, not a flattened slit`);
+        assert.ok(irisRatio > 1.1 && irisRatio < 1.35, `${side}: neutral iris is a slender vertical oval`);
+        assert.ok(iris.height <= white.height, `${side}: iris height fits the eye aperture`);
+        assert.ok(iris.width / white.width < 0.67, `${side}: iris leaves visible eye-white at both sides`);
       }
       // Check the exported MOC, not just the authoring requests: a stale export
       // can animate correctly while restoring the extra eyelid and mouth ink.
@@ -116,8 +132,39 @@ for (const modelName of ['Haru', 'Taolinghu']) test(`bundled real Cubism Core lo
           else if (open < 1) assert.ok(lowerLid > 0 && lowerLid < 1, `${side}: partial blink interpolates opacity`);
           else assert.equal(lowerLid, 1, `${side}: open eye restores its lower eyelid`);
           assert.equal(opacity(`ArtMeshFaceDetail${other}`), 1, `${side}: a wink leaves the opposite eye open`);
-          for (const part of ['Eyelash', 'Eyewhite', 'Irides']) assert.equal(opacity(`ArtMesh${part}${side}`), 1, `${side}: blink retains the deforming ${part} layer`);
+          assert.equal(opacity(`ArtMeshEyelash${side}`), 1, `${side}: blink retains the closed eyelash curve`);
           previous = lowerLid;
+        }
+      }
+      // The generated eye-white mask retains a narrow slit at its closed key.
+      // Masking alone therefore leaves a visible gold iris strip; test the
+      // exported opacity curves as well as the per-eye clipping relationships.
+      for (const [side, other] of [['L', 'R'], ['R', 'L']]) {
+        const index = name => model.getDrawableIndex(s.CubismFramework.getIdManager().getId(name));
+        const irisMask = Array.from(model.getDrawableMasks()[index(`ArtMeshIrides${side}`)]);
+        assert.deepEqual(irisMask, [index(`ArtMeshEyewhite${side}`)], `${side}: iris is clipped by its own eye-white`);
+        for (const gaze of [-1, 0, 1]) {
+          let previous = -1;
+          for (const open of [0, 0.05, 0.1, 0.175, 0.2, 0.25, 0.5, 1]) {
+            reset();
+            model.setParameterValueById(s.CubismFramework.getIdManager().getId(`ParamEye${side}Open`), open);
+            for (const parameter of ['ParamEyeBallX', 'ParamEyeBallY', 'ParamEyeBallForm']) {
+              model.setParameterValueById(s.CubismFramework.getIdManager().getId(parameter), gaze);
+            }
+            model.update();
+            const iris = opacity(`ArtMeshIrides${side}`);
+            assert.ok(iris >= previous && iris <= 1, `${side}/${gaze}: iris visibility changes continuously with lid opening`);
+            for (const part of ['Eyewhite', 'Irides']) {
+              const value = opacity(`ArtMesh${part}${side}`);
+              if (open <= 0.1) assert.equal(value, 0, `${side}/${gaze}: closed eye has no ${part} pixels`);
+              else if (open < 0.25) assert.ok(value > 0 && value < 1, `${side}/${gaze}: nearly closed ${part} fades smoothly`);
+              else assert.equal(value, 1, `${side}/${gaze}: normal opening retains opaque ${part}`);
+              assert.equal(opacity(`ArtMesh${part}${other}`), 1, `${side}: a wink leaves the opposite ${part} visible`);
+            }
+            assert.equal(opacity(`ArtMeshEyelash${side}`), 1, `${side}: closed lashes remain visible`);
+            assert.ok(vertices().every(Number.isFinite), `${side}/${gaze}: valid eye geometry throughout closure`);
+            previous = iris;
+          }
         }
       }
       for (const form of [-1, 0, 1]) for (const open of [0, 0.2, 0.5, 1]) {
@@ -138,17 +185,53 @@ for (const modelName of ['Haru', 'Taolinghu']) test(`bundled real Cubism Core lo
         const motion = user.loadMotion(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength), buffer.length, group);
         motion.setEffectIds(new s.csmVector(), new s.csmVector());
         user._motionManager.startMotionPriority(motion, false, 3);
-        const samples = [];
-        for (let frame = 0; frame < Math.ceil(data.Meta.Duration * 60) + 10; frame++) {
+        let returnToIdle = null, resumedIdle = false;
+        if (group === 'Pat') {
+          const idleBuffer = readFileSync(new URL('assets/live2d/Taolinghu/' + manifest.FileReferences.Motions.Idle[0].File, web));
+          returnToIdle = user.loadMotion(idleBuffer.buffer.slice(idleBuffer.byteOffset, idleBuffer.byteOffset + idleBuffer.byteLength), idleBuffer.length, 'PatReturnToIdle');
+          returnToIdle.setEffectIds(new s.csmVector(), new s.csmVector());
+        }
+        const samples = [], patEyes = [];
+        let patClosedRun = 0, longestPatClosure = 0;
+        for (let frame = 0; frame < Math.ceil(data.Meta.Duration * 60) + (returnToIdle ? 40 : 10); frame++) {
+          // A fading Cubism motion leaves a blended final pose. The avatar
+          // resumes Idle when it finishes; exercise that real transition too.
+          if (returnToIdle && user._motionManager.isFinished()) {
+            user._motionManager.startMotionPriority(returnToIdle, false, 1);
+            resumedIdle = true;
+          }
           user._motionManager.updateMotion(model, 1 / 60); model.update();
           const raw = model.getParameterValueById(s.CubismFramework.getIdManager().getId('ParamArmL'));
           samples.push(raw);
+          if (group === 'Pat') {
+            const eyes = ['L', 'R'].map(side => model.getParameterValueById(s.CubismFramework.getIdManager().getId(`ParamEye${side}Open`)));
+            patEyes.push(eyes);
+            if (eyes.every(open => Math.abs(open) <= 1e-5)) {
+              patClosedRun++;
+              longestPatClosure = Math.max(longestPatClosure, patClosedRun);
+              for (const side of ['L', 'R']) {
+                for (const part of ['Eyewhite', 'Irides']) assert.equal(opacity(`ArtMesh${part}${side}`), 0, `pat: held closed ${side} eye hides ${part}`);
+                assert.equal(opacity(`ArtMeshEyelash${side}`), 1, `pat: held closed ${side} eye retains its eyelash curve`);
+              }
+            } else patClosedRun = 0;
+          }
           assert.ok(vertices().every(Number.isFinite), `${group}: valid mesh throughout motion`);
+        }
+        if (group === 'Pat') {
+          assert.ok(longestPatClosure >= 60, 'pat holds both eyes fully closed for at least one second, not a half-open squint');
+          const firstClosed = patEyes.findIndex(eyes => eyes.every(open => open <= 1e-5));
+          const lastClosed = patEyes.findLastIndex(eyes => eyes.every(open => open <= 1e-5));
+          const partial = eyes => eyes.every(open => open > 0.15 && open < 0.85);
+          assert.ok(patEyes.slice(0, firstClosed).some(partial), 'pat eases into the closed expression');
+          assert.ok(patEyes.slice(lastClosed + 1).some(partial), 'pat eases out of the closed expression');
+          assert.ok(resumedIdle, 'pat finishes and returns to the idle animation');
+          assert.ok(patEyes.at(-1).every(open => open >= 0.99), 'pat-to-idle transition restores both eyes fully open');
         }
         if (group === 'Hug') assert.ok(Math.max(...samples) > 0.85, 'hug crosses arms');
         if (group === 'Play') assert.ok(Math.min(...samples) < -0.8, 'play raises arm to wave');
         if (group === 'Feed') assert.ok(Math.max(...samples) > 0.55, 'feed brings a hand inward');
         user._motionManager.stopAllMotions(); s.ACubismMotion.delete(motion);
+        if (returnToIdle) s.ACubismMotion.delete(returnToIdle);
       }
     }
   } finally { user.release(); s.CubismFramework.dispose(); delete globalThis.Live2DCubismCore; }

@@ -49,7 +49,8 @@ motion('Idle', 12, {
 }, true);
 motion('Pat', 3.2, {
   ParamAngleZ: [[0.8, 5], [1.8, -3], [2.5, 2]], ParamAngleY: [[0.8, -3], [2.4, 2]],
-  ParamEyeLOpen: [[0.6, 0.2], [2.4, 0.3]], ParamEyeROpen: [[0.6, 0.2], [2.4, 0.3]],
+  // Pat is a held, fully closed expression; sleepy half-open eyes are separate.
+  ParamEyeLOpen: [[0.6, 0], [2.4, 0]], ParamEyeROpen: [[0.6, 0], [2.4, 0]],
   ParamMouthForm: [[0.7, 1], [2.4, 1]], ParamEarL: [[0.6, 0.6], [1.5, 0.3], [2.3, 0.6]], ParamEarR: [[0.6, -0.6], [1.5, -0.3], [2.3, -0.6]], ParamTail: [[0.8, 0.5], [1.7, -0.4], [2.5, 0.5]],
 });
 motion('Feed', 4, {

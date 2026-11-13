@@ -1,5 +1,5 @@
 {
-  "description": "Lower eyelid ink fades with each blink; hide the redundant fixed mouth-close stroke. The generated upper/lower lip outlines remain, preserving ParamMouthForm at closed and open mouth poses. No pixel or geometry edits.",
+  "description": "Lower eyelid ink fades with each blink. Eye-white and iris opacity reach zero near full closure, preserving the generated eyelash curve and eye-white clipping at partial/open poses. This prevents the nonzero eye-white slit from leaking a gold iris strip. Hide the redundant fixed mouth-close stroke while retaining dynamic mouth lips. No pixel or geometry edits. Iris keys include each directly bound ParamEyeBallForm value (-1, 0, 1), so seeding preserves its generated squash/stretch geometry while adding independent blink opacity.",
   "operation": "keyform_apply",
   "request": {
     "changes": [
@@ -115,6 +115,412 @@
         },
         "channels": {
           "opacity": 0
+        }
+      },
+      {
+        "op": "seed",
+        "target": "mesh:ArtMeshEyewhiteL",
+        "key": {
+          "ParamEyeLOpen": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshEyewhiteL",
+        "key": {
+          "ParamEyeLOpen": 0
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshEyewhiteL",
+        "key": {
+          "ParamEyeLOpen": 0.1
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshEyewhiteL",
+        "key": {
+          "ParamEyeLOpen": 0.25
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshEyewhiteL",
+        "key": {
+          "ParamEyeLOpen": 1
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "seed",
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": -1,
+          "ParamEyeLOpen": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": -1,
+          "ParamEyeLOpen": 0
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": -1,
+          "ParamEyeLOpen": 0.1
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": -1,
+          "ParamEyeLOpen": 0.25
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": -1,
+          "ParamEyeLOpen": 1
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "seed",
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": 0,
+          "ParamEyeLOpen": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": 0,
+          "ParamEyeLOpen": 0
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": 0,
+          "ParamEyeLOpen": 0.1
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": 0,
+          "ParamEyeLOpen": 0.25
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": 0,
+          "ParamEyeLOpen": 1
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "seed",
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": 1,
+          "ParamEyeLOpen": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": 1,
+          "ParamEyeLOpen": 0
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": 1,
+          "ParamEyeLOpen": 0.1
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": 1,
+          "ParamEyeLOpen": 0.25
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesL",
+        "key": {
+          "ParamEyeBallForm": 1,
+          "ParamEyeLOpen": 1
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "seed",
+        "target": "mesh:ArtMeshEyewhiteR",
+        "key": {
+          "ParamEyeROpen": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshEyewhiteR",
+        "key": {
+          "ParamEyeROpen": 0
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshEyewhiteR",
+        "key": {
+          "ParamEyeROpen": 0.1
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshEyewhiteR",
+        "key": {
+          "ParamEyeROpen": 0.25
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshEyewhiteR",
+        "key": {
+          "ParamEyeROpen": 1
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "seed",
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": -1,
+          "ParamEyeROpen": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": -1,
+          "ParamEyeROpen": 0
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": -1,
+          "ParamEyeROpen": 0.1
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": -1,
+          "ParamEyeROpen": 0.25
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": -1,
+          "ParamEyeROpen": 1
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "seed",
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": 0,
+          "ParamEyeROpen": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": 0,
+          "ParamEyeROpen": 0
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": 0,
+          "ParamEyeROpen": 0.1
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": 0,
+          "ParamEyeROpen": 0.25
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": 0,
+          "ParamEyeROpen": 1
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "seed",
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": 1,
+          "ParamEyeROpen": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": 1,
+          "ParamEyeROpen": 0
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": 1,
+          "ParamEyeROpen": 0.1
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": 1,
+          "ParamEyeROpen": 0.25
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshIridesR",
+        "key": {
+          "ParamEyeBallForm": 1,
+          "ParamEyeROpen": 1
+        },
+        "channels": {
+          "opacity": 1
         }
       }
     ]

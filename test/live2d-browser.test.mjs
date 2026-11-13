@@ -35,6 +35,37 @@ for (const appearance of ['haru-live2d', 'taolinghu-live2d']) test(`real Cubism 
   assert.ok(await page.evaluate(() => avatar.live2d.frames) > before + 2);
   const shot = name => `dist/live2d-qa/${appearance}-${name}.png`;
   mkdirSync('dist/live2d-qa', { recursive: true }); await page.screenshot({ path: shot('room') });
+  if (appearance === 'taolinghu-live2d') {
+    // Use the actual button, motion manager and draw loop. Observe a held pose
+    // rather than sleeping for a guessed frame or setting model parameters.
+    await page.locator('[data-interaction="pat"]').click();
+    const closedHandle = await page.waitForFunction(() => {
+      const a = avatar.live2d;
+      if (a.action?.name !== 'pat' || a.time - a.action.start < 0.75) return false;
+      const eyes = ['L', 'R'].map(side => a.model.getParameterValueById(a.id(`ParamEye${side}Open`)));
+      if (!eyes.every(open => Math.abs(open) <= 1e-5)) return false;
+      const drawables = ['L', 'R'].flatMap(side => ['Eyewhite', 'Irides', 'Eyelash'].map(part => {
+        const name = `ArtMesh${part}${side}`, index = a.model.getDrawableIndex(a.id(name));
+        return { name, part, index, opacity: a.model.getDrawableOpacity(index) };
+      }));
+      return { eyes, drawables };
+    });
+    const closed = await closedHandle.jsonValue(); await closedHandle.dispose();
+    assert.ok(closed.eyes.every(open => Math.abs(open) <= 1e-5), 'pat holds both eyes fully closed in the application');
+    for (const drawable of closed.drawables) {
+      assert.ok(drawable.index >= 0, `${drawable.name}: compiled drawable exists`);
+      assert.equal(drawable.opacity, drawable.part === 'Eyelash' ? 1 : 0, `${drawable.name}: closed eyes retain lashes without visible iris or eye-white`);
+    }
+    await page.screenshot({ path: shot('pat-closed') });
+    await page.waitForFunction(() => {
+      const a = avatar.live2d;
+      const idlePlaying = a.user._motionManager._motions.get().some(entry => entry.getCubismMotion() === a.motions.Idle[0] && !entry.isFinished());
+      return !a.action && idlePlaying && ['L', 'R'].every(side =>
+        a.model.getParameterValueById(a.id(`ParamEye${side}Open`)) >= 0.99
+        && ['Eyewhite', 'Irides'].every(part => a.model.getDrawableOpacity(a.model.getDrawableIndex(a.id(`ArtMesh${part}${side}`))) === 1));
+    });
+    await page.screenshot({ path: shot('pat-return-idle') });
+  }
   await page.locator('[data-interaction="hug"]').click();
   await page.waitForFunction(() => avatar.live2d.action?.name === 'hug');
   assert.equal(await page.locator('#pet-character').evaluate(node => getComputedStyle(node).opacity), '1', 'interaction cooldown does not fade the animated character');
