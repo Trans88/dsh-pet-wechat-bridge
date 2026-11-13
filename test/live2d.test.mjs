@@ -105,11 +105,13 @@ for (const modelName of ['Haru', 'Taolinghu']) test(`bundled real Cubism Core lo
         for (let i = 0; i < points.length; i += 2) { x.push(points[i]); y.push(points[i + 1]); }
         return { width: Math.max(...x) - Math.min(...x), height: Math.max(...y) - Math.min(...y) };
       };
+      const face = drawableBounds('ArtMeshFace');
+      assert.ok(face.height / face.width > 0.95 && face.height / face.width < 1.06, 'neutral face is compact rather than vertically elongated');
       for (const side of ['L', 'R']) {
         const white = drawableBounds(`ArtMeshEyewhite${side}`), iris = drawableBounds(`ArtMeshIrides${side}`);
         const apertureRatio = white.height / white.width, irisRatio = iris.height / iris.width;
         assert.ok(apertureRatio > 0.75 && apertureRatio < 1, `${side}: neutral eye aperture is open and rounded, not a flattened slit`);
-        assert.ok(irisRatio > 1.1 && irisRatio < 1.35, `${side}: neutral iris is a slender vertical oval`);
+        assert.ok(irisRatio > 0.98 && irisRatio < 1.25, `${side}: neutral iris retains a compact oval`);
         assert.ok(iris.height <= white.height, `${side}: iris height fits the eye aperture`);
         assert.ok(iris.width / white.width < 0.67, `${side}: iris leaves visible eye-white at both sides`);
       }
@@ -121,19 +123,13 @@ for (const modelName of ['Haru', 'Taolinghu']) test(`bundled real Cubism Core lo
         return model.getDrawableOpacity(index);
       };
       for (const [side, other] of [['L', 'R'], ['R', 'L']]) {
-        let previous = -1;
         for (const open of [0, 0.2, 0.5, 0.65, 1]) {
           reset();
           model.setParameterValueById(s.CubismFramework.getIdManager().getId(`ParamEye${side}Open`), open);
           model.update();
-          const lowerLid = opacity(`ArtMeshFaceDetail${side}`);
-          assert.ok(lowerLid >= previous && lowerLid <= 1, `${side}: lower eyelid fades continuously as the eye opens`);
-          if (open <= 0.2) assert.equal(lowerLid, 0, `${side}: closed eye leaves no lower eyelid ink`);
-          else if (open < 1) assert.ok(lowerLid > 0 && lowerLid < 1, `${side}: partial blink interpolates opacity`);
-          else assert.equal(lowerLid, 1, `${side}: open eye restores its lower eyelid`);
-          assert.equal(opacity(`ArtMeshFaceDetail${other}`), 1, `${side}: a wink leaves the opposite eye open`);
+          assert.equal(opacity(`ArtMeshFaceDetail${side}`), 0, `${side}: no extra lower eyelid ink at any eye opening`);
+          assert.equal(opacity(`ArtMeshFaceDetail${other}`), 0, `${side}: opposite lower eyelid also stays absent`);
           assert.equal(opacity(`ArtMeshEyelash${side}`), 1, `${side}: blink retains the closed eyelash curve`);
-          previous = lowerLid;
         }
       }
       // The generated eye-white mask retains a narrow slit at its closed key.

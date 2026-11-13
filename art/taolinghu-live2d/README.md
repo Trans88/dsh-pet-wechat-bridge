@@ -58,3 +58,9 @@ node --test test/live2d.test.mjs
 原画组件由本任务生成，角色依据仓库已有桃铃狐参考；模型、旋转控制和互动曲线为本任务新制作。生成记录见 `prompts.md`。模型编译器由上述 PSD2Live 发布包提供，工程归属不等同于编译器许可证；本仓库本身仍未指定开源许可证。Cubism Core / Framework 保持原有官方文件和授权说明，见 `web/vendor/live2d/NOTICE.txt`。
 
 已用项目实际 Cubism Core 5.1.0 检查眼部显隐及动作曲线，并目视检查原生模型的睁眼、闭眼、单眼眨眼和尾巴两端极限姿态；视觉对照见 `qa/v0.15.2-comparison.png`。最终本地测试共 274 项，268 项通过、6 项跳过、0 项失败。Chromium 与 Windows 打包程序有对应自动验收脚本，最终平台结论以本次 CI 结果为准。
+
+## 紧凑头型修正（待用户审美验收）
+
+基于 v0.15.2 最终工程，依次应用 `no-lowerlid-refinement.json`、`compact-head-refinement.json`，只应用一次；本工程已包含修改。额外的下眼睑墨线在全部开合关键帧均为零透明度。HeadContainer 的 27 个转头/倾斜关键帧以局部底部中心为基点，X 乘 0.98、Y 乘 0.88，使脸和发型更紧凑；旋转绑定耳朵跟随附着点，保留自身形状，因此不是整个含耳轮廓精确缩短 12%。身体、尾根、原画和纹理均不改。源 PSD/assembled.png 保留原始画稿，最终外观以已变形模型为准。
+
+`qa/compact-head-poses.png` 为原生渲染，A 待机、B 全闭眼、C/D 转头、E 单眼眨、F 半闭眼。几何检查未发现新翻转或退化。导出器报告与源 PSD 的位置差异，这是上述有意的模型变形；不能将该提示误称为与原 PSD 逐像素一致。官方 Cubism Editor 和用户 Windows 桌面外观仍未单独验收。
