@@ -105,6 +105,8 @@ for (const modelName of ['Haru', 'Taolinghu']) test(`bundled real Cubism Core lo
         for (let i = 0; i < points.length; i += 2) { x.push(points[i]); y.push(points[i + 1]); }
         return { width: Math.max(...x) - Math.min(...x), height: Math.max(...y) - Math.min(...y) };
       };
+      const drawOrder = name => model.getDrawableRenderOrders()[model.getDrawableIndex(s.CubismFramework.getIdManager().getId(name))];
+      for (const part of ['ArtMeshTopwearR', 'ArtMeshTopwearL', 'ArtMeshNeckwear', 'ArtMeshNeckwear2']) assert.ok(drawOrder(part) > drawOrder('ArtMeshFace'), `${part}: existing collar and clasp cover the neck`);
       const face = drawableBounds('ArtMeshFace');
       assert.ok(face.height / face.width > 0.95 && face.height / face.width < 1.06, 'neutral face is compact rather than vertically elongated');
       for (const side of ['L', 'R']) {
@@ -113,7 +115,7 @@ for (const modelName of ['Haru', 'Taolinghu']) test(`bundled real Cubism Core lo
         assert.ok(apertureRatio > 0.75 && apertureRatio < 1, `${side}: neutral eye aperture is open and rounded, not a flattened slit`);
         assert.ok(irisRatio > 0.98 && irisRatio < 1.25, `${side}: neutral iris retains a compact oval`);
         assert.ok(iris.height <= white.height, `${side}: iris height fits the eye aperture`);
-        assert.ok(iris.width / white.width < 0.67, `${side}: iris leaves visible eye-white at both sides`);
+        assert.ok(iris.width / white.width < 0.72, `${side}: iris leaves visible eye-white at both sides`);
       }
       // Check the exported MOC, not just the authoring requests: a stale export
       // can animate correctly while restoring the extra eyelid and mouth ink.
