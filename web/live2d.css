@@ -1,3 +1,4 @@
-.pet-character[data-appearance="haru-live2d"] { animation:none!important; }
+.pet-character[data-appearance="haru-live2d"], .pet-character[data-appearance="taolinghu-live2d"] { animation:none!important; }
+.pet-character[data-appearance="haru-live2d"]:disabled, .pet-character[data-appearance="taolinghu-live2d"]:disabled { opacity:1; }
 .pet-live2d { display:block; width:100%; aspect-ratio:1; pointer-events:none; }
 .pet-live2d[data-state="loading"] { position:absolute; inset:0; visibility:hidden; }

@@ -1,0 +1,7 @@
+{
+  "name": "taolinghu-art-tools",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node build-art.mjs" },
+  "dependencies": { "ag-psd": "34.2.0", "pngjs": "7.0.0", "sharp": "0.35.5" }
+}

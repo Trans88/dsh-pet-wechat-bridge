@@ -1,0 +1,536 @@
+{
+  "canvas": {
+    "width": 1254,
+    "height": 1254
+  },
+  "layers": [
+    {
+      "name": "tail",
+      "file": "layers/tail.png",
+      "left": 704,
+      "top": 821,
+      "width": 250,
+      "height": 270,
+      "source": "body",
+      "cell": 2,
+      "sourceBounds": [
+        867,
+        54,
+        1231,
+        396
+      ]
+    },
+    {
+      "name": "topwear back cape",
+      "file": "layers/topwear_back_cape.png",
+      "left": 465,
+      "top": 577,
+      "width": 323,
+      "height": 349,
+      "source": "body",
+      "cell": 1,
+      "sourceBounds": [
+        447,
+        29,
+        804,
+        403
+      ]
+    },
+    {
+      "name": "legwear-r",
+      "file": "layers/legwear-r.png",
+      "left": 511,
+      "top": 851,
+      "width": 116,
+      "height": 362,
+      "source": "body",
+      "cell": 5,
+      "sourceBounds": [
+        979,
+        437,
+        1109,
+        820
+      ]
+    },
+    {
+      "name": "legwear-l",
+      "file": "layers/legwear-l.png",
+      "left": 633,
+      "top": 851,
+      "width": 116,
+      "height": 362,
+      "source": "body",
+      "cell": 6,
+      "sourceBounds": [
+        152,
+        854,
+        285,
+        1238
+      ]
+    },
+    {
+      "name": "handwear-r",
+      "file": "layers/handwear-r.png",
+      "left": 366,
+      "top": 663,
+      "width": 192,
+      "height": 212,
+      "source": "body",
+      "cell": 3,
+      "sourceBounds": [
+        62,
+        458,
+        313,
+        786
+      ]
+    },
+    {
+      "name": "handwear-l",
+      "file": "layers/handwear-l.png",
+      "left": 699,
+      "top": 663,
+      "width": 192,
+      "height": 212,
+      "source": "body",
+      "cell": 4,
+      "sourceBounds": [
+        521,
+        459,
+        773,
+        785
+      ]
+    },
+    {
+      "name": "topwear torso",
+      "file": "layers/topwear_torso.png",
+      "left": 477,
+      "top": 577,
+      "width": 300,
+      "height": 312,
+      "source": "body",
+      "cell": 0,
+      "sourceBounds": [
+        81,
+        29,
+        359,
+        397
+      ]
+    },
+    {
+      "name": "neckwear tie",
+      "file": "layers/neckwear_tie.png",
+      "left": 613,
+      "top": 657,
+      "width": 46,
+      "height": 109,
+      "source": "face",
+      "cell": 15,
+      "sourceBounds": [
+        1034,
+        953,
+        1152,
+        1232
+      ]
+    },
+    {
+      "name": "topwear cape-r",
+      "file": "layers/topwear_cape-r.png",
+      "left": 411,
+      "top": 583,
+      "width": 225,
+      "height": 169,
+      "source": "body",
+      "cell": 7,
+      "sourceBounds": [
+        451,
+        931,
+        752,
+        1178
+      ]
+    },
+    {
+      "name": "topwear cape-l",
+      "file": "layers/topwear_cape-l.png",
+      "left": 636,
+      "top": 583,
+      "width": 208,
+      "height": 169,
+      "source": "body",
+      "cell": 8,
+      "sourceBounds": [
+        915,
+        931,
+        1211,
+        1178
+      ]
+    },
+    {
+      "name": "neckwear clasp",
+      "file": "layers/neckwear_clasp.png",
+      "left": 611,
+      "top": 602,
+      "width": 47,
+      "height": 45,
+      "source": "face",
+      "cell": 14,
+      "sourceBounds": [
+        688,
+        998,
+        875,
+        1197
+      ]
+    },
+    {
+      "name": "ears-r",
+      "file": "layers/ears-r.png",
+      "left": 348,
+      "top": 18,
+      "width": 230,
+      "height": 285,
+      "source": "head",
+      "cell": 5,
+      "sourceBounds": [
+        901,
+        444,
+        1177,
+        802
+      ]
+    },
+    {
+      "name": "ears-l",
+      "file": "layers/ears-l.png",
+      "left": 682,
+      "top": 18,
+      "width": 230,
+      "height": 285,
+      "source": "head",
+      "cell": 6,
+      "sourceBounds": [
+        78,
+        861,
+        363,
+        1226
+      ]
+    },
+    {
+      "name": "back hair",
+      "file": "layers/back_hair.png",
+      "left": 307,
+      "top": 126,
+      "width": 632,
+      "height": 481,
+      "source": "head",
+      "cell": 0,
+      "sourceBounds": [
+        23,
+        43,
+        412,
+        389
+      ]
+    },
+    {
+      "name": "face",
+      "file": "layers/face.png",
+      "left": 419,
+      "top": 198,
+      "width": 420,
+      "height": 391,
+      "source": "head",
+      "cell": 1,
+      "sourceBounds": [
+        468,
+        51,
+        779,
+        397
+      ]
+    },
+    {
+      "name": "eyewhite-r",
+      "file": "layers/eyewhite-r.png",
+      "left": 490,
+      "top": 412,
+      "width": 111,
+      "height": 82,
+      "source": "face",
+      "cell": 0,
+      "sourceBounds": [
+        55,
+        103,
+        270,
+        241
+      ]
+    },
+    {
+      "name": "eyewhite-l",
+      "file": "layers/eyewhite-l.png",
+      "left": 667,
+      "top": 412,
+      "width": 111,
+      "height": 82,
+      "source": "face",
+      "cell": 1,
+      "sourceBounds": [
+        361,
+        103,
+        577,
+        241
+      ]
+    },
+    {
+      "name": "irides-r",
+      "file": "layers/irides-r.png",
+      "left": 514,
+      "top": 419,
+      "width": 79,
+      "height": 79,
+      "source": "face",
+      "cell": 2,
+      "sourceBounds": [
+        679,
+        65,
+        886,
+        276
+      ]
+    },
+    {
+      "name": "irides-l",
+      "file": "layers/irides-l.png",
+      "left": 681,
+      "top": 419,
+      "width": 79,
+      "height": 79,
+      "source": "face",
+      "cell": 3,
+      "sourceBounds": [
+        985,
+        64,
+        1195,
+        276
+      ]
+    },
+    {
+      "name": "facedetail lowerlid-r",
+      "file": "layers/facedetail_lowerlid-r.png",
+      "left": 513,
+      "top": 490,
+      "width": 80,
+      "height": 9,
+      "source": "face",
+      "cell": 6,
+      "sourceBounds": [
+        691,
+        475,
+        851,
+        518
+      ]
+    },
+    {
+      "name": "facedetail lowerlid-l",
+      "file": "layers/facedetail_lowerlid-l.png",
+      "left": 680,
+      "top": 490,
+      "width": 80,
+      "height": 9,
+      "source": "face",
+      "cell": 7,
+      "sourceBounds": [
+        1013,
+        478,
+        1184,
+        520
+      ]
+    },
+    {
+      "name": "eyelash-r",
+      "file": "layers/eyelash-r.png",
+      "left": 474,
+      "top": 399,
+      "width": 132,
+      "height": 56,
+      "source": "face",
+      "cell": 4,
+      "sourceBounds": [
+        28,
+        415,
+        276,
+        542
+      ]
+    },
+    {
+      "name": "eyelash-l",
+      "file": "layers/eyelash-l.png",
+      "left": 660,
+      "top": 399,
+      "width": 132,
+      "height": 56,
+      "source": "face",
+      "cell": 5,
+      "sourceBounds": [
+        353,
+        416,
+        602,
+        543
+      ]
+    },
+    {
+      "name": "eyebrow-r",
+      "file": "layers/eyebrow-r.png",
+      "left": 496,
+      "top": 353,
+      "width": 84,
+      "height": 20,
+      "source": "face",
+      "cell": 8,
+      "sourceBounds": [
+        66,
+        751,
+        247,
+        802
+      ]
+    },
+    {
+      "name": "eyebrow-l",
+      "file": "layers/eyebrow-l.png",
+      "left": 691,
+      "top": 353,
+      "width": 84,
+      "height": 20,
+      "source": "face",
+      "cell": 9,
+      "sourceBounds": [
+        383,
+        750,
+        570,
+        798
+      ]
+    },
+    {
+      "name": "nose",
+      "file": "layers/nose.png",
+      "left": 633,
+      "top": 493,
+      "width": 8,
+      "height": 10,
+      "source": "face",
+      "cell": 13,
+      "sourceBounds": [
+        429,
+        1058,
+        514,
+        1144
+      ]
+    },
+    {
+      "name": "mouth_open",
+      "file": "layers/mouth_open.png",
+      "left": 613,
+      "top": 515,
+      "width": 44,
+      "height": 32,
+      "source": "face",
+      "cell": 11,
+      "sourceBounds": [
+        1024,
+        731,
+        1160,
+        840
+      ]
+    },
+    {
+      "name": "mouth_close",
+      "file": "layers/mouth_close.png",
+      "left": 612,
+      "top": 526,
+      "width": 45,
+      "height": 10,
+      "source": "face",
+      "cell": 10,
+      "sourceBounds": [
+        724,
+        772,
+        838,
+        797
+      ]
+    },
+    {
+      "name": "front hair 1",
+      "file": "layers/front_hair_1.png",
+      "left": 302,
+      "top": 205,
+      "width": 218,
+      "height": 398,
+      "source": "head",
+      "cell": 3,
+      "sourceBounds": [
+        59,
+        431,
+        299,
+        826
+      ]
+    },
+    {
+      "name": "front hair 2",
+      "file": "layers/front_hair_2.png",
+      "left": 750,
+      "top": 205,
+      "width": 218,
+      "height": 398,
+      "source": "head",
+      "cell": 4,
+      "sourceBounds": [
+        533,
+        432,
+        776,
+        825
+      ]
+    },
+    {
+      "name": "front hair 3",
+      "file": "layers/front_hair_3.png",
+      "left": 333,
+      "top": 129,
+      "width": 590,
+      "height": 323,
+      "source": "head",
+      "cell": 2,
+      "sourceBounds": [
+        851,
+        46,
+        1226,
+        387
+      ]
+    },
+    {
+      "name": "headwear diamond",
+      "file": "layers/headwear_diamond.png",
+      "left": 402,
+      "top": 277,
+      "width": 103,
+      "height": 117,
+      "source": "head",
+      "cell": 7,
+      "sourceBounds": [
+        505,
+        909,
+        745,
+        1187
+      ]
+    },
+    {
+      "name": "earwear bow-l",
+      "file": "layers/earwear_bow-l.png",
+      "left": 806,
+      "top": 202,
+      "width": 106,
+      "height": 130,
+      "source": "head",
+      "cell": 8,
+      "sourceBounds": [
+        892,
+        915,
+        1180,
+        1194
+      ]
+    }
+  ]
+}

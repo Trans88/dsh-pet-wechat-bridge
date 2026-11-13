@@ -33,3 +33,15 @@ https://www.live2d.com/en/sdk/license/
 Haru 为 Live2D 官方示例角色；使用该形象即同意上列运行库与素材授权条款。
 桃铃狐现有 PNG 形象继续保留；它尚未制作成专属 Live2D 模型。
 运行库、模型、贴图与动作均随本程序提供，运行时不连接第三方 CDN。
+
+Taolinghu original project model (v0.15.0)
+----------------------------------------
+Character reference: web/assets/taolinghu-hd.png in this repository.
+New layered artwork generated for this project with ImageGen; source components,
+PSD, editable model project and authoring records: art/taolinghu-live2d/.
+The Taolinghu geometry, ear/tail/arm controls and interaction curves are newly
+authored for this project and do not reuse the Haru mesh or texture.
+Compiled with PSD2Live v3.6.7 (build-time only, not bundled):
+https://github.com/tsunehimatoi/psd2live/releases/tag/v3.6.7
+No additional runtime library is introduced. Cubism Core / Framework licenses
+above continue to apply. This repository has not declared an open-source license.

@@ -128,7 +128,7 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   await room.waitForFunction(() => document.querySelector('[name="pet.name"]').value === '小蓝');
   await room.locator('[name="pet.appearance"]').selectOption('taolinghu-classic'); await room.locator('#settings-form button[type="submit"]').click();
   await pet.waitForFunction(() => document.querySelector('#pet-character').dataset.appearance === 'taolinghu-classic');
-  await room.locator('[name="pet.appearance"]').selectOption('haru-live2d'); await room.locator('#settings-form button[type="submit"]').click();
+  await room.locator('[name="pet.appearance"]').selectOption('taolinghu-live2d'); await room.locator('#settings-form button[type="submit"]').click();
   await pet.waitForSelector('.pet-live2d[data-state="ready"]', { timeout: 20000 });
   await pet.waitForFunction(() => Number(document.querySelector('.pet-live2d')?.dataset.frames) > 5);
   const liveFrame = await pet.locator('.pet-live2d').getAttribute('data-frames');

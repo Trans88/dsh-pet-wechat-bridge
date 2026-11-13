@@ -44,10 +44,11 @@
     }
     cancel() { this.live2d?.cancel(); this.sequence = null; this.render(this.options, true); }
     render(options = {}, force = false) {
-      if (options.appearance === 'haru-live2d' && !this.failed.has('live2d')) return this.renderLive2d(options);
-      if (options.appearance !== 'haru-live2d') this.failed.delete('live2d');
+      const isLive2d = ['haru-live2d', 'taolinghu-live2d'].includes(options.appearance);
+      if (isLive2d && !this.failed.has(options.appearance)) return this.renderLive2d(options);
+      if (!isLive2d) { this.failed.delete('haru-live2d'); this.failed.delete('taolinghu-live2d'); }
       this.releaseLive2d();
-      if (options.appearance === 'haru-live2d') options = { ...options, appearance: 'taolinghu' };
+      if (isLive2d) options = { ...options, appearance: 'taolinghu' };
       if (this.options?.appearance !== options.appearance || options.animation === 'thinking' || options.playing === false) this.sequence = null;
       this.options = options;
       const { appearance = 'taolinghu', animation = 'idle', playing = true } = options;
@@ -94,23 +95,25 @@
       draw();
     }
     renderLive2d(options) {
+      if (this.live2dAppearance && this.live2dAppearance !== options.appearance) this.releaseLive2d();
       if (this.live2d || this.live2dLoading) {
         this.options = options; this.live2d?.update(options); return;
       }
       // A familiar poster remains visible until the actual mesh has loaded.
       this.render({ ...options, appearance: 'taolinghu', playing: false });
       this.options = options; this.sequence = null; this.caption.hidden = true;
-      this.character.dataset.appearance = 'haru-live2d';
+      this.character.dataset.appearance = options.appearance;
+      this.live2dAppearance = options.appearance;
       const generation = this.live2dGeneration = (this.live2dGeneration || 0) + 1;
       this.live2dLoading = true;
       import('/live2d.js').then(async ({ Live2DAvatar }) => {
         if (generation !== this.live2dGeneration) return;
         const fail = error => {
           if (generation !== this.live2dGeneration) return;
-          this.failed.add('live2d'); this.releaseLive2d(); this.render(options, true);
+          this.failed.add(options.appearance); this.releaseLive2d(); this.render(options, true);
           this.onError(`${error?.message || 'Live2D 加载失败。'}已暂时显示桃铃狐，可重新选择 Live2D 或刷新重试。`);
         };
-        this.live2d = new Live2DAvatar({ character: this.character, onError: fail });
+        this.live2d = new Live2DAvatar({ character: this.character, onError: fail, appearance: options.appearance });
         this.live2d.update(this.options);
         await this.live2d.load();
         if (generation !== this.live2dGeneration) return;
@@ -118,14 +121,14 @@
         this.character.classList.remove('motion-paused'); this.live2d.setSpeech(this.speech);
       }).catch(error => {
         if (generation !== this.live2dGeneration) return;
-        this.failed.add('live2d'); this.releaseLive2d(); this.render(options, true);
+        this.failed.add(options.appearance); this.releaseLive2d(); this.render(options, true);
         this.onError(`${error?.message || 'Live2D 加载失败。'}已暂时显示桃铃狐。`);
       });
     }
     releaseLive2d() {
       if (!this.live2d && !this.live2dLoading) return;
       this.live2dGeneration++; this.live2dLoading = false; this.key = null;
-      this.live2d?.dispose(); this.live2d = null;
+      this.live2d?.dispose(); this.live2d = null; this.live2dAppearance = null;
     }
     setSpeech(value) { this.speech = value; this.live2d?.setSpeech(value); }
     trackPointer(x, y) { this.live2d?.trackPointer(x, y); }

@@ -1,0 +1,161 @@
+{
+  "operation": "keyform_apply",
+  "request": {
+    "changes": [
+      {
+        "op": "set",
+        "target": "rotation:DeformTaolingArmL",
+        "key": {
+          "ParamArmL": -1
+        },
+        "geometry": {
+          "angle": -100
+        }
+      },
+      {
+        "op": "set",
+        "target": "rotation:DeformTaolingArmL",
+        "key": {
+          "ParamArmL": 1
+        },
+        "geometry": {
+          "angle": 100
+        }
+      },
+      {
+        "op": "seed",
+        "target": "mesh:ArtMeshHandwearL",
+        "key": {
+          "ParamArmL": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshHandwearL",
+        "key": {
+          "ParamArmL": -1
+        },
+        "channels": {
+          "drawOrder": 86
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshHandwearL",
+        "key": {
+          "ParamArmL": -0.2
+        },
+        "channels": {
+          "drawOrder": 86
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshHandwearL",
+        "key": {
+          "ParamArmL": 0
+        },
+        "channels": {
+          "drawOrder": 60
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshHandwearL",
+        "key": {
+          "ParamArmL": 0.2
+        },
+        "channels": {
+          "drawOrder": 86
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshHandwearL",
+        "key": {
+          "ParamArmL": 1
+        },
+        "channels": {
+          "drawOrder": 86
+        }
+      },
+      {
+        "op": "set",
+        "target": "rotation:DeformTaolingArmR",
+        "key": {
+          "ParamArmR": -1
+        },
+        "geometry": {
+          "angle": -100
+        }
+      },
+      {
+        "op": "set",
+        "target": "rotation:DeformTaolingArmR",
+        "key": {
+          "ParamArmR": 1
+        },
+        "geometry": {
+          "angle": 100
+        }
+      },
+      {
+        "op": "seed",
+        "target": "mesh:ArtMeshHandwearR",
+        "key": {
+          "ParamArmR": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshHandwearR",
+        "key": {
+          "ParamArmR": -1
+        },
+        "channels": {
+          "drawOrder": 85
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshHandwearR",
+        "key": {
+          "ParamArmR": -0.2
+        },
+        "channels": {
+          "drawOrder": 85
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshHandwearR",
+        "key": {
+          "ParamArmR": 0
+        },
+        "channels": {
+          "drawOrder": 50
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshHandwearR",
+        "key": {
+          "ParamArmR": 0.2
+        },
+        "channels": {
+          "drawOrder": 85
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshHandwearR",
+        "key": {
+          "ParamArmR": 1
+        },
+        "channels": {
+          "drawOrder": 85
+        }
+      }
+    ]
+  }
+}

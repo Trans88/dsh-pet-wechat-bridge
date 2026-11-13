@@ -1,0 +1,303 @@
+{
+  "description": "Native Cubism rotation deformers, no skeleton runtime. Apply to PSD2Live 3.6.7 imported Taolinghu.cmo3.",
+  "rotations": [
+    {
+      "operation": "canvas_rotation",
+      "request": {
+        "id": "DeformTaolingArmL",
+        "name": "桃铃狐左臂",
+        "meshes": [
+          "ArtMeshHandwearL"
+        ],
+        "origin": [
+          750,
+          690
+        ],
+        "preservePose": true
+      }
+    },
+    {
+      "operation": "canvas_rotation",
+      "request": {
+        "id": "DeformTaolingArmR",
+        "name": "桃铃狐右臂",
+        "meshes": [
+          "ArtMeshHandwearR"
+        ],
+        "origin": [
+          505,
+          690
+        ],
+        "preservePose": true
+      }
+    },
+    {
+      "operation": "canvas_rotation",
+      "request": {
+        "id": "DeformTaolingEarL",
+        "name": "桃铃狐左耳",
+        "meshes": [
+          "ArtMeshEarsL",
+          "ArtMeshEarwearL"
+        ],
+        "origin": [
+          792,
+          240
+        ],
+        "preservePose": true
+      }
+    },
+    {
+      "operation": "canvas_rotation",
+      "request": {
+        "id": "DeformTaolingEarR",
+        "name": "桃铃狐右耳",
+        "meshes": [
+          "ArtMeshEarsR"
+        ],
+        "origin": [
+          465,
+          240
+        ],
+        "preservePose": true
+      }
+    },
+    {
+      "operation": "canvas_rotation",
+      "request": {
+        "id": "DeformTaolingTail",
+        "name": "桃铃狐尾巴",
+        "meshes": [
+          "ArtMeshTail"
+        ],
+        "origin": [
+          735,
+          925
+        ],
+        "preservePose": true
+      }
+    }
+  ],
+  "edits": [
+    {
+      "operation": "parameter_create",
+      "request": {
+        "parameter_id": "ParamArmL",
+        "name": "桃铃狐左臂",
+        "min": -1,
+        "max": 1,
+        "default": 0
+      }
+    },
+    {
+      "operation": "keyform_apply",
+      "request": {
+        "changes": [
+          {
+            "op": "seed",
+            "target": "rotation:DeformTaolingArmL",
+            "key": {
+              "ParamArmL": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmL",
+            "key": {
+              "ParamArmL": -1
+            },
+            "geometry": {
+              "angle": -55
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmL",
+            "key": {
+              "ParamArmL": 1
+            },
+            "geometry": {
+              "angle": 55
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "parameter_create",
+      "request": {
+        "parameter_id": "ParamArmR",
+        "name": "桃铃狐右臂",
+        "min": -1,
+        "max": 1,
+        "default": 0
+      }
+    },
+    {
+      "operation": "keyform_apply",
+      "request": {
+        "changes": [
+          {
+            "op": "seed",
+            "target": "rotation:DeformTaolingArmR",
+            "key": {
+              "ParamArmR": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmR",
+            "key": {
+              "ParamArmR": -1
+            },
+            "geometry": {
+              "angle": -55
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmR",
+            "key": {
+              "ParamArmR": 1
+            },
+            "geometry": {
+              "angle": 55
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "parameter_create",
+      "request": {
+        "parameter_id": "ParamEarL",
+        "name": "桃铃狐左耳",
+        "min": -1,
+        "max": 1,
+        "default": 0
+      }
+    },
+    {
+      "operation": "keyform_apply",
+      "request": {
+        "changes": [
+          {
+            "op": "seed",
+            "target": "rotation:DeformTaolingEarL",
+            "key": {
+              "ParamEarL": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingEarL",
+            "key": {
+              "ParamEarL": -1
+            },
+            "geometry": {
+              "angle": -10
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingEarL",
+            "key": {
+              "ParamEarL": 1
+            },
+            "geometry": {
+              "angle": 10
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "parameter_create",
+      "request": {
+        "parameter_id": "ParamEarR",
+        "name": "桃铃狐右耳",
+        "min": -1,
+        "max": 1,
+        "default": 0
+      }
+    },
+    {
+      "operation": "keyform_apply",
+      "request": {
+        "changes": [
+          {
+            "op": "seed",
+            "target": "rotation:DeformTaolingEarR",
+            "key": {
+              "ParamEarR": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingEarR",
+            "key": {
+              "ParamEarR": -1
+            },
+            "geometry": {
+              "angle": -10
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingEarR",
+            "key": {
+              "ParamEarR": 1
+            },
+            "geometry": {
+              "angle": 10
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "parameter_create",
+      "request": {
+        "parameter_id": "ParamTail",
+        "name": "桃铃狐尾巴",
+        "min": -1,
+        "max": 1,
+        "default": 0
+      }
+    },
+    {
+      "operation": "keyform_apply",
+      "request": {
+        "changes": [
+          {
+            "op": "seed",
+            "target": "rotation:DeformTaolingTail",
+            "key": {
+              "ParamTail": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingTail",
+            "key": {
+              "ParamTail": -1
+            },
+            "geometry": {
+              "angle": -14
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingTail",
+            "key": {
+              "ParamTail": 1
+            },
+            "geometry": {
+              "angle": 14
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
