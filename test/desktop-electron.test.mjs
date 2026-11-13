@@ -139,20 +139,22 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   assert.equal(liveImage.data[3], 0, 'Live2D preserves the transparent desktop');
   const mesh = PNG.sync.read(await pet.locator('.pet-live2d').screenshot({ path: join(artifacts, 'live2d-model.png'), omitBackground: true }));
   assert.ok(mesh.data.filter((v, i) => i % 4 === 3 && v > 100).length > 500, 'packaged Cubism draws visible model pixels');
-  // Playwright forces pages active by default, masking the native visibility API.
-  const visibilitySession = await pet.context().newCDPSession(pet);
-  await visibilitySession.send('Emulation.setFocusEmulationEnabled', { enabled: false });
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith('/desktop')).hide());
+  const isVisible = await app.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith('/desktop')); win.hide(); return win.isVisible();
+  });
+  assert.equal(isVisible, false);
   // A hidden Chromium window does not service rAF polling; use timer polling here.
-  await pet.waitForFunction(() => document.hidden && document.querySelector('.pet-live2d')?.dataset.paused === 'true', undefined, { polling: 100 }).catch(async error => {
+  // The native host signal also works when automation forces document.hidden=false.
+  await pet.waitForFunction(() => document.querySelector('.pet-live2d')?.dataset.paused === 'true', undefined, { polling: 100 }).catch(async error => {
     console.log('Native visibility:', await pet.evaluate(() => ({ hidden: document.hidden, paused: document.querySelector('.pet-live2d')?.dataset.paused, frames: document.querySelector('.pet-live2d')?.dataset.frames })));
     throw error;
   });
   const pausedFrame = await pet.locator('.pet-live2d').getAttribute('data-frames'); await pet.waitForTimeout(350);
   assert.equal(await pet.locator('.pet-live2d').getAttribute('data-frames'), pausedFrame, 'hidden native window stops the animation loop');
+  assert.equal(await pet.evaluate(() => window.petDesktop.cursor()), null, 'hidden pet does not receive native cursor positions');
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith('/desktop')).show());
   await pet.waitForFunction(() => document.querySelector('.pet-live2d')?.dataset.paused === 'false');
-  await visibilitySession.detach();
+  await pet.waitForFunction(before => Number(document.querySelector('.pet-live2d')?.dataset.frames) > Number(before) + 4, pausedFrame);
   await room.locator('[name="pet.appearance"]').selectOption('taolinghu'); await room.locator('#settings-form button[type="submit"]').click();
   await pet.waitForFunction(() => !document.querySelector('.pet-live2d') && document.querySelector('#pet-character').dataset.appearance === 'taolinghu');
   await room.setViewportSize({ width: 460, height: 800 });

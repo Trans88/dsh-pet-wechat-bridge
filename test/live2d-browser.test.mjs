@@ -55,6 +55,14 @@ test('real Cubism: visible mesh, continuous tracking, audio mouth, pause, dispos
   await page.locator('[name="pet.appearance"]').selectOption('haru-live2d'); await page.locator('#settings-form button[type="submit"]').click();
   await page.locator('[data-page="home"]').click(); await page.waitForSelector('.pet-live2d[data-state="ready"]');
   await page.emulateMedia({ reducedMotion: 'reduce' }); await page.waitForFunction(() => document.querySelector('.pet-live2d')?.dataset.paused === 'true');
+  await page.locator('[data-page="settings"]').click();
+  await page.locator('[name="pet.appearance"]').selectOption('taolinghu'); await page.locator('#settings-form button[type="submit"]').click();
+  await page.waitForFunction(() => !document.querySelector('.pet-live2d'));
+  await page.locator('[data-page="home"]').click();
+  assert.equal(await page.locator('#pet-sprite').isVisible(), true, 'reduced-motion switch restores the original sprite');
+  await page.locator('[data-page="settings"]').click();
+  await page.locator('[name="pet.appearance"]').selectOption('haru-live2d'); await page.locator('#settings-form button[type="submit"]').click();
+  await page.waitForSelector('.pet-live2d[data-state="ready"]', { state: 'attached' });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto(origin + '/desktop'); await page.setViewportSize({ width: 320, height: 470 });
   await page.waitForSelector('.pet-live2d[data-state="ready"]');

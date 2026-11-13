@@ -169,6 +169,8 @@ else {
       webPreferences: { preload: join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true } });
     secureWindow(pet); pet.setAlwaysOnTop(prefs.alwaysOnTop, 'floating');
     pet.on('close', event => { if (!quitting) { event.preventDefault(); pet.hide(); } });
+    pet.on('hide', () => send('pet:action', 'hidden'));
+    pet.on('show', () => send('pet:action', 'shown'));
     pet.on('move', rememberPosition); pet.on('blur', endDrag);
     const fixDisplay = () => { endDrag(); fitPet(); };
     screen.on('display-removed', fixDisplay); screen.on('display-metrics-changed', fixDisplay);

@@ -2,7 +2,8 @@
   const $ = selector => document.querySelector(selector), bridge = window.petDesktop;
   const token = $('meta[name="pet-token"]').content, character = $('#pet-character'), sheet = $('#pet-sprite-sheet');
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let state, prefs = {}, petting = false, busy = false, polling = false, disposed = false;
+  let state, prefs = {}, petting = false, busy = false, polling = false, disposed = false, nativeVisible = true;
+  const hidden = () => !nativeVisible || document.hidden;
   let bubbleTimer, effectTimer, patTimer, clickTimer, pollTimer, point, lastHit, lastJournal = 0, lastReply = 0, initial = true;
   let pixels, pixelSource, sourceWidth, sourceHeight, bubbleDuration = 0, chat;
   const lifetime = new AbortController();
@@ -12,11 +13,11 @@
   async function followCursor() {
     if (disposed) return;
     try {
-      if (!document.hidden && !reduced.matches && state?.config.pet.appearance === 'haru-live2d' && bridge?.cursor) {
+      if (!hidden() && !reduced.matches && state?.config.pet.appearance === 'haru-live2d' && bridge?.cursor) {
         const cursor = await bridge.cursor(); if (cursor && !disposed) avatar.trackPointer(cursor.x, cursor.y);
       }
     } catch { /* Browser preview and closing windows have no native cursor. */ }
-    if (!disposed) cursorTimer = setTimeout(followCursor, !document.hidden && !reduced.matches && state?.config.pet.appearance === 'haru-live2d' ? 80 : 1000);
+    if (!disposed) cursorTimer = setTimeout(followCursor, !hidden() && !reduced.matches && state?.config.pet.appearance === 'haru-live2d' ? 80 : 1000);
   }
   void followCursor();
   window.addEventListener('pagehide', () => clearTimeout(cursorTimer));
@@ -39,7 +40,7 @@
   function render() {
     avatar.render({ appearance: state?.config.pet.appearance || 'taolinghu',
       animation: chat?.busy || chat?.voiceState.phase === 'thinking' ? 'thinking' : state?.care.sleeping ? 'sleeping' : petting ? 'petting' : 'idle',
-      playing: !document.hidden && !reduced.matches });
+      playing: !hidden() && !reduced.matches });
     $('#mood').textContent = chat?.voiceState.phase === 'listening' ? '正在听你说' : chat?.voiceState.phase === 'speaking' ? '正在说话' : state?.care.moodLabel || '在这里陪你';
     character.classList.toggle('speaking', chat?.voiceState.phase === 'speaking');
   }
@@ -81,7 +82,7 @@
       if (initial) { initial = false; say(`${state.config.pet.name}来陪你啦。拖动我换个位置，右键可以投喂、抱抱。`, 9000); }
       render();
     } catch (error) { if (error.name !== 'AbortError') say(error.message); }
-    finally { polling = false; if (!disposed) pollTimer = setTimeout(poll, document.hidden ? 15000 : 5000); }
+    finally { polling = false; if (!disposed) pollTimer = setTimeout(poll, hidden() ? 15000 : 5000); }
   }
   // Alpha hit testing leaves the empty area around the fox usable on Windows.
   sheet.addEventListener('load', () => {
@@ -138,13 +139,15 @@
   $('#bubble').addEventListener('focusout', scheduleBubble);
   const offAction = bridge?.onAction(action => {
     if (action === 'chat') void chat.open();
+    else if (action === 'hidden' || action === 'shown') { nativeVisible = action === 'shown'; visibilityChanged(); }
     else if (action === 'pause') chat.suspend();
     else if (action === 'voice') void chat.startVoice();
     else if (['pat', 'feed', 'hug', 'play', 'dance', 'sleep', 'wake'].includes(action)) void interact(action);
   });
   const offPrefs = bridge?.onPreferences(settings);
   reduced.addEventListener('change', render);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) chat.suspend(); render(); if (!document.hidden) { clearTimeout(pollTimer); void poll(); } });
+  function visibilityChanged() { if (hidden()) { chat.suspend(); cancelDrag(); } render(); if (!hidden()) { clearTimeout(pollTimer); void poll(); } }
+  document.addEventListener('visibilitychange', visibilityChanged);
   window.addEventListener('pagehide', () => {
     disposed = true; lifetime.abort(); chat.dispose(); cancelDrag(); avatar.stop(); offAction?.(); offPrefs?.();
     [bubbleTimer, effectTimer, patTimer, clickTimer, pollTimer].forEach(clearTimeout);

@@ -124,7 +124,7 @@
     }
     releaseLive2d() {
       if (!this.live2d && !this.live2dLoading) return;
-      this.live2dGeneration++; this.live2dLoading = false;
+      this.live2dGeneration++; this.live2dLoading = false; this.key = null;
       this.live2d?.dispose(); this.live2d = null;
     }
     setSpeech(value) { this.speech = value; this.live2d?.setSpeech(value); }

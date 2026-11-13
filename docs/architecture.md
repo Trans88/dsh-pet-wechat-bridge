@@ -200,6 +200,6 @@ requestJSON 保持原有错误类别，并在内部保留 cause。搜索模块�
 
 `live2d.js` 统一推进动作、眨眼、呼吸、视线、表情、口型、物理和模型更新，再提交透明 WebGL。更新基于时间，requestAnimationFrame 上限 60 Hz，DPR 上限 2；后台、非首页及减少动态效果停止循环。换装释放模型、动作、贴图、观察器和事件；最后一个实例释放 Framework。96×96 alpha 缓存用于桌面命中检测，避免每次鼠标事件都 GPU 回读。
 
-桌宠 preload 仅增加可信 `/desktop` 主帧可调用的 `pet:cursor`，返回相对窗口的逻辑像素坐标；隐藏窗口不返回坐标。UI 每 80 ms 读取，Cubism 的拖拽参数继续平滑插值，不采集屏幕或摄像头。
+桌宠 preload 仅增加可信 `/desktop` 主帧可调用的 `pet:cursor`，返回相对窗口的逻辑像素坐标；隐藏窗口不返回坐标。UI 每 80 ms 读取，Cubism 的拖拽参数继续平滑插值，不采集屏幕或摄像头。宿主通过已有事件通道明确通知 `hidden` / `shown`，与页面可见性共同控制暂停，避免调试器强制页面活跃时隐藏窗口仍继续媒体或动画。
 
 `PetVoice.onAudio` 独立于 UI 的 speaking 阶段：TTS 下载或排队期间不张嘴。服务音频通过 Web Audio 分支 analyser 每 40 ms 取 RMS，带噪声门限并在渲染层平滑；分析失败保留声音并使用近似口型。系统朗读依赖 utterance 的 start/pause/resume/end 事件。结束、取消、缓冲、页面隐藏都会归零或停止，释放音频节点、计时器与 Object URL。
