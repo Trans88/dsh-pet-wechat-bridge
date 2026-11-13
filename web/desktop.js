@@ -79,7 +79,7 @@
       const latest = state.care.journal[0];
       if (!initial && !prefs.quiet && latest?.at > lastJournal) { say(latest.text); if (!chat.busy && !chat.voiceState.active) avatar.play(latest.action); }
       if (latest) lastJournal = latest.at;
-      if (initial) { initial = false; say(`${state.config.pet.name}来陪你啦。拖动我换个位置，右键可以投喂、抱抱。`, 9000); }
+      if (initial) { initial = false; say(`${state.config.pet.name}来陪你啦。双击我打开小窝，拖动换位置，右键可以投喂、抱抱。`, 9000); }
       render();
     } catch (error) { if (error.name !== 'AbortError') say(error.message); }
     finally { polling = false; if (!disposed) pollTimer = setTimeout(poll, hidden() ? 15000 : 5000); }
@@ -125,9 +125,13 @@
     character.releasePointerCapture?.(event.pointerId);
     if (!moved) { clearTimeout(clickTimer); clickTimer = setTimeout(() => void interact('pat'), 240); }
   });
-  const cancelDrag = () => { point = null; bridge?.drag('end'); };
+  const cancelDrag = () => { point = null; clearTimeout(clickTimer); bridge?.drag('end'); };
   character.addEventListener('pointercancel', cancelDrag); window.addEventListener('blur', cancelDrag);
-  character.addEventListener('dblclick', () => { clearTimeout(clickTimer); void chat.open(); });
+  character.addEventListener('dblclick', event => {
+    if (!hit(event)) return;
+    event.preventDefault(); cancelDrag(); chat.suspend();
+    void bridge?.openHome('home');
+  });
   character.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void interact('pat'); } });
   document.addEventListener('contextmenu', event => { if (event.target.closest('#conversation, #bubble-text')) return; event.preventDefault(); cancelDrag(); bridge?.menu(); });
   $('#menu').addEventListener('click', () => bridge?.menu());

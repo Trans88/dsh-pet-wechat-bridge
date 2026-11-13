@@ -88,6 +88,36 @@ test('desktop sends text locally, keeps the full long reply, shares owner histor
   assert.deepEqual(errors, []);
 });
 
+test('double-click opens the room once without desktop chat or a pending pat; single click and drag remain distinct', async t => {
+  const { $, w, homes, modes } = await fixture(t);
+  const actions = [], fetch = w.fetch;
+  w.fetch = (path, options) => {
+    if (path === '/api/pet/interact') actions.push(JSON.parse(options.body).action);
+    return fetch(path, options);
+  };
+  const pointer = (type, x = 10) => $('#pet-character').dispatchEvent(new w.MouseEvent(type, { bubbles: true, button: 0, screenX: x, screenY: 10 }));
+  pointer('pointerdown'); pointer('pointerup');
+  pointer('pointerdown'); pointer('pointerup');
+  $('#pet-character').dispatchEvent(new w.MouseEvent('dblclick', { bubbles: true, button: 0 }));
+  assert.deepEqual(homes, ['home']); assert.equal($('#conversation').hidden, true);
+  assert.equal(modes.includes(true), false);
+  await delay(300); assert.deepEqual(actions, [], 'double-click cancels the queued single-click pat');
+  pointer('pointerdown'); pointer('pointerup');
+  await until(() => actions.length === 1); assert.deepEqual(actions, ['pat']);
+  pointer('pointerdown'); pointer('pointermove', 40); pointer('pointerup', 40);
+  await delay(300); assert.deepEqual(actions, ['pat']); assert.deepEqual(homes, ['home']);
+  $('#chat').click(); await until(() => modes.includes(true));
+  assert.equal($('#conversation').hidden, false, 'the chat button still opens desktop chat');
+});
+
+test('double-click opening the room suspends an active desktop microphone', async t => {
+  const { $, w, homes, speech } = await fixture(t);
+  $('#voice').click(); await until(() => $('#desktop-voice-status').dataset.phase === 'listening');
+  $('#pet-character').dispatchEvent(new w.MouseEvent('dblclick', { bubbles: true, button: 0 }));
+  assert.deepEqual(homes, ['home']); assert.equal(speech.recognizers[0].aborted, true);
+  await delay(380); assert.equal(speech.recognizers.length, 1);
+});
+
 test('retry after losing a completed HTTP response preserves draft/request ID and avoids duplicate model calls', async t => {
   const { $, w, calls, sent, store } = await fixture(t, { dropReply: true });
   $('#chat').click();

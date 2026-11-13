@@ -7,6 +7,7 @@ const appRoot = resolve(__dirname, '..');
 let pet, room, tray, backend, prefs, prefsPath, geometry, origin, dragging, dragTimer;
 let quitting = false, exited = false, lockedThrough = false, ignoring = false, saveTimer, chatOpen = false;
 let publicSearchURL;
+let roomReady, roomPage = 'home';
 function chooseExistingData() {
   const selected = dialog.showOpenDialogSync({ title: '选择原来运行宠物的文件夹（包含 pet.config.json 和 data）', properties: ['openDirectory'] });
   if (!selected?.length) return null;
@@ -85,19 +86,33 @@ function secureWindow(win) {
 }
 async function openHome(page = 'home') {
   send('pet:action', 'pause');
-  if (!['home', 'settings', 'exploration', 'memory', 'diary', 'channels'].includes(page)) page = 'home';
+  roomPage = ['home', 'settings', 'exploration', 'memory', 'diary', 'channels'].includes(page) ? page : 'home';
   if (!room || room.isDestroyed()) {
-    room = new BrowserWindow({ title: 'Little Pet · 小窝', width: 1180, height: 820, minWidth: 420, minHeight: 580,
+    const win = room = new BrowserWindow({ title: 'Little Pet · 小窝', width: 1180, height: 820, minWidth: 420, minHeight: 580,
       backgroundColor: '#f3f6fb', show: false, autoHideMenuBar: true,
       webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
-    secureWindow(room);
-    room.on('close', event => { if (!quitting) { event.preventDefault(); room.hide(); } });
-    await room.loadURL(`${origin}/#${page}`);
-  } else {
-    // Hash navigation keeps drafts, current voice state and chat intact.
-    await room.loadURL(`${origin}/#${page}`);
+    secureWindow(win);
+    win.on('close', event => { if (!quitting) { event.preventDefault(); win.hide(); } });
+    // Share the first load: repeated requests must not abort it with loadURL.
+    roomReady = win.loadURL(`${origin}/#${roomPage}`).then(() => true, error => {
+      if (!win.isDestroyed() && !quitting) {
+        win.destroy();
+        dialog.showErrorBox('小窝未能打开', `页面加载失败，请重试。\n${error.message}`);
+      }
+      return false;
+    });
   }
-  room.show(); room.focus();
+  const win = room;
+  // Show immediately, even while loading; restoring also handles taskbar minimization.
+  if (win.isMinimized()) win.restore();
+  win.show(); win.focus();
+  if (!await roomReady || win.isDestroyed() || quitting) return;
+  // Navigate within the existing document so reopening never reloads drafts.
+  // The latest request wins if several pages were requested during the first load.
+  if (new URL(win.webContents.getURL()).hash !== `#${roomPage}`) {
+    try { await win.webContents.executeJavaScript(`window.location.hash = ${JSON.stringify(roomPage)}; void 0;`); }
+    catch (error) { if (!win.isDestroyed() && !quitting) dialog.showErrorBox('小窝页面未能切换', error.message); }
+  }
 }
 function menuTemplate() {
   return [
@@ -105,7 +120,7 @@ function menuTemplate() {
     { label: '刷新桌宠', click: () => { pet.reload(); showPet(); } },
     { label: '桌面聊天', click: () => { showPet(); send('pet:action', 'chat'); } },
     { label: '桌面语音对话', click: () => { showPet(); send('pet:action', 'voice'); } },
-    { label: '打开小窝', click: () => void openHome() },
+    { label: '打开小窝', click: () => setImmediate(() => void openHome()) },
     { type: 'separator' },
     ...[['pat', '摸摸头'], ['feed', '投喂'], ['hug', '抱抱'], ['play', '逗逗它'], ['dance', '跳个舞'], ['sleep', '睡觉'], ['wake', '叫醒']].map(([action, label]) =>
       ({ label, click: () => { showPet(); send('pet:action', action); } })),
@@ -117,7 +132,7 @@ function menuTemplate() {
     { label: '鼠标穿透（从托盘恢复）', type: 'checkbox', checked: lockedThrough, click: item => { lockedThrough = item.checked; ignoreMouse(lockedThrough); updateMenu(); } },
     ...(process.platform === 'win32' && app.isPackaged ? [{ label: '开机启动', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
       click: item => { app.setLoginItemSettings({ openAtLogin: item.checked }); updateMenu(); } }] : []),
-    { label: '设置 / 切换形象', click: () => void openHome('settings') },
+    { label: '设置 / 切换形象', click: () => setImmediate(() => void openHome('settings')) },
     { label: '打开数据文件夹', click: () => { void shell.openPath(resolve(prefsPath, '..')); } },
     ...(app.isPackaged && !process.env.PET_DATA_ROOT ? [{ label: '使用已有宠物数据…', click: () => { if (chooseExistingData()) { app.relaunch(); app.quit(); } } }] : []),
     { label: '暂时隐藏', click: () => pet.hide() },
@@ -186,7 +201,11 @@ else {
       const point = screen.getCursorScreenPoint(), bounds = pet.getBounds();
       return { x: point.x - bounds.x, y: point.y - bounds.y };
     });
-    ipcMain.handle('pet:menu', event => { if (trusted(event)) Menu.buildFromTemplate(menuTemplate()).popup({ window: pet }); });
+    ipcMain.handle('pet:menu', event => {
+      if (!trusted(event)) return;
+      endDrag(); ignoreMouse(false); pet.focus();
+      Menu.buildFromTemplate(menuTemplate()).popup({ window: pet });
+    });
     ipcMain.handle('pet:home', (event, page) => { if (trusted(event)) return openHome(page); });
     ipcMain.handle('pet:chat', (event, open) => trusted(event) && typeof open === 'boolean' ? setChatOpen(open) : false);
     ipcMain.on('pet:hit', (event, interactive) => {
