@@ -10,6 +10,22 @@ import { LIVE2D_ASSETS } from '../pet/live2d-assets.mjs';
 import { createPetServer } from '../pet/server.mjs';
 const web = new URL('../web/', import.meta.url);
 
+test('continuous updates keep a 60 Hz cadence across common display refresh rates', async () => {
+  const previous = globalThis.requestAnimationFrame; globalThis.requestAnimationFrame = () => 1;
+  try {
+    const { Live2DAvatar } = await import('../web/live2d.js');
+    for (const hz of [60, 75, 120, 144, 165, 240]) {
+      const avatar = Object.create(Live2DAvatar.prototype), deltas = [];
+      Object.assign(avatar, { ready: true, options: { playing: true }, draw: dt => deltas.push(dt) });
+      for (let i = 0; i < hz * 2; i++) avatar.tick(1000 + i * 1000 / hz);
+      assert.ok(deltas.length >= 119 && deltas.length <= 121, `${hz} Hz screen: ${deltas.length} updates in two seconds`);
+      assert.ok(deltas.every(dt => dt >= 0 && dt <= 0.05));
+      avatar.tick(6000); assert.equal(deltas.at(-1), 0.05, 'a stalled display cannot produce a huge physics step');
+      const stopped = deltas.length; avatar.options.playing = false; avatar.tick(6017); assert.equal(deltas.length, stopped);
+    }
+  } finally { if (previous) globalThis.requestAnimationFrame = previous; else delete globalThis.requestAnimationFrame; }
+});
+
 test('bundled real Cubism Core loads Haru and parameters continuously deform mesh vertices', async () => {
   const context = { console, atob, btoa, TextDecoder, TextEncoder, performance, document: { currentScript: { src: 'http://localhost/core.js' } } }; context.window = context;
   const core = readFileSync(new URL('vendor/live2d/live2dcubismcore.min.js', web));

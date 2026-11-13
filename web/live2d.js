@@ -101,19 +101,24 @@ export class Live2DAvatar {
     if (!this.ready || this.disposed) return;
     this.canvas.dataset.paused = String(!options.playing);
     if (!options.playing) {
-      cancelAnimationFrame(this.raf); this.raf = null; this.last = 0; this.action = null; this.speech = { active: false, level: 0 }; this.mouth = 0;
+      cancelAnimationFrame(this.raf); this.raf = null; this.last = 0; this.nextFrame = 0; this.action = null; this.speech = { active: false, level: 0 }; this.mouth = 0;
       this.draw(0); return;
     }
-    if (!this.raf) { this.last = 0; this.raf = requestAnimationFrame(t => this.tick(t)); }
+    if (!this.raf) { this.last = 0; this.nextFrame = 0; this.raf = requestAnimationFrame(t => this.tick(t)); }
   }
   tick(now) {
     this.raf = null;
     if (this.disposed || !this.ready || !this.options.playing) return;
     try {
       // One continuous time-based update, capped at 60 Hz even on 144/240 Hz monitors.
-      if (!this.last || now - this.last >= 1000 / 60 - 0.5) {
+      if (!this.last || now >= this.nextFrame - 0.5) {
         const dt = this.last ? Math.min((now - this.last) / 1000, 0.05) : 0;
-        this.last = now; this.draw(dt);
+        this.last = now;
+        // Carry the deadline forward; resetting it to now would turn 75 Hz into
+        // 37.5 FPS and 144 Hz into 48 FPS. Resync only after a missed interval.
+        this.nextFrame = (this.nextFrame || now) + 1000 / 60;
+        if (this.nextFrame < now) this.nextFrame = now + 1000 / 60;
+        this.draw(dt);
       }
       this.raf = requestAnimationFrame(t => this.tick(t));
     } catch (error) { this.fail(error); }
