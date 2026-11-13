@@ -13,11 +13,11 @@
   async function followCursor() {
     if (disposed) return;
     try {
-      if (!hidden() && !reduced.matches && state?.config.pet.appearance === 'haru-live2d' && bridge?.cursor) {
+      if (!hidden() && !reduced.matches && ['haru-live2d', 'taolinghu-live2d'].includes(state?.config.pet.appearance) && bridge?.cursor) {
         const cursor = await bridge.cursor(); if (cursor && !disposed) avatar.trackPointer(cursor.x, cursor.y);
       }
     } catch { /* Browser preview and closing windows have no native cursor. */ }
-    if (!disposed) cursorTimer = setTimeout(followCursor, !hidden() && !reduced.matches && state?.config.pet.appearance === 'haru-live2d' ? 80 : 1000);
+    if (!disposed) cursorTimer = setTimeout(followCursor, !hidden() && !reduced.matches && ['haru-live2d', 'taolinghu-live2d'].includes(state?.config.pet.appearance) ? 80 : 1000);
   }
   void followCursor();
   window.addEventListener('pagehide', () => clearTimeout(cursorTimer));

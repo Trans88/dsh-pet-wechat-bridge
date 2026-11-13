@@ -1,0 +1,113 @@
+{
+  "Version": 3,
+  "FileReferences": {
+    "Moc": "Taolinghu.moc3",
+    "Textures": [
+      "Taolinghu.4096/texture_00.png"
+    ],
+    "Physics": "Taolinghu.physics3.json",
+    "DisplayInfo": "Taolinghu.cdi3.json",
+    "Motions": {
+      "Idle": [
+        {
+          "File": "motions/idle.motion3.json",
+          "FadeInTime": 0.3,
+          "FadeOutTime": 0.35
+        }
+      ],
+      "Pat": [
+        {
+          "File": "motions/pat.motion3.json",
+          "FadeInTime": 0.3,
+          "FadeOutTime": 0.35
+        }
+      ],
+      "Feed": [
+        {
+          "File": "motions/feed.motion3.json",
+          "FadeInTime": 0.3,
+          "FadeOutTime": 0.35
+        }
+      ],
+      "Hug": [
+        {
+          "File": "motions/hug.motion3.json",
+          "FadeInTime": 0.3,
+          "FadeOutTime": 0.35
+        }
+      ],
+      "Play": [
+        {
+          "File": "motions/play.motion3.json",
+          "FadeInTime": 0.3,
+          "FadeOutTime": 0.35
+        }
+      ],
+      "Dance": [
+        {
+          "File": "motions/dance.motion3.json",
+          "FadeInTime": 0.3,
+          "FadeOutTime": 0.35
+        }
+      ],
+      "Wake": [
+        {
+          "File": "motions/wake.motion3.json",
+          "FadeInTime": 0.3,
+          "FadeOutTime": 0.35
+        }
+      ]
+    },
+    "Expressions": [
+      {
+        "Name": "happy",
+        "File": "expressions/happy.exp3.json"
+      },
+      {
+        "Name": "shy",
+        "File": "expressions/shy.exp3.json"
+      },
+      {
+        "Name": "sad",
+        "File": "expressions/sad.exp3.json"
+      },
+      {
+        "Name": "angry",
+        "File": "expressions/angry.exp3.json"
+      },
+      {
+        "Name": "surprised",
+        "File": "expressions/surprised.exp3.json"
+      },
+      {
+        "Name": "sleepy",
+        "File": "expressions/sleepy.exp3.json"
+      },
+      {
+        "Name": "wink",
+        "File": "expressions/wink.exp3.json"
+      },
+      {
+        "Name": "neutral",
+        "File": "expressions/neutral.exp3.json"
+      }
+    ]
+  },
+  "Groups": [
+    {
+      "Target": "Parameter",
+      "Name": "EyeBlink",
+      "Ids": [
+        "ParamEyeLOpen",
+        "ParamEyeROpen"
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Name": "LipSync",
+      "Ids": [
+        "ParamMouthOpenY"
+      ]
+    }
+  ]
+}

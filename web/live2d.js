@@ -1,6 +1,6 @@
 // Real Cubism mesh rendering, shared by the room and the sandboxed desktop.
-// This first release has one fixed, bundled sample. It never imports remote code/models.
-const modelRoot = '/assets/live2d/Haru/';
+// Models and their interaction mappings are fixed, bundled assets.
+import { LIVE2D_MODELS } from './live2d-models.js';
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 let coreReady, frameworkUsers = 0;
 function loadCore() {
@@ -16,12 +16,14 @@ function loadCore() {
 }
 
 export class Live2DAvatar {
-  constructor({ character, onError }) {
+  constructor({ character, onError, appearance = 'haru-live2d' }) {
+    this.appearance = appearance; this.profile = LIVE2D_MODELS[appearance];
+    if (!this.profile) throw new Error('请选择内置的 Live2D 形象。');
     this.character = character; this.onError = onError;
     this.canvas = document.createElement('canvas'); this.canvas.className = 'pet-live2d';
-    this.canvas.setAttribute('role', 'img'); this.canvas.setAttribute('aria-label', 'Haru，Live2D 官方示例形象');
+    this.canvas.setAttribute('role', 'img'); this.canvas.setAttribute('aria-label', this.profile.label);
     this.canvas.dataset.state = 'loading'; character.prepend(this.canvas);
-    this.controller = new AbortController(); this.textures = []; this.motions = {}; this.expressions = [];
+    this.controller = new AbortController(); this.textures = []; this.motions = {}; this.expressions = []; this.motionDurations = {};
     this.time = 0; this.frames = 0; this.mouth = 0; this.sleep = 0; this.speech = { active: false, level: 0 };
     this.options = {}; this.pointer = { x: 0, y: 0 }; this.action = null;
     this.hitCanvas = document.createElement('canvas'); this.hitCanvas.width = this.hitCanvas.height = 96;
@@ -32,7 +34,7 @@ export class Live2DAvatar {
     this.observer = new ResizeObserver(() => { if (this.ready) this.draw(0); }); this.observer.observe(character);
   }
   async read(file) {
-    const base = new URL(modelRoot, location.origin), url = new URL(file, base);
+    const base = new URL(this.profile.root, location.origin), url = new URL(file, base);
     if (!url.href.startsWith(base.href) || url.search || url.hash || url.username || url.password) throw new Error('模型资源路径无效。');
     const response = await fetch(url, { signal: this.controller.signal, credentials: 'omit', mode: 'same-origin', redirect: 'error' });
     if (!response.ok) throw new Error('Live2D 模型资源不完整。');
@@ -52,7 +54,7 @@ export class Live2DAvatar {
       frameworkUsers++; this.ownsFramework = true;
       this.gl = this.canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: true, powerPreference: 'low-power' });
       if (!this.gl) throw new Error('当前环境无法启用 WebGL。');
-      const bytes = await this.read('Haru.model3.json');
+      const bytes = await this.read(this.profile.file);
       const json = JSON.parse(new TextDecoder().decode(bytes)), refs = json.FileReferences;
       this.setting = new s.CubismModelSettingJson(bytes, bytes.byteLength);
       this.user = new s.CubismUserModel(); this.user.loadModel(await this.read(refs.Moc), true);
@@ -69,11 +71,12 @@ export class Live2DAvatar {
       if (refs.Physics) { const b = await this.read(refs.Physics); this.user.loadPhysics(b, b.byteLength); }
       if (refs.Pose) { const b = await this.read(refs.Pose); this.user.loadPose(b, b.byteLength); }
       for (const [group, entries] of Object.entries(refs.Motions || {})) {
-        this.motions[group] = [];
+        this.motions[group] = []; this.motionDurations[group] = [];
         for (const entry of entries) {
           const b = await this.read(entry.File), motion = this.user.loadMotion(b, b.byteLength, entry.File);
           motion.setFadeInTime(entry.FadeInTime ?? 0.5); motion.setFadeOutTime(entry.FadeOutTime ?? 0.5);
           motion.setEffectIds(this.eyeIds, this.lipIds); this.motions[group].push(motion);
+          this.motionDurations[group].push(JSON.parse(new TextDecoder().decode(b)).Meta.Duration);
         }
       }
       for (const entry of refs.Expressions || []) {
@@ -131,12 +134,12 @@ export class Live2DAvatar {
   }
   play(action) {
     if (!this.ready || !this.options.playing || !['pat', 'feed', 'hug', 'play', 'dance', 'sleep', 'wake'].includes(action)) return false;
-    this.action = { name: action, start: this.time, duration: action === 'dance' ? 4 : 2.5 };
+    const [group, index] = this.profile.actions[action] || [];
+    this.action = { name: action, start: this.time, duration: this.motionDurations[group]?.[index] || (action === 'dance' ? 4 : 2.5) };
     if (action === 'sleep') this.user._motionManager.stopAllMotions();
     else {
-      const motions = this.motions.TapBody || [];
-      const index = ({ pat: 0, feed: 1, hug: 0, play: 2, dance: 3, wake: 1 })[action] || 0;
-      if (motions.length) this.user._motionManager.startMotionPriority(motions[index % motions.length], false, 3);
+      const motion = this.motions[group]?.[index];
+      if (motion) this.user._motionManager.startMotionPriority(motion, false, 3);
     }
     return true;
   }
@@ -155,21 +158,24 @@ export class Live2DAvatar {
     this.breath.updateParameters(m, dt);
     u.setDragging(this.pointer.x * (1 - this.sleep), this.pointer.y * (1 - this.sleep)); u._dragManager.update(dt);
     const x = u._dragManager.getX(), y = u._dragManager.getY();
-    m.addParameterValueById(this.id('ParamAngleX'), x * 24); m.addParameterValueById(this.id('ParamAngleY'), y * 16 - this.sleep * 10);
-    m.addParameterValueById(this.id('ParamAngleZ'), x * y * -8); m.addParameterValueById(this.id('ParamBodyAngleX'), x * 6);
+    const trackingWeight = this.action ? 0.25 : 1;
+    m.addParameterValueById(this.id('ParamAngleX'), x * this.profile.pointer.x * trackingWeight); m.addParameterValueById(this.id('ParamAngleY'), y * this.profile.pointer.y * trackingWeight - this.sleep * 10);
+    m.addParameterValueById(this.id('ParamAngleZ'), x * y * -8 * trackingWeight); m.addParameterValueById(this.id('ParamBodyAngleX'), x * this.profile.pointer.body * trackingWeight);
     m.setParameterValueById(this.id('ParamEyeBallX'), x); m.setParameterValueById(this.id('ParamEyeBallY'), y);
     if (this.options.animation === 'thinking') m.addParameterValueById(this.id('ParamAngleZ'), 6 * Math.sin(this.time * 0.7));
     if (this.action && this.time - this.action.start > this.action.duration) this.action = null;
     if (this.action && ['pat', 'hug', 'feed', 'play', 'dance'].includes(this.action.name)) {
       const age = this.time - this.action.start, blend = Math.min(1, age * 4, (this.action.duration - age) * 4);
       m.setParameterValueById(this.id('ParamMouthForm'), 1, blend);
-      m.setParameterValueById(this.id('ParamEyeLSmile'), 1, blend); m.setParameterValueById(this.id('ParamEyeRSmile'), 1, blend);
+      for (const name of this.profile.smileEyes) m.setParameterValueById(this.id(name), 1, blend);
     }
     for (let i = 0; i < this.eyeIds.getSize(); i++) m.multiplyParameterValueById(this.eyeIds.at(i), 1 - this.sleep);
     const speech = this.speech;
     const level = speech.active && this.options.playing ? (speech.approximate ? 0.2 + 0.55 * Math.abs(Math.sin(this.time * 11)) : speech.level) : 0;
     this.mouth += (level - this.mouth) * (1 - Math.exp(-dt * (level > this.mouth ? 25 : 18)));
-    for (let i = 0; i < this.lipIds.getSize(); i++) m.setParameterValueById(this.lipIds.at(i), this.mouth);
+    // Care motions can author mouth movement too. Only live/decaying speech
+    // overrides it, including silence while an utterance is playing.
+    if (speech.active || this.mouth > 0.001) for (let i = 0; i < this.lipIds.getSize(); i++) m.setParameterValueById(this.lipIds.at(i), this.mouth);
     u._physics?.evaluate(m, dt); u._pose?.updateParameters(m, dt); m.update();
     const matrix = new s.CubismMatrix44(); matrix.scale(0.94, 0.94); matrix.multiplyByMatrix(u.getModelMatrix());
     gl.viewport(0, 0, side, side); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);

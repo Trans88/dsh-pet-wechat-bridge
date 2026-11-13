@@ -1,6 +1,7 @@
 // Exact public allowlist: no arbitrary local files or remote model URLs.
 export const LIVE2D_ASSETS = [
   "/live2d.js",
+  "/live2d-models.js",
   "/live2d.css",
   "/vendor/live2d/framework.js",
   "/vendor/live2d/live2dcubismcore.min.js",
@@ -24,5 +25,25 @@ export const LIVE2D_ASSETS = [
   "/assets/live2d/Haru/motions/haru_g_m26.motion3.json",
   "/assets/live2d/Haru/motions/haru_g_m06.motion3.json",
   "/assets/live2d/Haru/motions/haru_g_m20.motion3.json",
-  "/assets/live2d/Haru/motions/haru_g_m09.motion3.json"
+  "/assets/live2d/Haru/motions/haru_g_m09.motion3.json",
+  "/assets/live2d/Taolinghu/Taolinghu.model3.json",
+  "/assets/live2d/Taolinghu/Taolinghu.moc3",
+  "/assets/live2d/Taolinghu/Taolinghu.cdi3.json",
+  "/assets/live2d/Taolinghu/Taolinghu.physics3.json",
+  "/assets/live2d/Taolinghu/Taolinghu.4096/texture_00.png",
+  "/assets/live2d/Taolinghu/motions/idle.motion3.json",
+  "/assets/live2d/Taolinghu/motions/pat.motion3.json",
+  "/assets/live2d/Taolinghu/motions/feed.motion3.json",
+  "/assets/live2d/Taolinghu/motions/hug.motion3.json",
+  "/assets/live2d/Taolinghu/motions/play.motion3.json",
+  "/assets/live2d/Taolinghu/motions/dance.motion3.json",
+  "/assets/live2d/Taolinghu/motions/wake.motion3.json",
+  "/assets/live2d/Taolinghu/expressions/happy.exp3.json",
+  "/assets/live2d/Taolinghu/expressions/shy.exp3.json",
+  "/assets/live2d/Taolinghu/expressions/sad.exp3.json",
+  "/assets/live2d/Taolinghu/expressions/angry.exp3.json",
+  "/assets/live2d/Taolinghu/expressions/surprised.exp3.json",
+  "/assets/live2d/Taolinghu/expressions/sleepy.exp3.json",
+  "/assets/live2d/Taolinghu/expressions/wink.exp3.json",
+  "/assets/live2d/Taolinghu/expressions/neutral.exp3.json"
 ];
