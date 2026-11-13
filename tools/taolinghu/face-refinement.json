@@ -1,0 +1,122 @@
+{
+  "description": "Lower eyelid ink fades with each blink; hide the redundant fixed mouth-close stroke. The generated upper/lower lip outlines remain, preserving ParamMouthForm at closed and open mouth poses. No pixel or geometry edits.",
+  "operation": "keyform_apply",
+  "request": {
+    "changes": [
+      {
+        "op": "seed",
+        "target": "mesh:ArtMeshFaceDetailL",
+        "key": {
+          "ParamEyeLOpen": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailL",
+        "key": {
+          "ParamEyeLOpen": 0
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailL",
+        "key": {
+          "ParamEyeLOpen": 0.35
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailL",
+        "key": {
+          "ParamEyeLOpen": 0.8
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailL",
+        "key": {
+          "ParamEyeLOpen": 1
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "seed",
+        "target": "mesh:ArtMeshFaceDetailR",
+        "key": {
+          "ParamEyeROpen": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailR",
+        "key": {
+          "ParamEyeROpen": 0
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailR",
+        "key": {
+          "ParamEyeROpen": 0.35
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailR",
+        "key": {
+          "ParamEyeROpen": 0.8
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailR",
+        "key": {
+          "ParamEyeROpen": 1
+        },
+        "channels": {
+          "opacity": 1
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshMouthClose",
+        "key": {
+          "ParamMouthOpenY": 0
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshMouthClose",
+        "key": {
+          "ParamMouthOpenY": 1
+        },
+        "channels": {
+          "opacity": 0
+        }
+      }
+    ]
+  }
+}
