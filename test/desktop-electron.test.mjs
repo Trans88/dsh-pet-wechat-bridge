@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer, connect } from 'node:net';
 import { createServer as createHttpServer } from 'node:http';
+import { setTimeout as delay } from 'node:timers/promises';
 import { Config } from '../pet/config.mjs';
 import { PNG } from 'pngjs';
 
@@ -118,12 +119,69 @@ test('packaged native pet: transparent window, isolated preload, interaction, ap
   await pet.locator('.desktop-source').click();
   assert.equal(await app.evaluate(() => globalThis.testOpenedSource), 'https://example.org/projects');
   await pet.screenshot({ path: join(artifacts, 'desktop-search.png'), omitBackground: true });
+  await pet.locator('#conversation-close').click();
+  // Capture the real native context menu, then invoke its selected item once.
+  // Playwright cannot select OS menu items by their text.
+  await app.evaluate(({ Menu }) => {
+    const popup = Menu.prototype.popup;
+    Menu.prototype.popup = function (options) {
+      Menu.prototype.popup = popup;
+      globalThis.testPetMenu = this;
+      globalThis.testMenuFocused = options.window.isFocused();
+      return popup.call(this, options);
+    };
+  });
+  await pet.locator('#pet-character').click({ button: 'right' });
   const roomReady = app.waitForEvent('window');
-  await pet.locator('#open-home').click();
+  const menuFocused = await app.evaluate(() => {
+    const menu = globalThis.testPetMenu;
+    if (!menu) throw new Error('The pet context menu did not open');
+    menu.closePopup();
+    menu.items.find(item => item.label === '打开小窝').click();
+    delete globalThis.testPetMenu;
+    return globalThis.testMenuFocused;
+  });
+  assert.equal(menuFocused, true, 'native menu activates its owner before the first selection');
   const room = await roomReady;
   assert.ok(room); await room.waitForLoadState();
   await room.waitForFunction(() => document.querySelector('[name="pet.name"]').value === '小蓝');
   assert.equal(await room.locator('#chat-error').isVisible(), false, 'desktop #home initializes without a config race');
+  const roomState = () => app.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows().find(w => /\/#/.test(w.webContents.getURL()));
+    return { visible: win.isVisible(), focused: win.isFocused(), minimized: win.isMinimized(), id: win.id };
+  });
+  const waitForRoomState = async expected => {
+    let actual;
+    for (let i = 0; i < 100; i++) {
+      actual = await roomState();
+      if (Object.entries(expected).every(([key, value]) => actual[key] === value)) return actual;
+      await delay(50);
+    }
+    assert.fail(`Room state did not settle: ${JSON.stringify({ expected, actual })}`);
+  };
+  const firstRoom = await waitForRoomState({ visible: true, focused: true });
+  assert.equal(firstRoom.focused, true, 'the first menu selection brings the room to the front');
+  await room.locator('#message-input').fill('保留这条未发送的草稿');
+  await room.evaluate(() => { window.homeDocumentSentinel = 'original-document'; });
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => /\/#/.test(w.webContents.getURL())).close());
+  assert.equal((await roomState()).visible, false);
+  await pet.locator('#pet-character').dblclick();
+  await waitForRoomState({ visible: true, focused: true });
+  assert.equal((await roomState()).id, firstRoom.id, 'double-click reuses the room');
+  assert.equal(await pet.locator('#conversation').isVisible(), false, 'double-click does not expand desktop chat');
+  assert.equal(await room.locator('#message-input').inputValue(), '保留这条未发送的草稿');
+  assert.equal(await room.evaluate(() => window.homeDocumentSentinel), 'original-document');
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => /\/#/.test(w.webContents.getURL())).minimize());
+  await waitForRoomState({ minimized: true });
+  await pet.locator('#pet-character').dblclick();
+  await waitForRoomState({ minimized: false, visible: true, focused: true });
+  await pet.evaluate(() => window.petDesktop.openHome('memory'));
+  await room.waitForURL('**/#memory');
+  await pet.evaluate(() => window.petDesktop.openHome('home'));
+  await room.waitForURL('**/#home');
+  assert.equal(await room.locator('#message-input').inputValue(), '保留这条未发送的草稿');
+  assert.equal(await room.evaluate(() => window.homeDocumentSentinel), 'original-document', 'page changes keep the same document');
+  await room.locator('#message-input').fill('');
   await room.locator('[data-page="settings"]').click();
   await room.waitForFunction(() => document.querySelector('[name="pet.name"]').value === '小蓝');
   await room.locator('[name="pet.appearance"]').selectOption('taolinghu-classic'); await room.locator('#settings-form button[type="submit"]').click();
