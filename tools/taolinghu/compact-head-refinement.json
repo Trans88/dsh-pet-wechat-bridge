@@ -1,0 +1,575 @@
+{
+  "description": "Apply once to v0.15.2 final rig. Preserve texture pixels and body geometry. Scale all 27 HeadContainer keys by [0.98, 0.88] about its local bottom center. Rotation-bound ears follow attachment positions while retaining their own shape.",
+  "operation": "rig_deform",
+  "request": {
+    "changes": [
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": -45,
+          "ParamAngleY": -30,
+          "ParamBodyLean": -10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": -45,
+          "ParamAngleY": -30,
+          "ParamBodyLean": 0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": -45,
+          "ParamAngleY": -30,
+          "ParamBodyLean": 10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": -45,
+          "ParamAngleY": 0,
+          "ParamBodyLean": -10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": -45,
+          "ParamAngleY": 0,
+          "ParamBodyLean": 0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": -45,
+          "ParamAngleY": 0,
+          "ParamBodyLean": 10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": -45,
+          "ParamAngleY": 30,
+          "ParamBodyLean": -10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": -45,
+          "ParamAngleY": 30,
+          "ParamBodyLean": 0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": -45,
+          "ParamAngleY": 30,
+          "ParamBodyLean": 10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 0,
+          "ParamAngleY": -30,
+          "ParamBodyLean": -10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 0,
+          "ParamAngleY": -30,
+          "ParamBodyLean": 0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 0,
+          "ParamAngleY": -30,
+          "ParamBodyLean": 10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 0,
+          "ParamAngleY": 0,
+          "ParamBodyLean": -10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 0,
+          "ParamAngleY": 0,
+          "ParamBodyLean": 0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 0,
+          "ParamAngleY": 0,
+          "ParamBodyLean": 10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 0,
+          "ParamAngleY": 30,
+          "ParamBodyLean": -10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 0,
+          "ParamAngleY": 30,
+          "ParamBodyLean": 0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 0,
+          "ParamAngleY": 30,
+          "ParamBodyLean": 10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 45,
+          "ParamAngleY": -30,
+          "ParamBodyLean": -10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 45,
+          "ParamAngleY": -30,
+          "ParamBodyLean": 0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 45,
+          "ParamAngleY": -30,
+          "ParamBodyLean": 10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 45,
+          "ParamAngleY": 0,
+          "ParamBodyLean": -10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 45,
+          "ParamAngleY": 0,
+          "ParamBodyLean": 0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 45,
+          "ParamAngleY": 0,
+          "ParamBodyLean": 10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 45,
+          "ParamAngleY": 30,
+          "ParamBodyLean": -10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 45,
+          "ParamAngleY": 30,
+          "ParamBodyLean": 0
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "target": "warp:DeformHeadContainer",
+        "key": {
+          "ParamAngleX": 45,
+          "ParamAngleY": 30,
+          "ParamBodyLean": 10
+        },
+        "operations": [
+          {
+            "type": "scale",
+            "factors": [
+              0.98,
+              0.88
+            ],
+            "pivot": [
+              0.5,
+              1
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,431 @@
+{
+  "description": "Apply once after compact-head-refinement on PR #25. Nasal white corner pulled inward with smooth rest-domain falloff on open keys only. White and upper lashes rotated symmetrically 5 degrees about their shared eye centers. Irises remain vertical and shift up 2.5% of their local height to retain the lower mask margin. Closed-white geometry gets rotation only; opacity/blink channels unchanged. Collar uses existing cape and clasp layers, not new artwork.",
+  "operations": [
+    {
+      "operation": "rig_deform",
+      "request": {
+        "changes": [
+          {
+            "target": "mesh:ArtMeshEyewhiteL",
+            "key": {
+              "ParamEyeLOpen": 0.0
+            },
+            "operations": [
+              {
+                "type": "rotate",
+                "degrees": -5,
+                "pivot": [
+                  0.4979535524962591,
+                  0.5161354032403117
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshEyewhiteL",
+            "key": {
+              "ParamEyeLOpen": 1.0
+            },
+            "operations": [
+              {
+                "type": "translate",
+                "delta": [
+                  0.065,
+                  -0.06
+                ],
+                "selection": {
+                  "center": [
+                    0,
+                    0.84
+                  ],
+                  "radius": 0.8
+                }
+              },
+              {
+                "type": "rotate",
+                "degrees": -5,
+                "pivot": [
+                  0.4979535524962591,
+                  0.5161354032403117
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshEyelashL",
+            "key": {
+              "ParamEyeLOpen": 0.0
+            },
+            "operations": [
+              {
+                "type": "rotate",
+                "degrees": -5,
+                "pivot": [
+                  0.451785534992859,
+                  0.7838955782790721
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshEyelashL",
+            "key": {
+              "ParamEyeLOpen": 1.0
+            },
+            "operations": [
+              {
+                "type": "rotate",
+                "degrees": -5,
+                "pivot": [
+                  0.451785534992859,
+                  0.7838955782790721
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshEyewhiteR",
+            "key": {
+              "ParamEyeROpen": 0.0
+            },
+            "operations": [
+              {
+                "type": "rotate",
+                "degrees": 5,
+                "pivot": [
+                  0.5105036859835588,
+                  0.5187922378628281
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshEyewhiteR",
+            "key": {
+              "ParamEyeROpen": 1.0
+            },
+            "operations": [
+              {
+                "type": "translate",
+                "delta": [
+                  -0.065,
+                  -0.06
+                ],
+                "selection": {
+                  "center": [
+                    1,
+                    0.84
+                  ],
+                  "radius": 0.8
+                }
+              },
+              {
+                "type": "rotate",
+                "degrees": 5,
+                "pivot": [
+                  0.5105036859835588,
+                  0.5187922378628281
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshEyelashR",
+            "key": {
+              "ParamEyeROpen": 0.0
+            },
+            "operations": [
+              {
+                "type": "rotate",
+                "degrees": 5,
+                "pivot": [
+                  0.5226572437686605,
+                  0.7609412612052393
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshEyelashR",
+            "key": {
+              "ParamEyeROpen": 1.0
+            },
+            "operations": [
+              {
+                "type": "rotate",
+                "degrees": 5,
+                "pivot": [
+                  0.5226572437686605,
+                  0.7609412612052393
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshIridesL",
+            "key": {
+              "ParamEyeBallForm": -1.0,
+              "ParamEyeLOpen": 0.0
+            },
+            "operations": [
+              {
+                "type": "translate",
+                "delta": [
+                  0,
+                  -0.025
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshIridesL",
+            "key": {
+              "ParamEyeBallForm": -1.0,
+              "ParamEyeLOpen": 1.0
+            },
+            "operations": [
+              {
+                "type": "translate",
+                "delta": [
+                  0,
+                  -0.025
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshIridesL",
+            "key": {
+              "ParamEyeBallForm": 0.0,
+              "ParamEyeLOpen": 0.0
+            },
+            "operations": [
+              {
+                "type": "translate",
+                "delta": [
+                  0,
+                  -0.025
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshIridesL",
+            "key": {
+              "ParamEyeBallForm": 0.0,
+              "ParamEyeLOpen": 1.0
+            },
+            "operations": [
+              {
+                "type": "translate",
+                "delta": [
+                  0,
+                  -0.025
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshIridesL",
+            "key": {
+              "ParamEyeBallForm": 1.0,
+              "ParamEyeLOpen": 0.0
+            },
+            "operations": [
+              {
+                "type": "translate",
+                "delta": [
+                  0,
+                  -0.025
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshIridesL",
+            "key": {
+              "ParamEyeBallForm": 1.0,
+              "ParamEyeLOpen": 1.0
+            },
+            "operations": [
+              {
+                "type": "translate",
+                "delta": [
+                  0,
+                  -0.025
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshIridesR",
+            "key": {
+              "ParamEyeBallForm": -1.0,
+              "ParamEyeROpen": 0.0
+            },
+            "operations": [
+              {
+                "type": "translate",
+                "delta": [
+                  0,
+                  -0.025
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshIridesR",
+            "key": {
+              "ParamEyeBallForm": -1.0,
+              "ParamEyeROpen": 1.0
+            },
+            "operations": [
+              {
+                "type": "translate",
+                "delta": [
+                  0,
+                  -0.025
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshIridesR",
+            "key": {
+              "ParamEyeBallForm": 0.0,
+              "ParamEyeROpen": 0.0
+            },
+            "operations": [
+              {
+                "type": "translate",
+                "delta": [
+                  0,
+                  -0.025
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshIridesR",
+            "key": {
+              "ParamEyeBallForm": 0.0,
+              "ParamEyeROpen": 1.0
+            },
+            "operations": [
+              {
+                "type": "translate",
+                "delta": [
+                  0,
+                  -0.025
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshIridesR",
+            "key": {
+              "ParamEyeBallForm": 1.0,
+              "ParamEyeROpen": 0.0
+            },
+            "operations": [
+              {
+                "type": "translate",
+                "delta": [
+                  0,
+                  -0.025
+                ]
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshIridesR",
+            "key": {
+              "ParamEyeBallForm": 1.0,
+              "ParamEyeROpen": 1.0
+            },
+            "operations": [
+              {
+                "type": "translate",
+                "delta": [
+                  0,
+                  -0.025
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "operation": "layer_transform",
+      "request": {
+        "layer_id": "ArtMeshTopwearR",
+        "translate": [
+          0,
+          -22
+        ]
+      }
+    },
+    {
+      "operation": "layer_transform",
+      "request": {
+        "layer_id": "ArtMeshTopwearL",
+        "translate": [
+          0,
+          -22
+        ]
+      }
+    },
+    {
+      "operation": "layer_transform",
+      "request": {
+        "layer_id": "ArtMeshNeckwear",
+        "translate": [
+          0,
+          -22
+        ]
+      }
+    },
+    {
+      "operation": "layer_transform",
+      "request": {
+        "layer_id": "ArtMeshNeckwear2",
+        "translate": [
+          0,
+          -22
+        ]
+      }
+    },
+    {
+      "operation": "rig_edit_structure",
+      "request": {
+        "edits": [
+          {
+            "action": "static",
+            "kind": "mesh",
+            "id": "ArtMeshTopwearR",
+            "draw_order": 151
+          },
+          {
+            "action": "static",
+            "kind": "mesh",
+            "id": "ArtMeshTopwearL",
+            "draw_order": 152
+          },
+          {
+            "action": "static",
+            "kind": "mesh",
+            "id": "ArtMeshNeckwear2",
+            "draw_order": 153
+          },
+          {
+            "action": "static",
+            "kind": "mesh",
+            "id": "ArtMeshNeckwear",
+            "draw_order": 154
+          }
+        ]
+      }
+    }
+  ]
+}
