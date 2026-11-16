@@ -1,0 +1,330 @@
+{
+  "description": "Apply once after cape-arm-depth-refinement. Preserve old inward pivots; outward arm lift uses anatomical shoulder anchors and 15-degree cape lift. Neutral pose and +/-100-degree range preserved.",
+  "operations": [
+    {
+      "operation": "canvas_rotation",
+      "request": {
+        "id": "DeformCapeLiftR",
+        "name": "R cape lift",
+        "meshes": [
+          "ArtMeshTopwearR2",
+          "ArtMeshTopwearR3"
+        ],
+        "origin": [
+          627,
+          598
+        ],
+        "preservePose": true
+      }
+    },
+    {
+      "operation": "canvas_rotation",
+      "request": {
+        "id": "DeformCapeLiftL",
+        "name": "L cape lift",
+        "meshes": [
+          "ArtMeshTopwearL2",
+          "ArtMeshTopwearL3"
+        ],
+        "origin": [
+          627,
+          598
+        ],
+        "preservePose": true
+      }
+    },
+    {
+      "operation": "keyform_apply",
+      "request": {
+        "changes": [
+          {
+            "op": "set",
+            "target": "rotation:DeformCapeLiftR",
+            "key": {
+              "ParamArmR": -1
+            },
+            "geometry": {
+              "angle": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformCapeLiftR",
+            "key": {
+              "ParamArmR": 0
+            },
+            "geometry": {
+              "angle": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformCapeLiftR",
+            "key": {
+              "ParamArmR": 1
+            },
+            "geometry": {
+              "angle": 15
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformCapeLiftL",
+            "key": {
+              "ParamArmL": -1
+            },
+            "geometry": {
+              "angle": -15
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformCapeLiftL",
+            "key": {
+              "ParamArmL": 0
+            },
+            "geometry": {
+              "angle": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformCapeLiftL",
+            "key": {
+              "ParamArmL": 1
+            },
+            "geometry": {
+              "angle": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "keyform_apply",
+      "request": {
+        "changes": [
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmR",
+            "key": {
+              "ParamArmR": -1
+            },
+            "geometry": {
+              "angle": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmR",
+            "key": {
+              "ParamArmR": 0
+            },
+            "geometry": {
+              "angle": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmR",
+            "key": {
+              "ParamArmR": 1
+            },
+            "geometry": {
+              "angle": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmL",
+            "key": {
+              "ParamArmL": -1
+            },
+            "geometry": {
+              "angle": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmL",
+            "key": {
+              "ParamArmL": 0
+            },
+            "geometry": {
+              "angle": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmL",
+            "key": {
+              "ParamArmL": 1
+            },
+            "geometry": {
+              "angle": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "canvas_rotation",
+      "request": {
+        "id": "DeformTaolingShoulderR",
+        "name": "R shoulder anchor",
+        "meshes": [
+          "ArtMeshHandwearR"
+        ],
+        "origin": [
+          540,
+          690
+        ],
+        "preservePose": true
+      }
+    },
+    {
+      "operation": "canvas_rotation",
+      "request": {
+        "id": "DeformTaolingShoulderL",
+        "name": "L shoulder anchor",
+        "meshes": [
+          "ArtMeshHandwearL"
+        ],
+        "origin": [
+          714,
+          690
+        ],
+        "preservePose": true
+      }
+    },
+    {
+      "operation": "keyform_apply",
+      "request": {
+        "changes": [
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmR",
+            "key": {
+              "ParamArmR": -1
+            },
+            "geometry": {
+              "angle": -100
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingShoulderR",
+            "key": {
+              "ParamArmR": -1
+            },
+            "geometry": {
+              "angle": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmR",
+            "key": {
+              "ParamArmR": 0
+            },
+            "geometry": {
+              "angle": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingShoulderR",
+            "key": {
+              "ParamArmR": 0
+            },
+            "geometry": {
+              "angle": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmR",
+            "key": {
+              "ParamArmR": 1
+            },
+            "geometry": {
+              "angle": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingShoulderR",
+            "key": {
+              "ParamArmR": 1
+            },
+            "geometry": {
+              "angle": 100
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmL",
+            "key": {
+              "ParamArmL": -1
+            },
+            "geometry": {
+              "angle": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingShoulderL",
+            "key": {
+              "ParamArmL": -1
+            },
+            "geometry": {
+              "angle": -100
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmL",
+            "key": {
+              "ParamArmL": 0
+            },
+            "geometry": {
+              "angle": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingShoulderL",
+            "key": {
+              "ParamArmL": 0
+            },
+            "geometry": {
+              "angle": 0
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingArmL",
+            "key": {
+              "ParamArmL": 1
+            },
+            "geometry": {
+              "angle": 100
+            }
+          },
+          {
+            "op": "set",
+            "target": "rotation:DeformTaolingShoulderL",
+            "key": {
+              "ParamArmL": 1
+            },
+            "geometry": {
+              "angle": 0
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "qa": "qa/cape-arm-motion-comparison.mp4",
+  "sampling": "21 actual native parameter renders, reversed back to idle, 12 fps. No physics simulation."
+}

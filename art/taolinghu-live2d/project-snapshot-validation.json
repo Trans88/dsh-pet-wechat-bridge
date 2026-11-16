@@ -1,0 +1,16 @@
+{
+  "source_bytes": 22487833,
+  "snapshot_bytes": 12145486,
+  "kept_files": 346,
+  "removed_files": 151,
+  "revision_unchanged": "revision-326810b7535583fe37472f35d7bcacb24aa59f1412bc63d19a635ccf95e2561f",
+  "source_sha256": "f1a8d68690f3689d56acccf03f03e4974b7631c67bbf9620d71661f2d2625fcc",
+  "snapshot_sha256": "cc111951a8a25b8b5a5e59e6f37ca3329b2876d77d9629613638f3dc4dfd8ab3",
+  "history": "Current-state editable snapshot; historical archive retained separately. No current document/source/rig bytes changed.",
+  "native_open": true,
+  "exported_moc_byte_identical": true,
+  "exported_texture_byte_identical": true,
+  "render_075_pixel_identical": true,
+  "edit_roundtrip": "Cape layer +1/-1 canvas X, rotation key 14/15 degrees, save/reopen/export; MOC byte-identical",
+  "cmo_note": "CMO output metadata differs on re-export. Official Cubism Editor acceptance remains pending."
+}
