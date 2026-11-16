@@ -1,0 +1,319 @@
+{
+  "description": "Apply once after cape-eye-alignment-refinement: split cape below gold hem into rear lining and front flap; sleeves pass between, preserving original artwork. Normalize source transform before splitting to avoid offset crop artifacts, restore after split. New mesh IDs are tool output; verify them if replayed on another project.",
+  "operations": [
+    {
+      "operation": "layer_transform",
+      "request": {
+        "layer_id": "ArtMeshTopwearR",
+        "translate": [
+          0,
+          22
+        ]
+      }
+    },
+    {
+      "operation": "layer_transform",
+      "request": {
+        "layer_id": "ArtMeshTopwearL",
+        "translate": [
+          0,
+          22
+        ]
+      }
+    },
+    {
+      "operation": "source_split_polygon",
+      "request": {
+        "layer_id": "ArtMeshTopwearR",
+        "polygon": [
+          [
+            405,
+            756
+          ],
+          [
+            415,
+            756
+          ],
+          [
+            425,
+            755
+          ],
+          [
+            435,
+            757
+          ],
+          [
+            445,
+            758
+          ],
+          [
+            455,
+            759
+          ],
+          [
+            465,
+            760
+          ],
+          [
+            475,
+            760
+          ],
+          [
+            485,
+            760
+          ],
+          [
+            495,
+            759
+          ],
+          [
+            505,
+            757
+          ],
+          [
+            515,
+            755
+          ],
+          [
+            525,
+            751
+          ],
+          [
+            535,
+            747
+          ],
+          [
+            545,
+            741
+          ],
+          [
+            555,
+            735
+          ],
+          [
+            565,
+            728
+          ],
+          [
+            575,
+            720
+          ],
+          [
+            585,
+            711
+          ],
+          [
+            595,
+            701
+          ],
+          [
+            605,
+            690
+          ],
+          [
+            615,
+            677
+          ],
+          [
+            632,
+            677
+          ],
+          [
+            632,
+            827
+          ],
+          [
+            405,
+            827
+          ]
+        ],
+        "names": [
+          "cape rear R",
+          "cape front R"
+        ],
+        "piece_ids": [
+          "ArtMeshCapeRearR",
+          "ArtMeshCapeFrontR"
+        ]
+      }
+    },
+    {
+      "operation": "source_split_polygon",
+      "request": {
+        "layer_id": "ArtMeshTopwearL",
+        "polygon": [
+          [
+            622,
+            668
+          ],
+          [
+            632,
+            668
+          ],
+          [
+            642,
+            682
+          ],
+          [
+            652,
+            694
+          ],
+          [
+            662,
+            705
+          ],
+          [
+            672,
+            715
+          ],
+          [
+            682,
+            724
+          ],
+          [
+            692,
+            732
+          ],
+          [
+            702,
+            738
+          ],
+          [
+            712,
+            744
+          ],
+          [
+            722,
+            750
+          ],
+          [
+            732,
+            754
+          ],
+          [
+            742,
+            757
+          ],
+          [
+            752,
+            759
+          ],
+          [
+            762,
+            760
+          ],
+          [
+            772,
+            760
+          ],
+          [
+            782,
+            760
+          ],
+          [
+            792,
+            760
+          ],
+          [
+            802,
+            759
+          ],
+          [
+            812,
+            757
+          ],
+          [
+            822,
+            756
+          ],
+          [
+            832,
+            755
+          ],
+          [
+            845,
+            755
+          ],
+          [
+            845,
+            827
+          ],
+          [
+            622,
+            827
+          ]
+        ],
+        "names": [
+          "cape rear L",
+          "cape front L"
+        ],
+        "piece_ids": [
+          "ArtMeshCapeRearL",
+          "ArtMeshCapeFrontL"
+        ]
+      }
+    },
+    {
+      "operation": "layer_transform",
+      "request": {
+        "layer_id": "ArtMeshCapeRearR",
+        "translate": [
+          0,
+          -22
+        ]
+      }
+    },
+    {
+      "operation": "layer_transform",
+      "request": {
+        "layer_id": "ArtMeshCapeFrontR",
+        "translate": [
+          0,
+          -22
+        ]
+      }
+    },
+    {
+      "operation": "layer_transform",
+      "request": {
+        "layer_id": "ArtMeshCapeRearL",
+        "translate": [
+          0,
+          -22
+        ]
+      }
+    },
+    {
+      "operation": "layer_transform",
+      "request": {
+        "layer_id": "ArtMeshCapeFrontL",
+        "translate": [
+          0,
+          -22
+        ]
+      }
+    },
+    {
+      "operation": "rig_edit_structure",
+      "request": {
+        "edits": [
+          {
+            "action": "static",
+            "kind": "mesh",
+            "id": "ArtMeshTopwearR3",
+            "draw_order": 40
+          },
+          {
+            "action": "static",
+            "kind": "mesh",
+            "id": "ArtMeshTopwearL3",
+            "draw_order": 41
+          }
+        ]
+      }
+    }
+  ],
+  "expected_drawables": 37,
+  "qa": "qa/cape-arm-depth-poses.png",
+  "note": "Native pose renders are static samples without physics. No merge or user aesthetic approval implied."
+}

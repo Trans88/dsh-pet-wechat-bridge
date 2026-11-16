@@ -89,7 +89,7 @@ for (const modelName of ['Haru', 'Taolinghu']) test(`bundled real Cubism Core lo
     assert.notDeepEqual(left, center); assert.notDeepEqual(center, right);
     if (modelName === 'Taolinghu') {
       const reset = () => { for (let i = 0; i < model.getParameterCount(); i++) model.setParameterValueByIndex(i, model.getParameterDefaultValue(i)); };
-      assert.equal(model.getDrawableCount(), 35); assert.equal(model.getParameterCount(), 25);
+      assert.equal(model.getDrawableCount(), 37); assert.equal(model.getParameterCount(), 27);
       for (const [name, a, b] of [['ParamEyeLOpen', 0, 1], ['ParamEyeBallForm', -1, 1], ['ParamMouthOpenY', 0, 1], ['ParamBreath', 0, 1], ['ParamArmL', -0.8, 0.8], ['ParamArmR', -0.8, 0.8], ['ParamEarL', -1, 1], ['ParamEarR', -1, 1], ['ParamTail', -1, 1]]) {
         reset(); const id = s.CubismFramework.getIdManager().getId(name);
         model.setParameterValueById(id, a); model.update(); const first = vertices();
@@ -103,15 +103,63 @@ for (const modelName of ['Haru', 'Taolinghu']) test(`bundled real Cubism Core lo
         assert.ok(index >= 0, `${name}: compiled drawable exists`);
         const points = model.getDrawableVertices(index), x = [], y = [];
         for (let i = 0; i < points.length; i += 2) { x.push(points[i]); y.push(points[i + 1]); }
-        return { width: Math.max(...x) - Math.min(...x), height: Math.max(...y) - Math.min(...y) };
+        return { width: Math.max(...x) - Math.min(...x), height: Math.max(...y) - Math.min(...y), centerX: (Math.max(...x) + Math.min(...x)) / 2, centerY: (Math.max(...y) + Math.min(...y)) / 2 };
       };
+      const drawOrder = name => model.getDrawableRenderOrders()[model.getDrawableIndex(s.CubismFramework.getIdManager().getId(name))];
+      for (const part of ['ArtMeshTopwearR2', 'ArtMeshTopwearL2', 'ArtMeshNeckwear', 'ArtMeshNeckwear2']) {
+        assert.ok(drawOrder(part) < drawOrder('ArtMeshFace'), `${part}: clothing stays behind the jaw`);
+        assert.ok(drawOrder(part) < drawOrder('ArtMeshBackHair'), `${part}: hair overlaps the collar naturally`);
+        assert.ok(drawOrder(part) > drawOrder('ArtMeshTopwear'), `${part}: front cape/clasp stay over torso`);
+      }
+      // Sleeve roots pass inside the cape: rear lining < sleeve < gold-edged front.
+      // Assert the exported MOC orders at motion extremes, not only the editor rest pose.
+      for (const arm of [-1, 0, 1]) for (const body of [-10, 0, 10]) {
+        reset();
+        for (const name of ['ParamArmL', 'ParamArmR']) model.setParameterValueById(s.CubismFramework.getIdManager().getId(name), arm);
+        for (const name of ['ParamBodyAngleX', 'ParamBodyAngleZ']) model.setParameterValueById(s.CubismFramework.getIdManager().getId(name), body);
+        model.update();
+        for (const side of ['L', 'R']) {
+          const rear = `ArtMeshTopwear${side}3`, front = `ArtMeshTopwear${side}2`, sleeve = `ArtMeshHandwear${side}`;
+          for (const part of [rear, front, sleeve]) assert.ok(drawableBounds(part).width > 0, `${part}: retained mesh geometry`);
+          assert.ok(drawOrder(rear) < drawOrder(sleeve), `${side}: rear cape is behind the emerging arm`);
+          assert.ok(drawOrder(sleeve) < drawOrder(front), `${side}: shoulder root stays beneath the front cape edge`);
+        }
+        assert.ok(vertices().every(Number.isFinite), `cape/arm ${arm}/${body}: valid geometry`);
+      }
+      reset(); model.update();
+      const pointsOf = name => Array.from(model.getDrawableVertices(model.getDrawableIndex(s.CubismFramework.getIdManager().getId(name))));
+      for (const [side, outward, other] of [['R', 1, 'L'], ['L', -1, 'R']]) {
+        reset(); model.update();
+        const neutral = pointsOf(`ArtMeshTopwear${side}2`), opposite = pointsOf(`ArtMeshTopwear${other}2`);
+        let previous = neutral;
+        for (let step = 1; step <= 40; step++) {
+          model.setParameterValueById(s.CubismFramework.getIdManager().getId(`ParamArm${side}`), outward * step / 40);
+          model.update();
+          const current = pointsOf(`ArtMeshTopwear${side}2`);
+          assert.notDeepEqual(current, previous, `${side}: cape follows each step of outward arm lift`);
+          assert.deepEqual(pointsOf(`ArtMeshTopwear${other}2`), opposite, `${side}: opposite cape remains independent`);
+          assert.ok(vertices().every(Number.isFinite), `${side}/${step}: continuous arm/cape sweep has finite vertices`);
+          previous = current;
+        }
+        model.setParameterValueById(s.CubismFramework.getIdManager().getId(`ParamArm${side}`), 0); model.update();
+        assert.deepEqual(pointsOf(`ArtMeshTopwear${side}2`), neutral, `${side}: cape returns exactly to idle`);
+      }
+      reset(); model.update();
+      const noseX = drawableBounds('ArtMeshNose').centerX;
+      for (const part of ['Eyewhite', 'Irides', 'Eyelash']) {
+        const left = drawableBounds(`ArtMesh${part}R`).centerX;
+        const right = drawableBounds(`ArtMesh${part}L`).centerX;
+        assert.ok(Math.abs((noseX - left) - (right - noseX)) < 0.003, `${part}: neutral eye spacing is symmetric about face center`);
+      }
+      const face = drawableBounds('ArtMeshFace');
+      assert.ok(face.height / face.width > 0.95 && face.height / face.width < 1.06, 'neutral face is compact rather than vertically elongated');
       for (const side of ['L', 'R']) {
         const white = drawableBounds(`ArtMeshEyewhite${side}`), iris = drawableBounds(`ArtMeshIrides${side}`);
         const apertureRatio = white.height / white.width, irisRatio = iris.height / iris.width;
         assert.ok(apertureRatio > 0.75 && apertureRatio < 1, `${side}: neutral eye aperture is open and rounded, not a flattened slit`);
-        assert.ok(irisRatio > 1.1 && irisRatio < 1.35, `${side}: neutral iris is a slender vertical oval`);
+        assert.ok(irisRatio > 0.98 && irisRatio < 1.25, `${side}: neutral iris retains a compact oval`);
         assert.ok(iris.height <= white.height, `${side}: iris height fits the eye aperture`);
-        assert.ok(iris.width / white.width < 0.67, `${side}: iris leaves visible eye-white at both sides`);
+        assert.ok(iris.width / white.width < 0.72, `${side}: iris leaves visible eye-white at both sides`);
       }
       // Check the exported MOC, not just the authoring requests: a stale export
       // can animate correctly while restoring the extra eyelid and mouth ink.
@@ -121,19 +169,13 @@ for (const modelName of ['Haru', 'Taolinghu']) test(`bundled real Cubism Core lo
         return model.getDrawableOpacity(index);
       };
       for (const [side, other] of [['L', 'R'], ['R', 'L']]) {
-        let previous = -1;
         for (const open of [0, 0.2, 0.5, 0.65, 1]) {
           reset();
           model.setParameterValueById(s.CubismFramework.getIdManager().getId(`ParamEye${side}Open`), open);
           model.update();
-          const lowerLid = opacity(`ArtMeshFaceDetail${side}`);
-          assert.ok(lowerLid >= previous && lowerLid <= 1, `${side}: lower eyelid fades continuously as the eye opens`);
-          if (open <= 0.2) assert.equal(lowerLid, 0, `${side}: closed eye leaves no lower eyelid ink`);
-          else if (open < 1) assert.ok(lowerLid > 0 && lowerLid < 1, `${side}: partial blink interpolates opacity`);
-          else assert.equal(lowerLid, 1, `${side}: open eye restores its lower eyelid`);
-          assert.equal(opacity(`ArtMeshFaceDetail${other}`), 1, `${side}: a wink leaves the opposite eye open`);
+          assert.equal(opacity(`ArtMeshFaceDetail${side}`), 0, `${side}: no extra lower eyelid ink at any eye opening`);
+          assert.equal(opacity(`ArtMeshFaceDetail${other}`), 0, `${side}: opposite lower eyelid also stays absent`);
           assert.equal(opacity(`ArtMeshEyelash${side}`), 1, `${side}: blink retains the closed eyelash curve`);
-          previous = lowerLid;
         }
       }
       // The generated eye-white mask retains a narrow slit at its closed key.

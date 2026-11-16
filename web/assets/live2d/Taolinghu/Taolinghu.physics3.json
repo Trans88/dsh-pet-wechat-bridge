@@ -1,10 +1,10 @@
 {
     "Version": 3,
     "Meta": {
-        "PhysicsSettingCount": 3,
-        "TotalInputCount": 10,
-        "TotalOutputCount": 3,
-        "VertexCount": 7,
+        "PhysicsSettingCount": 5,
+        "TotalInputCount": 12,
+        "TotalOutputCount": 5,
+        "VertexCount": 11,
         "Fps": 60,
         "EffectiveForces": {
             "Gravity": {
@@ -28,6 +28,14 @@
             {
                 "Id": "PhysicsEyeJelly",
                 "Name": "Eye Jelly"
+            },
+            {
+                "Id": "CapeEdgeR",
+                "Name": "Cape edge R"
+            },
+            {
+                "Id": "CapeEdgeL",
+                "Name": "Cape edge L"
             }
         ]
     },
@@ -285,6 +293,128 @@
                     "Minimum": -10.0,
                     "Default": 0.0,
                     "Maximum": 10.0
+                }
+            }
+        },
+        {
+            "Id": "CapeEdgeR",
+            "Input": [
+                {
+                    "Source": {
+                        "Target": "Parameter",
+                        "Id": "ParamArmR"
+                    },
+                    "Weight": 100.0,
+                    "Type": "X",
+                    "Reflect": false
+                }
+            ],
+            "Output": [
+                {
+                    "Destination": {
+                        "Target": "Parameter",
+                        "Id": "ParamCapeLagR"
+                    },
+                    "VertexIndex": 1,
+                    "Scale": 6.0,
+                    "Weight": 100.0,
+                    "Type": "Angle",
+                    "Reflect": false
+                }
+            ],
+            "Vertices": [
+                {
+                    "Position": {
+                        "X": 0,
+                        "Y": 0.0
+                    },
+                    "Mobility": 1.0,
+                    "Delay": 1.0,
+                    "Acceleration": 1.0,
+                    "Radius": 0.0
+                },
+                {
+                    "Position": {
+                        "X": 0,
+                        "Y": 8.0
+                    },
+                    "Mobility": 0.65,
+                    "Delay": 0.45,
+                    "Acceleration": 9.0,
+                    "Radius": 8.0
+                }
+            ],
+            "Normalization": {
+                "Position": {
+                    "Minimum": -3.0,
+                    "Default": 0.0,
+                    "Maximum": 3.0
+                },
+                "Angle": {
+                    "Minimum": -15.0,
+                    "Default": 0.0,
+                    "Maximum": 15.0
+                }
+            }
+        },
+        {
+            "Id": "CapeEdgeL",
+            "Input": [
+                {
+                    "Source": {
+                        "Target": "Parameter",
+                        "Id": "ParamArmL"
+                    },
+                    "Weight": 100.0,
+                    "Type": "X",
+                    "Reflect": false
+                }
+            ],
+            "Output": [
+                {
+                    "Destination": {
+                        "Target": "Parameter",
+                        "Id": "ParamCapeLagL"
+                    },
+                    "VertexIndex": 1,
+                    "Scale": 6.0,
+                    "Weight": 100.0,
+                    "Type": "Angle",
+                    "Reflect": false
+                }
+            ],
+            "Vertices": [
+                {
+                    "Position": {
+                        "X": 0,
+                        "Y": 0.0
+                    },
+                    "Mobility": 1.0,
+                    "Delay": 1.0,
+                    "Acceleration": 1.0,
+                    "Radius": 0.0
+                },
+                {
+                    "Position": {
+                        "X": 0,
+                        "Y": 8.0
+                    },
+                    "Mobility": 0.65,
+                    "Delay": 0.45,
+                    "Acceleration": 9.0,
+                    "Radius": 8.0
+                }
+            ],
+            "Normalization": {
+                "Position": {
+                    "Minimum": -3.0,
+                    "Default": 0.0,
+                    "Maximum": 3.0
+                },
+                "Angle": {
+                    "Minimum": -15.0,
+                    "Default": 0.0,
+                    "Maximum": 15.0
                 }
             }
         }

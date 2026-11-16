@@ -1,0 +1,88 @@
+{
+  "description": "Apply once to v0.15.2 final rig. Preserve texture pixels and body geometry. Remove the non-reference lower eyelid ink at all opacity keys; preserve white/iris blink clipping and upper lashes.",
+  "operation": "keyform_apply",
+  "request": {
+    "changes": [
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailL",
+        "key": {
+          "ParamEyeLOpen": 0
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailL",
+        "key": {
+          "ParamEyeLOpen": 0.35
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailL",
+        "key": {
+          "ParamEyeLOpen": 0.8
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailL",
+        "key": {
+          "ParamEyeLOpen": 1
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailR",
+        "key": {
+          "ParamEyeROpen": 0
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailR",
+        "key": {
+          "ParamEyeROpen": 0.35
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailR",
+        "key": {
+          "ParamEyeROpen": 0.8
+        },
+        "channels": {
+          "opacity": 0
+        }
+      },
+      {
+        "op": "set",
+        "target": "mesh:ArtMeshFaceDetailR",
+        "key": {
+          "ParamEyeROpen": 1
+        },
+        "channels": {
+          "opacity": 0
+        }
+      }
+    ]
+  }
+}
