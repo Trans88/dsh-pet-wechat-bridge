@@ -103,10 +103,20 @@ for (const modelName of ['Haru', 'Taolinghu']) test(`bundled real Cubism Core lo
         assert.ok(index >= 0, `${name}: compiled drawable exists`);
         const points = model.getDrawableVertices(index), x = [], y = [];
         for (let i = 0; i < points.length; i += 2) { x.push(points[i]); y.push(points[i + 1]); }
-        return { width: Math.max(...x) - Math.min(...x), height: Math.max(...y) - Math.min(...y) };
+        return { width: Math.max(...x) - Math.min(...x), height: Math.max(...y) - Math.min(...y), centerX: (Math.max(...x) + Math.min(...x)) / 2, centerY: (Math.max(...y) + Math.min(...y)) / 2 };
       };
       const drawOrder = name => model.getDrawableRenderOrders()[model.getDrawableIndex(s.CubismFramework.getIdManager().getId(name))];
-      for (const part of ['ArtMeshTopwearR', 'ArtMeshTopwearL', 'ArtMeshNeckwear', 'ArtMeshNeckwear2']) assert.ok(drawOrder(part) > drawOrder('ArtMeshFace'), `${part}: existing collar and clasp cover the neck`);
+      for (const part of ['ArtMeshTopwearR', 'ArtMeshTopwearL', 'ArtMeshNeckwear', 'ArtMeshNeckwear2']) {
+        assert.ok(drawOrder(part) < drawOrder('ArtMeshFace'), `${part}: clothing stays behind the jaw`);
+        assert.ok(drawOrder(part) < drawOrder('ArtMeshBackHair'), `${part}: hair overlaps the collar naturally`);
+        assert.ok(drawOrder(part) > drawOrder('ArtMeshTopwear'), `${part}: front cape/clasp stay over torso`);
+      }
+      const noseX = drawableBounds('ArtMeshNose').centerX;
+      for (const part of ['Eyewhite', 'Irides', 'Eyelash']) {
+        const left = drawableBounds(`ArtMesh${part}R`).centerX;
+        const right = drawableBounds(`ArtMesh${part}L`).centerX;
+        assert.ok(Math.abs((noseX - left) - (right - noseX)) < 0.003, `${part}: neutral eye spacing is symmetric about face center`);
+      }
       const face = drawableBounds('ArtMeshFace');
       assert.ok(face.height / face.width > 0.95 && face.height / face.width < 1.06, 'neutral face is compact rather than vertically elongated');
       for (const side of ['L', 'R']) {

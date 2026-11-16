@@ -1,0 +1,325 @@
+{
+  "description": "Apply once after eye-collar-refinement. Restore cape/clasp body-layer occlusion below head/hair, retain body parent transforms; shorten only neck mesh below rest y=600 with 0.65 vertical scale to avoid covering the collar. Move viewer-left (R) eye components outward 20.8 canvas units, preserving textures and blink/gaze channels. Model already includes these operations.",
+  "operations": [
+    {
+      "operation": "rig_edit_structure",
+      "request": {
+        "edits": [
+          {
+            "action": "static",
+            "kind": "mesh",
+            "id": "ArtMeshTopwearR",
+            "draw_order": 90
+          },
+          {
+            "action": "static",
+            "kind": "mesh",
+            "id": "ArtMeshTopwearL",
+            "draw_order": 91
+          },
+          {
+            "action": "static",
+            "kind": "mesh",
+            "id": "ArtMeshNeckwear2",
+            "draw_order": 80
+          },
+          {
+            "action": "static",
+            "kind": "mesh",
+            "id": "ArtMeshNeckwear",
+            "draw_order": 100
+          }
+        ]
+      }
+    },
+    {
+      "operation": "layer_transform",
+      "request": {
+        "layer_id": "ArtMeshEyewhiteR",
+        "translate": [
+          -20.8,
+          0
+        ]
+      }
+    },
+    {
+      "operation": "layer_transform",
+      "request": {
+        "layer_id": "ArtMeshEyelashR",
+        "translate": [
+          -20.8,
+          0
+        ]
+      }
+    },
+    {
+      "operation": "layer_transform",
+      "request": {
+        "layer_id": "ArtMeshIridesR",
+        "translate": [
+          -20.8,
+          0
+        ]
+      }
+    },
+    {
+      "operation": "layer_transform",
+      "request": {
+        "layer_id": "ArtMeshFaceDetailR",
+        "translate": [
+          -20.8,
+          0
+        ]
+      }
+    },
+    {
+      "operation": "layer_transform",
+      "request": {
+        "layer_id": "ArtMeshEyebrowR",
+        "translate": [
+          -20.8,
+          0
+        ]
+      }
+    },
+    {
+      "operation": "keyform_apply",
+      "request": {
+        "changes": [
+          {
+            "op": "seed",
+            "target": "mesh:ArtMeshFace",
+            "key": {
+              "ParamAngleX": -45
+            }
+          },
+          {
+            "op": "seed",
+            "target": "mesh:ArtMeshFace",
+            "key": {
+              "ParamAngleX": 0
+            }
+          },
+          {
+            "op": "seed",
+            "target": "mesh:ArtMeshFace",
+            "key": {
+              "ParamAngleX": 45
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "rig_deform",
+      "request": {
+        "changes": [
+          {
+            "target": "mesh:ArtMeshFace",
+            "key": {
+              "ParamAngleX": -45
+            },
+            "operations": [
+              {
+                "type": "scale",
+                "factors": [
+                  1,
+                  0.65
+                ],
+                "pivot": [
+                  0.5,
+                  0.8829466944924095
+                ],
+                "selection": {
+                  "indices": [
+                    47,
+                    48,
+                    49,
+                    50,
+                    51,
+                    52,
+                    53,
+                    54,
+                    55,
+                    56,
+                    57,
+                    58,
+                    59,
+                    60,
+                    61,
+                    62,
+                    63,
+                    64,
+                    65,
+                    116,
+                    127,
+                    241,
+                    242,
+                    243,
+                    244,
+                    245,
+                    246,
+                    247,
+                    248,
+                    249,
+                    250,
+                    251,
+                    252,
+                    253,
+                    254,
+                    255,
+                    256,
+                    257,
+                    258,
+                    259,
+                    260,
+                    261,
+                    262,
+                    263,
+                    264
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshFace",
+            "key": {
+              "ParamAngleX": 0
+            },
+            "operations": [
+              {
+                "type": "scale",
+                "factors": [
+                  1,
+                  0.65
+                ],
+                "pivot": [
+                  0.5,
+                  0.8829466944924095
+                ],
+                "selection": {
+                  "indices": [
+                    47,
+                    48,
+                    49,
+                    50,
+                    51,
+                    52,
+                    53,
+                    54,
+                    55,
+                    56,
+                    57,
+                    58,
+                    59,
+                    60,
+                    61,
+                    62,
+                    63,
+                    64,
+                    65,
+                    116,
+                    127,
+                    241,
+                    242,
+                    243,
+                    244,
+                    245,
+                    246,
+                    247,
+                    248,
+                    249,
+                    250,
+                    251,
+                    252,
+                    253,
+                    254,
+                    255,
+                    256,
+                    257,
+                    258,
+                    259,
+                    260,
+                    261,
+                    262,
+                    263,
+                    264
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "target": "mesh:ArtMeshFace",
+            "key": {
+              "ParamAngleX": 45
+            },
+            "operations": [
+              {
+                "type": "scale",
+                "factors": [
+                  1,
+                  0.65
+                ],
+                "pivot": [
+                  0.5,
+                  0.8829466944924095
+                ],
+                "selection": {
+                  "indices": [
+                    47,
+                    48,
+                    49,
+                    50,
+                    51,
+                    52,
+                    53,
+                    54,
+                    55,
+                    56,
+                    57,
+                    58,
+                    59,
+                    60,
+                    61,
+                    62,
+                    63,
+                    64,
+                    65,
+                    116,
+                    127,
+                    241,
+                    242,
+                    243,
+                    244,
+                    245,
+                    246,
+                    247,
+                    248,
+                    249,
+                    250,
+                    251,
+                    252,
+                    253,
+                    254,
+                    255,
+                    256,
+                    257,
+                    258,
+                    259,
+                    260,
+                    261,
+                    262,
+                    263,
+                    264
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
