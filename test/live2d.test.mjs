@@ -97,6 +97,22 @@ for (const modelName of ['Haru', 'Taolinghu']) test(`bundled real Cubism Core lo
         assert.notDeepEqual(first, second, `${name} drives real geometry`);
         assert.ok(second.every(Number.isFinite), `${name}: no invalid vertices`);
       }
+      // Eye-spacing edits must apply equally to open/closed geometry, not just rest pose.
+      for (const angle of [-20, 0, 20]) for (const form of [-1, 0, 1]) for (const gaze of [-1, 0, 1]) {
+        reset();
+        for (const [name, value] of [['ParamAngleX', angle], ['ParamEyeBallForm', form], ['ParamEyeBallX', gaze]]) model.setParameterValueById(s.CubismFramework.getIdManager().getId(name), value);
+        const reference = {};
+        for (let step = 0; step <= 20; step++) {
+          for (const side of ['L', 'R']) model.setParameterValueById(s.CubismFramework.getIdManager().getId(`ParamEye${side}Open`), 1 - step / 20);
+          model.update();
+          for (const side of ['L', 'R']) {
+            const idx = model.getDrawableIndex(s.CubismFramework.getIdManager().getId(`ArtMeshIrides${side}`));
+            const v = Array.from(model.getDrawableVertices(idx));
+            if (step === 0) reference[side] = v;
+            assert.ok(v.every((x, i) => Math.abs(x - reference[side][i]) < 1e-5), `${side}: blink must not displace iris geometry at angle=${angle}, form=${form}, gaze=${gaze}, step=${step}`);
+          }
+        }
+      }
       reset(); model.update();
       const drawableBounds = name => {
         const index = model.getDrawableIndex(s.CubismFramework.getIdManager().getId(name));

@@ -1,0 +1,11 @@
+{
+  "baseMain": "f8e3d8e4d97cff5c08aef9b3d05f0bf2e1ea5aa5",
+  "cause": "Viewer-left open/closed geometry disagreed by the prior 20.8 canvas-unit spacing correction; actual iris drift, not only clipping.",
+  "iris": "Copy geometry only from open=1 to open=0 for each ParamEyeBallForm -1,0,1; preserve opacity tracks.",
+  "closedEyeNormalizedX": {
+    "Eyewhite": -0.1753770588809618,
+    "Eyelash": -0.15613852931379565,
+    "FaceDetail": -0.30886117087653925
+  },
+  "verification": "27 head/form/gaze combinations x 21 blink steps per side: vertices remain within 1e-5 model units. Neutral measured center drift reduced from 0.016587 to 0.00000139."
+}
