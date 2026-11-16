@@ -89,7 +89,7 @@ for (const modelName of ['Haru', 'Taolinghu']) test(`bundled real Cubism Core lo
     assert.notDeepEqual(left, center); assert.notDeepEqual(center, right);
     if (modelName === 'Taolinghu') {
       const reset = () => { for (let i = 0; i < model.getParameterCount(); i++) model.setParameterValueByIndex(i, model.getParameterDefaultValue(i)); };
-      assert.equal(model.getDrawableCount(), 37); assert.equal(model.getParameterCount(), 25);
+      assert.equal(model.getDrawableCount(), 37); assert.equal(model.getParameterCount(), 27);
       for (const [name, a, b] of [['ParamEyeLOpen', 0, 1], ['ParamEyeBallForm', -1, 1], ['ParamMouthOpenY', 0, 1], ['ParamBreath', 0, 1], ['ParamArmL', -0.8, 0.8], ['ParamArmR', -0.8, 0.8], ['ParamEarL', -1, 1], ['ParamEarR', -1, 1], ['ParamTail', -1, 1]]) {
         reset(); const id = s.CubismFramework.getIdManager().getId(name);
         model.setParameterValueById(id, a); model.update(); const first = vertices();

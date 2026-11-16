@@ -2,6 +2,16 @@
 	"Version": 3,
 	"Parameters": [
 		{
+			"Id": "ParamCapeLagL",
+			"GroupId": "",
+			"Name": "Cape edge lag L"
+		},
+		{
+			"Id": "ParamCapeLagR",
+			"GroupId": "",
+			"Name": "Cape edge lag R"
+		},
+		{
 			"Id": "ParamTail",
 			"GroupId": "",
 			"Name": "桃铃狐尾巴"
@@ -233,14 +243,6 @@
 			"Name": "neckwear tie"
 		},
 		{
-			"Id": "ArtMeshTopwearR",
-			"Name": "topwear cape-r"
-		},
-		{
-			"Id": "ArtMeshTopwearL",
-			"Name": "topwear cape-l"
-		},
-		{
 			"Id": "ArtMeshNeckwear",
 			"Name": "neckwear clasp"
 		},
@@ -343,6 +345,22 @@
 		{
 			"Id": "ArtMeshBackHair",
 			"Name": "back hair"
+		},
+		{
+			"Id": "ArtMeshTopwearR3",
+			"Name": "cape rear R"
+		},
+		{
+			"Id": "ArtMeshTopwearR2",
+			"Name": "cape front R"
+		},
+		{
+			"Id": "ArtMeshTopwearL3",
+			"Name": "cape rear L"
+		},
+		{
+			"Id": "ArtMeshTopwearL2",
+			"Name": "cape front L"
 		}
 	]
 }

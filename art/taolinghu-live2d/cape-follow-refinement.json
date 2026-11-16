@@ -1,0 +1,38 @@
+{
+  "description": "Applied once to a266421 baseline; preserve original artwork.",
+  "capeLiftDegrees": 30,
+  "sleeveRoot": {
+    "meshIds": [
+      "ArtMeshHandwearR",
+      "ArtMeshHandwearL"
+    ],
+    "outwardKeys": [
+      1,
+      -1
+    ],
+    "weight": "round(8*clamp((0.4-normalizedRestY)/0.25,0,1))/8",
+    "delta": [
+      "-0.4*sideSign*weight",
+      "-0.25*weight"
+    ]
+  },
+  "secondaryMotion": {
+    "parameters": [
+      "ParamCapeLagR",
+      "ParamCapeLagL"
+    ],
+    "angleRange": [
+      -3,
+      3
+    ],
+    "origin": [
+      627,
+      598
+    ],
+    "mobility": 0.65,
+    "delay": 0.45,
+    "acceleration": 9,
+    "segmentLength": 8,
+    "outputScale": 6
+  }
+}
